@@ -1,0 +1,17 @@
+{
+  "name": "ppt-paste-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter demo dev",
+    "build:lib": "pnpm --filter ppt-paste-parser build",
+    "build": "pnpm build:lib && pnpm --filter demo build",
+    "preview": "pnpm --filter demo preview"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "packageManager": "pnpm@9.1.2"
+}
