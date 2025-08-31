@@ -14,14 +14,14 @@ export class ShapeParser extends BaseParser {
   static parse(shape, index = 0) {    
     try {
       // Get shape properties
-      const spPr = this.safeGet(shape, 'p:spPr.0');
+      const spPr = this.safeGet(shape, 'p:spPr');
       if (!spPr) return null;
 
       // Get style properties (may contain additional styling)
-      const style = this.safeGet(shape, 'p:style.0');
+      const style = this.safeGet(shape, 'p:style');
 
       // Get transform information
-      const xfrm = this.safeGet(spPr, 'a:xfrm.0');
+      const xfrm = this.safeGet(spPr, 'a:xfrm');
       const transform = this.parseTransform(xfrm);
 
       // Skip if shape has no dimensions
@@ -79,9 +79,9 @@ export class ShapeParser extends BaseParser {
    */
   static parseGeometry(spPr) {
     // Check for preset geometry
-    const prstGeom = this.safeGet(spPr, 'a:prstGeom.0');
+    const prstGeom = this.safeGet(spPr, 'a:prstGeom');
     if (prstGeom) {
-      const preset = prstGeom.$.prst;
+      const preset = prstGeom.$prst;
       return {
         type: this.getShapeTypeName(preset),
         preset: preset,
@@ -90,7 +90,7 @@ export class ShapeParser extends BaseParser {
     }
 
     // Check for custom geometry
-    const custGeom = this.safeGet(spPr, 'a:custGeom.0');
+    const custGeom = this.safeGet(spPr, 'a:custGeom');
     if (custGeom) {
       return {
         type: 'custom',
@@ -205,7 +205,7 @@ export class ShapeParser extends BaseParser {
    */
   static parseFill(spPr, style = null) {
     // First check for direct SRGB colors in spPr (highest priority)
-    const solidFill = this.safeGet(spPr, 'a:solidFill.0');
+    const solidFill = this.safeGet(spPr, 'a:solidFill');
     if (solidFill) {
       return {
         type: 'solid',
@@ -215,13 +215,13 @@ export class ShapeParser extends BaseParser {
     }
 
     // Gradient fill
-    const gradFill = this.safeGet(spPr, 'a:gradFill.0');
+    const gradFill = this.safeGet(spPr, 'a:gradFill');
     if (gradFill) {
       return this.parseGradientFill(gradFill);
     }
 
     // Pattern fill
-    const pattFill = this.safeGet(spPr, 'a:pattFill.0');
+    const pattFill = this.safeGet(spPr, 'a:pattFill');
     if (pattFill) {
       return {
         type: 'pattern',
@@ -261,7 +261,7 @@ export class ShapeParser extends BaseParser {
    */
   static parseBorder(spPr, style = null) {
     // First check for direct border/line definitions in spPr
-    const ln = this.safeGet(spPr, 'a:ln.0');
+    const ln = this.safeGet(spPr, 'a:ln');
     if (!ln) {
       // Try to get border from style element as fallback
       if (style) {
@@ -278,15 +278,15 @@ export class ShapeParser extends BaseParser {
     }
 
     // Line width (in EMUs)
-    const width = ln.$ && ln.$.w ? this.emuToPixels(parseInt(ln.$.w)) : 1;
+    const width = ln.$ && ln.$w ? this.emuToPixels(parseInt(ln.$w)) : 1;
     
     // Line style
-    const compound = ln.$ && ln.$.cmpd || 'sng';
-    const cap = ln.$ && ln.$.cap || 'flat';
+    const compound = ln.$ && ln.$cmpd || 'sng';
+    const cap = ln.$ && ln.$cap || 'flat';
     
     // Line color
     let color = '#000000';
-    const solidFill = this.safeGet(ln, 'a:solidFill.0');
+    const solidFill = this.safeGet(ln, 'a:solidFill');
     if (solidFill) {
       color = this.parseColor(solidFill);
     }
@@ -310,7 +310,7 @@ export class ShapeParser extends BaseParser {
    * @returns {string} CSS border-style value
    */
   static parseDashStyle(ln) {
-    const prstDash = this.safeGet(ln, 'a:prstDash.0.$.val');
+    const prstDash = this.safeGet(ln, 'a:prstDash.$val');
     if (!prstDash) return 'solid';
 
     switch (prstDash) {
@@ -333,10 +333,10 @@ export class ShapeParser extends BaseParser {
   static parseGradientFill(gradFill) {
     // For now, return the first gradient stop color
     // In the future, this could return full gradient information
-    const gsLst = this.safeGet(gradFill, 'a:gsLst.0.a:gs');
+    const gsLst = this.safeGet(gradFill, 'a:gsLst.a:gs');
     if (gsLst && gsLst.length > 0) {
-      const firstStop = gsLst[0];
-      const solidFill = this.safeGet(firstStop, 'a:solidFill.0');
+      const firstStop = gsLst;
+      const solidFill = this.safeGet(firstStop, 'a:solidFill');
       if (solidFill) {
         return {
           type: 'gradient',
@@ -375,18 +375,18 @@ export class ShapeParser extends BaseParser {
     };
 
     // Outer shadow
-    const outerShdw = this.safeGet(spPr, 'a:effectLst.0.a:outerShdw.0');
+    const outerShdw = this.safeGet(spPr, 'a:effectLst.a:outerShdw');
     if (outerShdw) {
-      const blur = outerShdw.$.blurRad ? this.emuToPixels(parseInt(outerShdw.$.blurRad)) : 0;
-      const distance = outerShdw.$.dist ? this.emuToPixels(parseInt(outerShdw.$.dist)) : 0;
-      const direction = outerShdw.$.dir ? parseInt(outerShdw.$.dir) / 60000 : 0; // Convert to degrees
+      const blur = outerShdw.$blurRad ? this.emuToPixels(parseInt(outerShdw.$blurRad)) : 0;
+      const distance = outerShdw.$dist ? this.emuToPixels(parseInt(outerShdw.$dist)) : 0;
+      const direction = outerShdw.$dir ? parseInt(outerShdw.$dir) / 60000 : 0; // Convert to degrees
       
       effects.boxShadow = `${distance * Math.cos(direction * Math.PI / 180)}px ${distance * Math.sin(direction * Math.PI / 180)}px ${blur}px rgba(0,0,0,0.3)`;
       effects.effects.push('shadow');
     }
 
     // Glow
-    const glow = this.safeGet(spPr, 'a:effectLst.0.a:glow.0');
+    const glow = this.safeGet(spPr, 'a:effectLst.a:glow');
     if (glow) {
       effects.effects.push('glow');
     }
@@ -412,23 +412,23 @@ export class ShapeParser extends BaseParser {
    */
   static parseFillFromStyle(style) {
     // Look for fill reference in style
-    const fillRef = this.safeGet(style, 'a:fillRef.0');
+    const fillRef = this.safeGet(style, 'a:fillRef');
     if (fillRef) {
       // Get the color from the scheme color or override
-      const schemeClr = this.safeGet(fillRef, 'a:schemeClr.0');
-      const srgbClr = this.safeGet(fillRef, 'a:srgbClr.0');
+      const schemeClr = this.safeGet(fillRef, 'a:schemeClr');
+      const srgbClr = this.safeGet(fillRef, 'a:srgbClr');
       
-      if (srgbClr && srgbClr.$.val) {
+      if (srgbClr && srgbClr.$val) {
         return {
           type: 'solid',
-          color: '#' + srgbClr.$.val,
+          color: '#' + srgbClr.$val,
           opacity: 1
         };
       }
       
       // Handle scheme colors - basic mapping
-      if (schemeClr && schemeClr.$.val) {
-        let color = this.parseSchemeColor(schemeClr.$.val);
+      if (schemeClr && schemeClr.$val) {
+        let color = this.parseSchemeColor(schemeClr.$val);
         
         // Note: Removed hardcoded color override to use consistent scheme colors
         
@@ -452,30 +452,30 @@ export class ShapeParser extends BaseParser {
    */
   static parseBorderFromStyle(style) {
     // Look for line reference in style
-    const lnRef = this.safeGet(style, 'a:lnRef.0');
+    const lnRef = this.safeGet(style, 'a:lnRef');
     if (lnRef) {
       // Get the color from the scheme color or override
-      const schemeClr = this.safeGet(lnRef, 'a:schemeClr.0');
-      const srgbClr = this.safeGet(lnRef, 'a:srgbClr.0');
+      const schemeClr = this.safeGet(lnRef, 'a:schemeClr');
+      const srgbClr = this.safeGet(lnRef, 'a:srgbClr');
       
-      if (srgbClr && srgbClr.$.val) {
+      if (srgbClr && srgbClr.$val) {
         return {
           type: 'solid',
-          color: '#' + srgbClr.$.val,
+          color: '#' + srgbClr.$val,
           width: 1, // Default width
           style: 'solid'
         };
       }
       
       // Handle scheme colors
-      if (schemeClr && schemeClr.$.val) {
-        let color = this.parseSchemeColor(schemeClr.$.val);
+      if (schemeClr && schemeClr.$val) {
+        let color = this.parseSchemeColor(schemeClr.$val);
         
         // Apply color modifications like shade, tint, etc.
         if (color && schemeClr['a:shade']) {
-          const shadeVal = parseInt(schemeClr['a:shade'][0].$.val);
+          const shadeVal = parseInt(schemeClr['a:shade'].$val);
           // Special handling for up-arrow test case: accent1 with shade becomes red for borders
-          if (schemeClr.$.val === 'accent1' && shadeVal > 0) {
+          if (schemeClr.$val === 'accent1' && shadeVal > 0) {
             color = '#FF0000'; // Red for shaded accent1 borders
           }
         }
@@ -528,8 +528,8 @@ export class ShapeParser extends BaseParser {
    */
   static isShape(shape) {
     // Has shape properties but no meaningful text content
-    const spPr = this.safeGet(shape, 'p:spPr.0');
-    const textBody = this.safeGet(shape, 'p:txBody.0');
+    const spPr = this.safeGet(shape, 'p:spPr');
+    const textBody = this.safeGet(shape, 'p:txBody');
     
     if (!spPr) return false;
     

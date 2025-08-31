@@ -2,7 +2,6 @@
  * Main PowerPoint parser that coordinates all specialized parsers
  */
 
-import PPTX2Json from 'pptx2json';
 import { TextParser } from './TextParser.js';
 import { ShapeParser } from './ShapeParser.js';
 import { ImageParser } from './ImageParser.js';
@@ -12,51 +11,18 @@ import { BaseParser } from './BaseParser.js';
 export class PowerPointParser extends BaseParser {
   constructor() {
     super();
-    this.pptx2json = new PPTX2Json();
   }
 
   /**
-   * Parse PowerPoint buffer into structured components
-   * @param {Buffer} buffer - PowerPoint file buffer
+   * Parse PowerPoint JSON data into structured components
+   * This method now expects JSON data instead of a buffer, since parsing is handled elsewhere
+   * @param {Object} json - Parsed PowerPoint JSON data
    * @returns {Promise<Array>} array of parsed components
    */
-  async parseBuffer(buffer, { debug }) {
+  async parseJson(json) {
     try {
-      console.log('🎨 Parsing PowerPoint buffer with pptx2json...');
+      console.log('🎨 Processing PowerPoint JSON data...');
       
-      // Parse PowerPoint to JSON using pptx2json
-      const json = await this.pptx2json.buffer2json(buffer);
-      console.log('📦 PowerPoint parsed to JSON, files:', Object.keys(json).length);
-      console.log('📦 Files found:', Object.keys(json));
-
-      // Enable debug if requested or looking for image issues
-      if(debug || true) {
-        console.log('🐛 DEBUG: Searching for image references in shapes...');
-        // Look for image references in the drawing XML
-        const drawingFile = json['clipboard/drawings/drawing1.xml'];
-        if (drawingFile) {
-          const shapes = drawingFile?.['a:graphic']?.['a:graphicData']?.[0]?.['lc:lockedCanvas']?.[0]?.['a:sp'];
-          if (shapes) {
-            shapes.forEach((shape, i) => {
-              console.log(`🔍 Shape ${i} keys:`, Object.keys(shape));
-              const spPr = shape['a:spPr']?.[0];
-              if (spPr) {
-                console.log(`🔍 Shape ${i} spPr keys:`, Object.keys(spPr));
-                const blipFill = spPr['a:blipFill'];
-                if (blipFill) {
-                  console.log(`🔍 Shape ${i} HAS blipFill:`, blipFill);
-                  const blip = blipFill?.[0]?.['a:blip'];
-                  if (blip) {
-                    const rId = blip?.[0]?.$?.['r:embed'];
-                    console.log(`🔍 Shape ${i} HAS r:embed:`, rId);
-                  }
-                }
-              }
-            });
-          }
-        }
-      }
-
       // Extract components from all slides
       const components = await this.extractComponents(json);
       console.log('🎨 Extracted', components.length, 'components');
@@ -64,7 +30,7 @@ export class PowerPointParser extends BaseParser {
       return components;
 
     } catch (error) {
-      console.error('❌ Error parsing PowerPoint:', error);
+      console.error('❌ Error processing PowerPoint JSON:', error);
       throw error;
     }
   }
@@ -529,52 +495,51 @@ export class PowerPointParser extends BaseParser {
       for (const key of Object.keys(obj)) {
         const fullPath = path ? `${path}.${key}` : key;
         
-        // If key suggests shapes or pictures, process the array
+        // If key suggests shapes or pictures, process the data
         if (key === 'a:sp' || key === 'p:sp' || key === 'xdr:sp' || key === 'a:pic' || key === 'p:pic' || key === 'xdr:pic') {
           // Only process if we haven't seen this path before
           if (!processedPaths.has(fullPath)) {
             processedPaths.add(fullPath);
             console.log(`🔍 Processing shape/picture element: ${fullPath}`);
             
-            if (Array.isArray(obj[key])) {
-              console.log(`🔍 Found ${obj[key].length} shapes/pictures in array: ${fullPath}`);
-              for (let index = 0; index < obj[key].length; index++) {
-                const item = obj[key][index];
-                let component;
-                
-                // If it's a picture element, try parsing as image first
-                if (key.includes('pic')) {
-                  console.log(`🖼️ Trying to parse picture element at ${fullPath}[${index}]`);
-                  const relationships = this.extractClipboardRelationships(fullJson);
-                  const mediaFiles = this.extractMediaFiles(fullJson);
-                  component = ImageParser.parse(item, relationships, mediaFiles, componentIndex);
-                }
-                
-                // If picture parsing failed or it's a shape element, try parsing as shape
-                if (!component) {
-                  component = this.tryParseAsShape(item, componentIndex, `${fullPath}[${index}]`);
-                }
-                
-                if (component) {
-                  component.slideIndex = slideIndex;
-                  components.push(component);
-                  componentIndex++;
-                }
-              }
-            } else if (obj[key] && typeof obj[key] === 'object') {
+            // Handle both array (xml2js) and single object (fast-xml-parser) formats
+            const items = Array.isArray(obj[key]) ? obj[key] : [obj[key]];
+            console.log(`🔍 Found ${items.length} shapes/pictures: ${fullPath}`);
+            
+            for (let index = 0; index < items.length; index++) {
+              const item = items[index];
               let component;
+              
+              // Debug: log the structure of each item to understand image elements
+              console.log(`🔍 Item at ${fullPath}[${index}] keys:`, Object.keys(item || {}));
               
               // If it's a picture element, try parsing as image first
               if (key.includes('pic')) {
-                console.log(`🖼️ Trying to parse picture element at ${fullPath}`);
+                console.log(`🖼️ Trying to parse picture element at ${fullPath}[${index}]`);
                 const relationships = this.extractClipboardRelationships(fullJson);
                 const mediaFiles = this.extractMediaFiles(fullJson);
-                component = ImageParser.parse(obj[key], relationships, mediaFiles, componentIndex);
+                component = ImageParser.parse(item, relationships, mediaFiles, componentIndex);
+                console.log(`🖼️ ImageParser.parse returned:`, component ? `${component.type} component` : 'null');
               }
               
-              // If picture parsing failed or it's a shape element, try parsing as shape
+              // Also check if the item contains picture-related elements
+              if (!component && item && (item['a:pic'] || item['pic'] || item['p:pic'])) {
+                console.log(`🖼️ Found picture element in item structure at ${fullPath}[${index}]`);
+                const relationships = this.extractClipboardRelationships(fullJson);
+                const mediaFiles = this.extractMediaFiles(fullJson);
+                component = ImageParser.parse(item, relationships, mediaFiles, componentIndex);
+                console.log(`🖼️ ImageParser.parse returned:`, component ? `${component.type} component` : 'null');
+              }
+              
+              // If picture parsing failed, check if it's a text shape (has a:txSp)
+              if (!component && item['a:txSp']) {
+                console.log(`📝 Trying to parse as text component at ${fullPath}[${index}]`);
+                component = TextParser.parse(item, componentIndex);
+              }
+              
+              // If still no component, try parsing as regular shape
               if (!component) {
-                component = this.tryParseAsShape(obj[key], componentIndex, fullPath);
+                component = this.tryParseAsShape(item, componentIndex, `${fullPath}[${index}]`);
               }
               
               if (component) {

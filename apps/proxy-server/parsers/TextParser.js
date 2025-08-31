@@ -13,8 +13,8 @@ export class TextParser extends BaseParser {
    */
   static parse(shape, index = 0) {    
     try {
-      // Check if shape has text content
-      const textBody = this.safeGet(shape, 'p:txBody.0');
+      // Check if shape has text content (clipboard format uses a:txSp.a:txBody)
+      const textBody = this.safeGet(shape, 'a:txSp.a:txBody') || this.safeGet(shape, 'p:txBody');
       if (!textBody) return null;
 
       const textContent = this.extractTextContent(textBody);
@@ -23,18 +23,50 @@ export class TextParser extends BaseParser {
       // Extract rich text structure for tldraw
       const richTextContent = this.extractRichTextContent(textBody);
 
-      // Get transform information
-      const spPr = this.safeGet(shape, 'p:spPr.0');
-      const xfrm = this.safeGet(spPr, 'a:xfrm.0');
+      // Get transform information (clipboard format uses a:spPr)
+      const spPr = this.safeGet(shape, 'a:spPr') || this.safeGet(shape, 'p:spPr');
+      const xfrm = this.safeGet(spPr, 'a:xfrm');
       const transform = this.parseTransform(xfrm);
 
-      // Parse text styling from first text run
-      const firstRun = this.safeGet(textBody, 'a:p.0.a:r.0');
-      const rPr = this.safeGet(firstRun, 'a:rPr.0');
-      const font = this.parseFont(rPr);
-
-      // Get paragraph-level properties
-      const pPr = this.safeGet(textBody, 'a:p.0.a:pPr.0');
+      // Determine dominant formatting from actual text runs for component-level styling
+      const paragraphs = this.safeGet(textBody, 'a:p', []);
+      const paragraphsArray = Array.isArray(paragraphs) ? paragraphs : [paragraphs];
+      const firstParagraph = paragraphsArray[0];
+      const pPr = this.safeGet(firstParagraph, 'a:pPr');
+      
+      // Find the dominant styling by looking at the first non-empty run
+      let dominantFont = { family: 'Arial', size: 18, weight: 'normal', style: 'normal', color: '#000000' };
+      
+      // Look through all runs to find first one with actual formatting
+      for (const paragraph of paragraphsArray) {
+        if (paragraph?.['a:r']) {
+          const runs = Array.isArray(paragraph['a:r']) ? paragraph['a:r'] : [paragraph['a:r']];
+          for (const run of runs) {
+            const text = this.safeGet(run, 'a:t');
+            if (text && text.trim()) { // Only consider non-empty runs
+              const rPr = this.safeGet(run, 'a:rPr');
+              if (rPr) {
+                dominantFont = this.parseFont(rPr);
+                break;
+              }
+            }
+          }
+          if (dominantFont.family !== 'Arial' || dominantFont.size !== 18) break; // Found styling
+        }
+      }
+      
+      // Fall back to list style defaults if no run formatting found
+      if (dominantFont.family === 'Arial' && dominantFont.size === 18) {
+        const lstStyle = this.safeGet(textBody, 'a:lstStyle.a:lvl1pPr.a:defRPr') || 
+                        this.safeGet(textBody, 'a:lstStyle.a:defPPr.a:defRPr');
+        if (lstStyle) {
+          const listFont = this.parseFont(lstStyle);
+          // Merge with any found formatting
+          dominantFont.family = listFont.family || dominantFont.family;
+          dominantFont.size = listFont.size || dominantFont.size;
+          dominantFont.color = listFont.color || dominantFont.color;
+        }
+      }
       const alignment = this.parseAlignment(pPr);
 
       // Determine if it's a title or regular text
@@ -54,12 +86,12 @@ export class TextParser extends BaseParser {
         content: textContent,
         richText: richTextContent,
         style: {
-          fontSize: font.size,
-          fontFamily: font.family,
-          fontWeight: font.weight,
-          fontStyle: font.style,
-          textDecoration: font.decoration,
-          color: font.color,
+          fontSize: dominantFont.size,
+          fontFamily: dominantFont.family,
+          fontWeight: dominantFont.weight,
+          fontStyle: dominantFont.style,
+          textDecoration: dominantFont.decoration,
+          color: dominantFont.color,
           backgroundColor: backgroundColor,
           textAlign: alignment,
           opacity: 1
@@ -86,9 +118,9 @@ export class TextParser extends BaseParser {
    * @returns {string} CSS text-align value
    */
   static parseAlignment(pPr) {
-    if (!pPr?.$.algn) return 'left';
+    if (!pPr?.$algn) return 'left';
 
-    const alignment = pPr.$.algn;
+    const alignment = pPr.$algn;
     switch (alignment) {
       case 'ctr': return 'center';
       case 'r': return 'right';
@@ -106,15 +138,15 @@ export class TextParser extends BaseParser {
    */
   static isTitle(shape, content) {
     // Check if placeholder type indicates title
-    const phType = this.safeGet(shape, 'p:nvSpPr.0.p:nvPr.0.p:ph.0.$.type');
+    const phType = this.safeGet(shape, 'p:nvSpPr.p:nvPr.p:ph.$type');
     if (phType === 'title' || phType === 'ctrTitle') {
       return true;
     }
 
     // Heuristic: short text with larger font size
     if (content.length < 100) {
-      const firstRun = this.safeGet(shape, 'p:txBody.0.a:p.0.a:r.0');
-      const fontSize = this.safeGet(firstRun, 'a:rPr.0.$.sz');
+      const firstRun = this.safeGet(shape, 'p:txBody.a:p.a:r');
+      const fontSize = this.safeGet(firstRun, 'a:rPr.$sz');
       if (fontSize && this.fontSizeToPoints(parseInt(fontSize)) > 18) {
         return true;
       }
@@ -130,7 +162,12 @@ export class TextParser extends BaseParser {
    */
   static hasMultipleTextRuns(textBody) {
     const paragraphs = this.safeGet(textBody, 'a:p', []);
-    return paragraphs.some(p => this.safeGet(p, 'a:r', []).length > 1);
+    const paragraphsArray = Array.isArray(paragraphs) ? paragraphs : [paragraphs];
+    return paragraphsArray.some(p => {
+      const runs = this.safeGet(p, 'a:r', []);
+      const runsArray = Array.isArray(runs) ? runs : [runs];
+      return runsArray.length > 1;
+    });
   }
 
   /**
@@ -139,7 +176,7 @@ export class TextParser extends BaseParser {
    * @returns {string} shape type
    */
   static getShapeType(spPr) {
-    const preset = this.safeGet(spPr, 'a:prstGeom.0.$.prst');
+    const preset = this.safeGet(spPr, 'a:prstGeom.$prst');
     return preset || 'rect';
   }
 
@@ -152,7 +189,7 @@ export class TextParser extends BaseParser {
     if (!spPr) return 'transparent';
 
     // Solid fill
-    const solidFill = this.safeGet(spPr, 'a:solidFill.0');
+    const solidFill = this.safeGet(spPr, 'a:solidFill');
     if (solidFill) {
       return this.parseColor(solidFill);
     }
@@ -177,9 +214,9 @@ export class TextParser extends BaseParser {
     textBody['a:p'].forEach((paragraph, pIndex) => {
       if (paragraph['a:r']) {
         paragraph['a:r'].forEach((run, rIndex) => {
-          const rPr = this.safeGet(run, 'a:rPr.0');
+          const rPr = this.safeGet(run, 'a:rPr');
           const font = this.parseFont(rPr);
-          const text = this.safeGet(run, 'a:t.0', '');
+          const text = this.safeGet(run, 'a:t', '');
 
           if (text) {
             runs.push({
@@ -202,7 +239,7 @@ export class TextParser extends BaseParser {
    * @returns {boolean} true if shape has text
    */
   static hasTextContent(shape) {
-    const textBody = this.safeGet(shape, 'p:txBody.0');
+    const textBody = this.safeGet(shape, 'p:txBody');
     if (!textBody) return false;
 
     const textContent = this.extractTextContent(textBody);

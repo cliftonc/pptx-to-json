@@ -14,11 +14,11 @@ export class TableParser extends BaseParser {
   static parse(graphicFrame, index = 0) {
     try {
       // Check if graphic frame contains a table
-      const table = this.safeGet(graphicFrame, 'a:graphic.0.a:graphicData.0.a:tbl.0');
+      const table = this.safeGet(graphicFrame, 'a:graphic.a:graphicData.a:tbl');
       if (!table) return null;
 
       // Get transform information
-      const xfrm = this.safeGet(graphicFrame, 'p:xfrm.0');
+      const xfrm = this.safeGet(graphicFrame, 'p:xfrm');
       const transform = this.parseTransform(xfrm);
 
       // Skip if table has no dimensions
@@ -70,11 +70,11 @@ export class TableParser extends BaseParser {
    * @returns {Object} grid information
    */
   static parseTableGrid(table) {
-    const tblGrid = this.safeGet(table, 'a:tblGrid.0.a:gridCol', []);
+    const tblGrid = this.safeGet(table, 'a:tblGrid.a:gridCol', []);
     
     const columns = tblGrid.map((col, index) => ({
       index: index,
-      width: col.$.w ? this.emuToPixels(parseInt(col.$.w)) : 100 // Default width
+      width: col.$w ? this.emuToPixels(parseInt(col.$w)) : 100 // Default width
     }));
 
     return {
@@ -92,7 +92,7 @@ export class TableParser extends BaseParser {
     const tblRows = this.safeGet(table, 'a:tr', []);
     
     return tblRows.map((row, rowIndex) => {
-      const height = row.$.h ? this.emuToPixels(parseInt(row.$.h)) : 20; // Default height
+      const height = row.$h ? this.emuToPixels(parseInt(row.$h)) : 20; // Default height
       
       const cells = this.safeGet(row, 'a:tc', []).map((cell, cellIndex) => 
         this.parseTableCell(cell, rowIndex, cellIndex)
@@ -115,19 +115,19 @@ export class TableParser extends BaseParser {
    */
   static parseTableCell(cell, rowIndex, cellIndex) {
     // Extract text content
-    const textBody = this.safeGet(cell, 'a:txBody.0');
+    const textBody = this.safeGet(cell, 'a:txBody');
     const textContent = textBody ? this.extractTextContent(textBody) : '';
 
     // Parse cell properties
-    const tcPr = this.safeGet(cell, 'a:tcPr.0');
+    const tcPr = this.safeGet(cell, 'a:tcPr');
     const cellStyle = this.parseCellStyle(tcPr);
 
     // Parse text formatting
     const textStyle = this.parseCellTextStyle(textBody);
 
     // Check for merged cells
-    const gridSpan = tcPr?.$.gridSpan ? parseInt(tcPr.$.gridSpan) : 1;
-    const rowSpan = tcPr?.$.rowSpan ? parseInt(tcPr.$.rowSpan) : 1;
+    const gridSpan = tcPr?.$gridSpan ? parseInt(tcPr.$gridSpan) : 1;
+    const rowSpan = tcPr?.$rowSpan ? parseInt(tcPr.$rowSpan) : 1;
 
     return {
       rowIndex: rowIndex,
@@ -170,16 +170,16 @@ export class TableParser extends BaseParser {
     if (!tcPr) return style;
 
     // Background fill
-    const solidFill = this.safeGet(tcPr, 'a:solidFill.0');
+    const solidFill = this.safeGet(tcPr, 'a:solidFill');
     if (solidFill) {
       style.backgroundColor = this.parseColor(solidFill);
     }
 
     // Borders
-    const lnL = this.safeGet(tcPr, 'a:lnL.0');
-    const lnR = this.safeGet(tcPr, 'a:lnR.0');
-    const lnT = this.safeGet(tcPr, 'a:lnT.0');
-    const lnB = this.safeGet(tcPr, 'a:lnB.0');
+    const lnL = this.safeGet(tcPr, 'a:lnL');
+    const lnR = this.safeGet(tcPr, 'a:lnR');
+    const lnT = this.safeGet(tcPr, 'a:lnT');
+    const lnB = this.safeGet(tcPr, 'a:lnB');
 
     style.borderLeft = this.parseCellBorder(lnL);
     style.borderRight = this.parseCellBorder(lnR);
@@ -187,7 +187,7 @@ export class TableParser extends BaseParser {
     style.borderBottom = this.parseCellBorder(lnB);
 
     // Vertical alignment
-    const anchor = tcPr.$.anchor;
+    const anchor = tcPr.$anchor;
     if (anchor) {
       switch (anchor) {
         case 't': style.verticalAlign = 'top'; break;
@@ -209,17 +209,17 @@ export class TableParser extends BaseParser {
     if (!border) return 'none';
 
     // Line width
-    const width = border.$.w ? this.emuToPixels(parseInt(border.$.w)) : 1;
+    const width = border.$w ? this.emuToPixels(parseInt(border.$w)) : 1;
     
     // Line color
     let color = '#000000';
-    const solidFill = this.safeGet(border, 'a:solidFill.0');
+    const solidFill = this.safeGet(border, 'a:solidFill');
     if (solidFill) {
       color = this.parseColor(solidFill);
     }
 
     // Line style
-    const prstDash = this.safeGet(border, 'a:prstDash.0.$.val');
+    const prstDash = this.safeGet(border, 'a:prstDash.$val');
     let style = 'solid';
     if (prstDash) {
       switch (prstDash) {
@@ -250,9 +250,9 @@ export class TableParser extends BaseParser {
     if (!textBody) return style;
 
     // Get first paragraph properties for alignment
-    const pPr = this.safeGet(textBody, 'a:p.0.a:pPr.0');
-    if (pPr?.$.algn) {
-      switch (pPr.$.algn) {
+    const pPr = this.safeGet(textBody, 'a:p.a:pPr');
+    if (pPr?.$algn) {
+      switch (pPr.$algn) {
         case 'ctr': style.textAlign = 'center'; break;
         case 'r': style.textAlign = 'right'; break;
         case 'just': style.textAlign = 'justify'; break;
@@ -262,8 +262,8 @@ export class TableParser extends BaseParser {
     }
 
     // Get first text run properties for font styling
-    const firstRun = this.safeGet(textBody, 'a:p.0.a:r.0');
-    const rPr = this.safeGet(firstRun, 'a:rPr.0');
+    const firstRun = this.safeGet(textBody, 'a:p.a:r');
+    const rPr = this.safeGet(firstRun, 'a:rPr');
     if (rPr) {
       const font = this.parseFont(rPr);
       style.fontSize = font.size;
@@ -290,17 +290,17 @@ export class TableParser extends BaseParser {
     };
 
     // Check table properties
-    const tblPr = this.safeGet(table, 'a:tblPr.0');
+    const tblPr = this.safeGet(table, 'a:tblPr');
     if (!tblPr) return style;
 
     // Background fill
-    const solidFill = this.safeGet(tblPr, 'a:solidFill.0');
+    const solidFill = this.safeGet(tblPr, 'a:solidFill');
     if (solidFill) {
       style.backgroundColor = this.parseColor(solidFill);
     }
 
     // Check if first row is a header
-    const firstRow = tblPr.$.firstRow;
+    const firstRow = tblPr.$firstRow;
     if (firstRow === '1' || firstRow === 'true') {
       style.hasHeader = true;
     }
@@ -322,16 +322,16 @@ export class TableParser extends BaseParser {
     );
 
     if (!hasContent) {
-      return `Empty table (${tableRows.length} rows × ${tableRows[0]?.cells.length || 0} columns)`;
+      return `Empty table (${tableRows.length} rows × ${tableRows?.cells.length || 0} columns)`;
     }
 
     // Try to create a brief summary
-    const firstRowContent = tableRows[0]?.cells.map(cell => cell.content.trim()).filter(c => c).slice(0, 3);
+    const firstRowContent = tableRows?.cells.map(cell => cell.content.trim()).filter(c => c).slice(0, 3);
     if (firstRowContent.length > 0) {
-      return `Table: ${firstRowContent.join(', ')}${firstRowContent.length < tableRows[0]?.cells.length ? '...' : ''}`;
+      return `Table: ${firstRowContent.join(', ')}${firstRowContent.length < tableRows?.cells.length ? '...' : ''}`;
     }
 
-    return `Table (${tableRows.length} rows × ${tableRows[0]?.cells.length || 0} columns)`;
+    return `Table (${tableRows.length} rows × ${tableRows?.cells.length || 0} columns)`;
   }
 
   /**
@@ -340,8 +340,8 @@ export class TableParser extends BaseParser {
    * @returns {string} table name
    */
   static getTableName(graphicFrame) {
-    const cNvPr = this.safeGet(graphicFrame, 'p:nvGraphicFramePr.0.p:cNvPr.0');
-    return cNvPr?.$.name || 'Table';
+    const cNvPr = this.safeGet(graphicFrame, 'p:nvGraphicFramePr.p:cNvPr');
+    return cNvPr?.$name || 'Table';
   }
 
   /**
@@ -350,8 +350,8 @@ export class TableParser extends BaseParser {
    * @returns {boolean} true if contains table
    */
   static isTable(graphicFrame) {
-    const graphicData = this.safeGet(graphicFrame, 'a:graphic.0.a:graphicData.0');
-    return graphicData?.$.uri === 'http://schemas.openxmlformats.org/drawingml/2006/table';
+    const graphicData = this.safeGet(graphicFrame, 'a:graphic.a:graphicData');
+    return graphicData?.$uri === 'http://schemas.openxmlformats.org/drawingml/2006/table';
   }
 
   /**

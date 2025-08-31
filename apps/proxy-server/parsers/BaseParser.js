@@ -46,19 +46,19 @@ export class BaseParser {
 
     // Direct RGB color
     if (colorDef['a:srgbClr']) {
-      const val = colorDef['a:srgbClr'][0]?.$.val;
+      const val = colorDef['a:srgbClr'].$val;
       if (val) return `#${val}`;
     }
 
     // System color
     if (colorDef['a:sysClr']) {
-      const lastClr = colorDef['a:sysClr'][0]?.$.lastClr;
+      const lastClr = colorDef['a:sysClr'].$lastClr;
       if (lastClr) return `#${lastClr}`;
     }
 
     // Scheme color (theme colors) - map to reasonable defaults
     if (colorDef['a:schemeClr']) {
-      const val = colorDef['a:schemeClr'][0]?.$.val;
+      const val = colorDef['a:schemeClr'].$val;
       const schemeColors = {
         'dk1': '#000000',    // Dark 1
         'lt1': '#FFFFFF',    // Light 1
@@ -101,25 +101,25 @@ export class BaseParser {
 
     // Position offset
     if (xfrm['a:off']) {
-      const off = xfrm['a:off'][0]?.$;
+      const off = xfrm['a:off'];
       if (off) {
-        result.x = this.emuToPixels(parseInt(off.x || 0));
-        result.y = this.emuToPixels(parseInt(off.y || 0));
+        result.x = this.emuToPixels(parseInt(off.$x || 0));
+        result.y = this.emuToPixels(parseInt(off.$y || 0));
       }
     }
 
     // Size extents
     if (xfrm['a:ext']) {
-      const ext = xfrm['a:ext'][0]?.$;
+      const ext = xfrm['a:ext'];
       if (ext) {
-        result.width = this.emuToPixels(parseInt(ext.cx || 0));
-        result.height = this.emuToPixels(parseInt(ext.cy || 0));
+        result.width = this.emuToPixels(parseInt(ext.$cx || 0));
+        result.height = this.emuToPixels(parseInt(ext.$cy || 0));
       }
     }
 
     // Rotation (in 60000ths of a degree)
-    if (xfrm.$ && xfrm.$.rot) {
-      result.rotation = parseInt(xfrm.$.rot) / 60000;
+    if (xfrm.$rot) {
+      result.rotation = parseInt(xfrm.$rot) / 60000;
     }
 
     return result;
@@ -133,27 +133,29 @@ export class BaseParser {
   static extractTextContent(textBody) {
     if (!textBody || !textBody['a:p']) return '';
 
-    const paragraphs = textBody['a:p'];
+    // Handle both array and single paragraph formats
+    const paragraphs = Array.isArray(textBody['a:p']) ? textBody['a:p'] : [textBody['a:p']];
     const textParts = [];
 
     paragraphs.forEach((paragraph, pIndex) => {
       let paragraphText = '';
       
       // Check for bullet formatting in paragraph properties
-      const pPr = this.safeGet(paragraph, 'a:pPr.0');
+      const pPr = this.safeGet(paragraph, 'a:pPr');
       const hasBullet = this.hasBulletFormatting(pPr);
       
       if (paragraph['a:r']) {
-        // Text runs
-        paragraph['a:r'].forEach(run => {
+        // Handle both array and single run formats
+        const runs = Array.isArray(paragraph['a:r']) ? paragraph['a:r'] : [paragraph['a:r']];
+        runs.forEach(run => {
           if (run['a:t']) {
-            run['a:t'].forEach(textNode => {
-              if (typeof textNode === 'string') {
-                paragraphText += textNode;
-              } else if (textNode._) {
-                paragraphText += textNode._;
-              }
-            });
+            // In fast-xml-parser, text is directly a string, not an array
+            const text = run['a:t'];
+            if (typeof text === 'string') {
+              paragraphText += text;
+            } else if (text._) {
+              paragraphText += text._;
+            }
           }
         });
       }
@@ -184,60 +186,78 @@ export class BaseParser {
   static extractRichTextContent(textBody) {
     if (!textBody || !textBody['a:p']) return null;
 
-    const paragraphs = textBody['a:p'];
+    // Handle both array and single paragraph formats  
+    const paragraphs = Array.isArray(textBody['a:p']) ? textBody['a:p'] : [textBody['a:p']];
     const bulletParagraphs = [];
     const regularParagraphs = [];
 
     // Process each paragraph and preserve individual text run formatting
     paragraphs.forEach(paragraph => {
-      const pPr = this.safeGet(paragraph, 'a:pPr.0');
+      const pPr = this.safeGet(paragraph, 'a:pPr');
       const hasBullet = this.hasBulletFormatting(pPr);
       
       // Extract text runs with their formatting
       const textRuns = [];
       if (paragraph['a:r']) {
-        paragraph['a:r'].forEach(run => {
+        // Handle both array and single run formats
+        const runs = Array.isArray(paragraph['a:r']) ? paragraph['a:r'] : [paragraph['a:r']];
+        runs.forEach(run => {
           if (run['a:t']) {
-            const rPr = this.safeGet(run, 'a:rPr.0');
+            const rPr = this.safeGet(run, 'a:rPr');
             const font = this.parseFont(rPr);
             
-            run['a:t'].forEach(textNode => {
-              let text = '';
-              if (typeof textNode === 'string') {
-                text = textNode;
-              } else if (textNode._) {
-                text = textNode._;
+            // In fast-xml-parser, text is directly a string, not an array
+            const text = run['a:t'];
+            if (text && typeof text === 'string') {
+              // Create text node with marks based on formatting
+              const textNodeObj = { type: 'text', text };
+              const marks = [];
+              
+              // Add formatting marks
+              if (font.isBold) {
+                marks.push({ type: 'bold' });
+              }
+              if (font.isItalic) {
+                marks.push({ type: 'italic' });
               }
               
-              if (text) {
-                // Create text node with marks based on formatting
-                const textNodeObj = { type: 'text', text };
-                const marks = [];
-                
-                // Only use supported tldraw marks: bold and italic
-                if (font.isBold) {
-                  marks.push({ type: 'bold' });
-                }
-                if (font.isItalic) {
-                  marks.push({ type: 'italic' });
-                }
-                
-                if (marks.length > 0) {
-                  textNodeObj.marks = marks;
-                }
-                
-                textRuns.push(textNodeObj);
+              // Add custom formatting attributes for size and color
+              const attrs = {};
+              if (font.size && font.size !== 12) { // Only add if different from default
+                attrs.fontSize = font.size;
               }
-            });
+              if (font.color && font.color !== '#000000') { // Only add if different from black
+                attrs.color = font.color;
+              }
+              if (font.family && font.family !== 'Arial') { // Only add if different from default
+                attrs.fontFamily = font.family;
+              }
+              
+              if (marks.length > 0) {
+                textNodeObj.marks = marks;
+              }
+              if (Object.keys(attrs).length > 0) {
+                textNodeObj.attrs = attrs;
+              }
+              
+              textRuns.push(textNodeObj);
+            } else if (text && text._) {
+              // Handle case where text might be an object with underscore
+              const textNodeObj = { type: 'text', text: text._ };
+              textRuns.push(textNodeObj);
+            }
           }
         });
       }
       
       if (textRuns.length > 0) {
+        // Fix spacing between text runs
+        const fixedTextRuns = this.fixSpacingInTextRuns(textRuns);
+        
         if (hasBullet) {
-          bulletParagraphs.push(textRuns);
+          bulletParagraphs.push(fixedTextRuns);
         } else {
-          regularParagraphs.push(textRuns);
+          regularParagraphs.push(fixedTextRuns);
         }
       }
     });
@@ -338,40 +358,40 @@ export class BaseParser {
 
     // Font family
     if (rPr['a:latin']) {
-      font.family = rPr['a:latin'][0]?.$.typeface || font.family;
+      font.family = rPr['a:latin'].$typeface || font.family;
     }
 
     // Font size (in hundreds of a point)
-    if (rPr.$.sz) {
-      font.size = this.fontSizeToPoints(parseInt(rPr.$.sz));
+    if (rPr.$sz) {
+      font.size = this.fontSizeToPoints(parseInt(rPr.$sz));
     }
 
     // Bold
-    if (rPr.$.b === '1') {
+    if (rPr.$b === 1 || rPr.$b === '1') {
       font.weight = 'bold';
       font.isBold = true;
     }
 
     // Italic
-    if (rPr.$.i === '1') {
+    if (rPr.$i === 1 || rPr.$i === '1') {
       font.style = 'italic';
       font.isItalic = true;
     }
 
     // Underline
-    if (rPr.$.u && rPr.$.u !== 'none') {
+    if (rPr.$u && rPr.$u !== 'none') {
       font.decoration = 'underline';
       font.isUnderline = true;
     }
 
     // Strike-through
-    if (rPr.$.strike && rPr.$.strike !== 'noStrike') {
+    if (rPr.$strike && rPr.$strike !== 'noStrike') {
       font.isStrikethrough = true;
     }
 
     // Superscript/Subscript (baseline attribute)
-    if (rPr.$.baseline) {
-      const baseline = parseInt(rPr.$.baseline);
+    if (rPr.$baseline) {
+      const baseline = parseInt(rPr.$baseline);
       if (baseline > 0) {
         font.isSuperscript = true;
       } else if (baseline < 0) {
@@ -381,7 +401,7 @@ export class BaseParser {
 
     // Color
     if (rPr['a:solidFill']) {
-      font.color = this.parseColor(rPr['a:solidFill'][0]);
+      font.color = this.parseColor(rPr['a:solidFill']);
     }
 
     return font;
@@ -395,6 +415,60 @@ export class BaseParser {
    */
   static generateId(type, index) {
     return `${type}-${Date.now()}-${index}`;
+  }
+
+  /**
+   * Fix spacing between text runs that may have been lost during PowerPoint parsing
+   * @param {Array} textRuns - Array of text run objects
+   * @returns {Array} Fixed text runs with proper spacing
+   */
+  static fixSpacingInTextRuns(textRuns) {
+    if (!textRuns || textRuns.length <= 1) return textRuns;
+    
+    const fixedRuns = [];
+    
+    for (let i = 0; i < textRuns.length; i++) {
+      const currentRun = textRuns[i];
+      const nextRun = textRuns[i + 1];
+      
+      fixedRuns.push(currentRun);
+      
+      // Check if we need to add a space between this run and the next
+      if (nextRun && this.shouldAddSpaceBetweenRuns(currentRun, nextRun)) {
+        // Add a space as a separate text run
+        fixedRuns.push({
+          type: 'text',
+          text: ' '
+        });
+      }
+    }
+    
+    return fixedRuns;
+  }
+  
+  /**
+   * Determine if a space should be added between two text runs
+   * @param {Object} run1 - First text run
+   * @param {Object} run2 - Second text run  
+   * @returns {boolean} true if space should be added
+   */
+  static shouldAddSpaceBetweenRuns(run1, run2) {
+    if (!run1?.text || !run2?.text) return false;
+    
+    const text1 = run1.text.trim();
+    const text2 = run2.text.trim();
+    
+    // Don't add space if either text is empty
+    if (!text1 || !text2) return false;
+    
+    // Don't add space if first text ends with whitespace or punctuation
+    if (/[\s\.,!?;:]$/.test(run1.text)) return false;
+    
+    // Don't add space if second text starts with whitespace or punctuation
+    if (/^[\s\.,!?;:]/.test(run2.text)) return false;
+    
+    // Add space between word-like runs
+    return /\w$/.test(text1) && /^\w/.test(text2);
   }
 
   /**

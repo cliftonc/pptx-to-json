@@ -7,10 +7,12 @@
 
 import fetch from 'node-fetch';
 import { PowerPointParser } from './parsers/PowerPointParser.js';
+import { PPTXParser } from './PPTXParser.js';
 
 export class PowerPointClipboardProcessor {
   constructor() {
     this.powerPointParser = new PowerPointParser();
+    this.pptxParser = new PPTXParser();
   }
 
   /**
@@ -145,7 +147,20 @@ export class PowerPointClipboardProcessor {
     console.log('📦 Detected ZIP file (Office Open XML)! Parsing...');
     
     try {
-      const components = await this.powerPointParser.parseBuffer(buffer, { debug });
+      // First, parse the PPTX file to JSON using our new parser
+      const json = await this.pptxParser.buffer2json(buffer);
+      console.log('📦 PowerPoint parsed to JSON, files:', Object.keys(json).length);
+      console.log('📦 Files found:', Object.keys(json));
+      
+      // Debug: Log the actual structure for debugging text/image issues
+      const drawingFile = json['clipboard/drawings/drawing1.xml'];
+      if (drawingFile) {
+        console.log('🐛 DEBUG: Drawing file structure:');
+        console.log(JSON.stringify(drawingFile, null, 2));
+      }
+      
+      // Then use the existing PowerPoint parser to extract components
+      const components = await this.powerPointParser.parseJson(json);
       console.log('✅ PowerPoint parsing complete:', components.length, 'components found');
       return components;
     } catch (error) {

@@ -17,11 +17,11 @@
     "log-paste": "node scripts/log-paste.js"
   },
   "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.18.2",
-    "node-fetch": "^3.3.2",
-    "pptx2json": "^0.0.10",
-    "yauzl": "^2.10.0"
+    "@hono/node-server": "^1.19.1",
+    "fast-xml-parser": "^5.2.5",
+    "hono": "^4.9.5",
+    "jszip": "^3.10.1",
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^1.6.0",

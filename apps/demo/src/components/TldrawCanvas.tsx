@@ -7,6 +7,7 @@ interface TldrawCanvasProps {
   components: PowerPointComponent[]
 }
 
+
 export default function TldrawCanvas({ components }: TldrawCanvasProps) {
   const editorRef = useRef<Editor | null>(null)
 
@@ -110,9 +111,9 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
       
       // Use richText structure if available (for bullets), otherwise convert plain text
       let richTextContent;
-      if ((component.metadata as any)?.richText) {
-        // Use the tiptap JSON structure directly as an object, not a string
-        richTextContent = (component.metadata as any)?.richText;
+      if ((component as any).richText) {
+        // Use the rich text structure directly from the PowerPoint parser
+        richTextContent = (component as any).richText;
       } else {
         // Convert plain text to rich text
         richTextContent = toRichText(component.content || 'Sample text');
@@ -363,6 +364,7 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
     const imageComponents = components.filter(comp => comp.type === 'image')
     
     console.log('=== IMAGE DEBUGGING ===')
+    console.log(`Found ${imageComponents.length} image components`)
     for (const [index, component] of imageComponents.entries()) {
       console.log(`\n--- Image ${index} ---`)
       console.log('Component:', {
@@ -371,6 +373,7 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
         imageType: component.metadata?.imageType,
         size: component.metadata?.imageSize
       })
+      console.log('Full component:', component)
       
       const imageId = createShapeId(`image-${component.id || index}`)
       
@@ -389,6 +392,7 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
       // Check if we have a data URL for the image
       if (component.metadata?.imageUrl && component.metadata.imageUrl.startsWith('data:')) {
         console.log(`✓ Creating image shape with data URL (${component.metadata.imageSize} bytes)`)
+        console.log(`✓ Data URL prefix: ${component.metadata.imageUrl.substring(0, 50)}...`)
         
         // Convert data URL to asset first, then create image shape
         const dataUrl = component.metadata.imageUrl

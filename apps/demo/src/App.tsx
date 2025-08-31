@@ -11,6 +11,7 @@ function App() {
 
   const handleStructuredParsed = (data: ParsedContent) => {
     console.log('📋 Clipboard data received:', data);
+    console.log('📋 Component types:', data.components?.map(c => ({ type: c.type, id: c.id })));
     
     if (data.components && data.components.length > 0) {
       // We have parsed PowerPoint components from the server!
@@ -63,6 +64,83 @@ function App() {
       case 'table': return '📊';
       default: return '❓';
     }
+  };
+
+  const renderRichText = (richText: any): React.ReactNode => {
+    if (!richText || !richText.content) return null;
+    
+    return richText.content.map((item: any, index: number) => {
+      if (item.type === 'paragraph') {
+        return (
+          <div key={index} style={{ marginBottom: '8px' }}>
+            {item.content?.map((textNode: any, textIndex: number) => {
+              if (textNode.type === 'text') {
+                let style: React.CSSProperties = {};
+                
+                // Apply marks (formatting)
+                if (textNode.marks) {
+                  textNode.marks.forEach((mark: any) => {
+                    if (mark.type === 'bold') style.fontWeight = 'bold';
+                    if (mark.type === 'italic') style.fontStyle = 'italic';
+                  });
+                }
+                
+                // Apply custom attributes (size, color, font family)
+                if (textNode.attrs) {
+                  if (textNode.attrs.fontSize) style.fontSize = `${textNode.attrs.fontSize}pt`;
+                  if (textNode.attrs.color) style.color = textNode.attrs.color;
+                  if (textNode.attrs.fontFamily) style.fontFamily = textNode.attrs.fontFamily;
+                }
+                
+                return (
+                  <span key={textIndex} style={style}>
+                    {textNode.text}
+                  </span>
+                );
+              }
+              return null;
+            })}
+          </div>
+        );
+      } else if (item.type === 'bulletList') {
+        return (
+          <ul key={index} style={{ marginBottom: '8px', paddingLeft: '20px' }}>
+            {item.content?.map((listItem: any, listIndex: number) => (
+              <li key={listIndex}>
+                {listItem.content?.[0]?.content?.map((textNode: any, textIndex: number) => {
+                  if (textNode.type === 'text') {
+                    let style: React.CSSProperties = {};
+                    
+                    // Apply marks (formatting)
+                    if (textNode.marks) {
+                      textNode.marks.forEach((mark: any) => {
+                        if (mark.type === 'bold') style.fontWeight = 'bold';
+                        if (mark.type === 'italic') style.fontStyle = 'italic';
+                      });
+                    }
+                    
+                    // Apply custom attributes (size, color, font family)
+                    if (textNode.attrs) {
+                      if (textNode.attrs.fontSize) style.fontSize = `${textNode.attrs.fontSize}pt`;
+                      if (textNode.attrs.color) style.color = textNode.attrs.color;
+                      if (textNode.attrs.fontFamily) style.fontFamily = textNode.attrs.fontFamily;
+                    }
+                    
+                    return (
+                      <span key={textIndex} style={style}>
+                        {textNode.text}
+                      </span>
+                    );
+                  }
+                  return null;
+                })}
+              </li>
+            ))}
+          </ul>
+        );
+      }
+      return null;
+    });
   };
 
   if (currentPage === 'raw') {
@@ -230,6 +308,26 @@ function App() {
                           {component.content || <em style={{color: '#999'}}>No text content</em>}
                         </div>
                       </div>
+
+                      {/* Rich Text with Formatting */}
+                      {component.richText && (
+                        <div style={{ marginBottom: '10px' }}>
+                          <strong>Rich Text (with formatting):</strong>
+                          <div style={{
+                            marginTop: '5px',
+                            padding: '8px',
+                            backgroundColor: 'white',
+                            border: '1px solid #ddd',
+                            borderRadius: '3px',
+                            fontSize: '14px',
+                            maxHeight: '150px',
+                            overflow: 'auto',
+                            wordBreak: 'break-word'
+                          }}>
+                            {renderRichText(component.richText)}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Enhanced Style Information */}
                       {component.style && (
