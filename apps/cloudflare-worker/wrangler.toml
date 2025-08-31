@@ -1,0 +1,16 @@
+name = "ppt-paste"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Static assets binding
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+[env.production]
+name = "ppt-paste-worker"
+
+[env.development]
+name = "ppt-paste-worker-dev"

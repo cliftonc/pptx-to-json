@@ -32,14 +32,14 @@ function App() {
     } else if (data.isPowerPoint) {
       // PowerPoint was detected but no components returned
       setStructuredData({
-        error: 'PowerPoint detected but no components could be parsed. The proxy server may not be running or the PowerPoint data format is not supported.',
+        error: 'PowerPoint detected but no components could be parsed. Make sure you are copying from the web-based Office 365 version of PowerPoint (not the desktop app). The proxy server may also not be running.',
         isPowerPoint: data.isPowerPoint,
         availableFormats: data.formats.map(f => f.type)
       });
     } else {
       // Not PowerPoint data
       setStructuredData({
-        error: 'No PowerPoint content detected. Please copy content directly from PowerPoint (not from other applications).',
+        error: 'No PowerPoint content detected. Please copy content directly from the web-based Office 365 version of PowerPoint (powerpoint.office.com) - the desktop app is not supported.',
         isPowerPoint: false,
         availableFormats: data.formats.map(f => f.type)
       });
@@ -159,7 +159,7 @@ function App() {
         <header style={{ textAlign: 'center', marginBottom: '40px' }}>
           <h1 style={{ fontSize: '24px', margin: '0 0 10px 0' }}>PowerPoint Parser</h1>
           <p style={{ color: '#666', fontSize: '16px', margin: '0 0 5px 0' }}>
-            Paste PowerPoint content
+            Paste PowerPoint content from web based Powerpoint (sorry <b>not desktop</b>)
           </p>
           <p style={{ color: '#999', fontSize: '12px', margin: '0' }}>
             Components will appear on canvas →
@@ -374,7 +374,9 @@ function App() {
                         <div style={{ fontSize: '12px', color: '#666' }}>
                           <strong>Metadata:</strong>
                           <div style={{ marginTop: '5px', padding: '5px', backgroundColor: '#f8f9fa', borderRadius: '3px' }}>
-                            {Object.entries(component.metadata).map(([key, value]) => (
+                            {Object.entries(component.metadata)
+                              .filter(([key]) => key !== 'imageUrl') // Don't show imageUrl as it's very long
+                              .map(([key, value]) => (
                               <div key={key} style={{ margin: '2px 0' }}>
                                 <strong>{key}:</strong> {JSON.stringify(value)}
                               </div>
