@@ -188,31 +188,56 @@ export class BaseParser {
     const bulletParagraphs = [];
     const regularParagraphs = [];
 
-    // Separate bullet and regular paragraphs
+    // Process each paragraph and preserve individual text run formatting
     paragraphs.forEach(paragraph => {
       const pPr = this.safeGet(paragraph, 'a:pPr.0');
       const hasBullet = this.hasBulletFormatting(pPr);
       
-      let paragraphText = '';
+      // Extract text runs with their formatting
+      const textRuns = [];
       if (paragraph['a:r']) {
         paragraph['a:r'].forEach(run => {
           if (run['a:t']) {
+            const rPr = this.safeGet(run, 'a:rPr.0');
+            const font = this.parseFont(rPr);
+            
             run['a:t'].forEach(textNode => {
+              let text = '';
               if (typeof textNode === 'string') {
-                paragraphText += textNode;
+                text = textNode;
               } else if (textNode._) {
-                paragraphText += textNode._;
+                text = textNode._;
+              }
+              
+              if (text) {
+                // Create text node with marks based on formatting
+                const textNodeObj = { type: 'text', text };
+                const marks = [];
+                
+                // Only use supported tldraw marks: bold and italic
+                if (font.isBold) {
+                  marks.push({ type: 'bold' });
+                }
+                if (font.isItalic) {
+                  marks.push({ type: 'italic' });
+                }
+                
+                if (marks.length > 0) {
+                  textNodeObj.marks = marks;
+                }
+                
+                textRuns.push(textNodeObj);
               }
             });
           }
         });
       }
       
-      if (paragraphText.trim()) {
+      if (textRuns.length > 0) {
         if (hasBullet) {
-          bulletParagraphs.push(paragraphText.trim());
+          bulletParagraphs.push(textRuns);
         } else {
-          regularParagraphs.push(paragraphText.trim());
+          regularParagraphs.push(textRuns);
         }
       }
     });
@@ -222,21 +247,21 @@ export class BaseParser {
       const content = [];
       
       // Add regular paragraphs first if any
-      regularParagraphs.forEach(text => {
+      regularParagraphs.forEach(textRuns => {
         content.push({
           type: 'paragraph',
-          content: [{ type: 'text', text }]
+          content: textRuns
         });
       });
       
       // Add bullet list
       content.push({
         type: 'bulletList',
-        content: bulletParagraphs.map(text => ({
+        content: bulletParagraphs.map(textRuns => ({
           type: 'listItem',
           content: [{
             type: 'paragraph',
-            content: [{ type: 'text', text }]
+            content: textRuns
           }]
         }))
       });
@@ -251,9 +276,9 @@ export class BaseParser {
     if (regularParagraphs.length > 0) {
       return {
         type: 'doc',
-        content: regularParagraphs.map(text => ({
+        content: regularParagraphs.map(textRuns => ({
           type: 'paragraph',
-          content: [{ type: 'text', text }]
+          content: textRuns
         }))
       };
     }
@@ -299,7 +324,14 @@ export class BaseParser {
       weight: 'normal',
       style: 'normal',
       decoration: 'none',
-      color: '#000000'
+      color: '#000000',
+      // Additional formatting properties
+      isBold: false,
+      isItalic: false,
+      isUnderline: false,
+      isSuperscript: false,
+      isSubscript: false,
+      isStrikethrough: false
     };
 
     if (!rPr) return font;
@@ -317,16 +349,34 @@ export class BaseParser {
     // Bold
     if (rPr.$.b === '1') {
       font.weight = 'bold';
+      font.isBold = true;
     }
 
     // Italic
     if (rPr.$.i === '1') {
       font.style = 'italic';
+      font.isItalic = true;
     }
 
     // Underline
     if (rPr.$.u && rPr.$.u !== 'none') {
       font.decoration = 'underline';
+      font.isUnderline = true;
+    }
+
+    // Strike-through
+    if (rPr.$.strike && rPr.$.strike !== 'noStrike') {
+      font.isStrikethrough = true;
+    }
+
+    // Superscript/Subscript (baseline attribute)
+    if (rPr.$.baseline) {
+      const baseline = parseInt(rPr.$.baseline);
+      if (baseline > 0) {
+        font.isSuperscript = true;
+      } else if (baseline < 0) {
+        font.isSubscript = true;
+      }
     }
 
     // Color

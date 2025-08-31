@@ -97,6 +97,25 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
         else if (hexColor.startsWith('#0')) tldrawColor = 'blue'
         else tldrawColor = 'black' // Default fallback
       }
+
+      // Map PowerPoint font families to tldraw fonts
+      let tldrawFont: 'draw' | 'sans' | 'serif' | 'mono' = 'sans' // Default to sans-serif for better text readability
+      if (component.style?.fontFamily) {
+        const fontFamily = component.style.fontFamily.toLowerCase();
+        console.log('PowerPoint font family:', component.style.fontFamily) // Debug log
+        
+        // Map common PowerPoint fonts to tldraw fonts
+        if (fontFamily.includes('times') || fontFamily.includes('georgia') || fontFamily.includes('serif')) {
+          tldrawFont = 'serif'
+        } else if (fontFamily.includes('courier') || fontFamily.includes('consolas') || fontFamily.includes('monaco') || fontFamily.includes('mono')) {
+          tldrawFont = 'mono'
+        } else if (fontFamily.includes('comic') || fontFamily.includes('marker') || fontFamily.includes('sketch')) {
+          tldrawFont = 'draw' // Use draw font for more casual/creative fonts
+        } else {
+          // For Arial, Helvetica, Calibri, and other sans-serif fonts
+          tldrawFont = 'sans'
+        }
+      }
       
       // Use richText structure if available (for bullets), otherwise convert plain text
       let richTextContent;
@@ -118,7 +137,7 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
           richText: richTextContent,
           color: tldrawColor,
           size: tldrawSize,
-          font: 'draw'
+          font: tldrawFont
         }
       })
     })

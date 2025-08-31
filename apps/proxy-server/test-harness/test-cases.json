@@ -76,12 +76,23 @@
       "expectedTypes": [
         "text"
       ]
+    },
+    {
+      "name": "bullets-with-formatting",
+      "description": "PowerPoint content: bullets-with-formatting",
+      "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=69e5164a-5ad3-4bf0-aa07-2640c28be2fe&amp;DC=GEU7&amp;pkey=e0ef15a6-9683-42c0-853d-911e53af606a&amp;wdwaccluster=GEU7&amp;DataType=shape",
+      "fixtureFile": "bullets-with-formatting.bin",
+      "expectedFile": "bullets-with-formatting.json",
+      "expectedComponentCount": 1,
+      "expectedTypes": [
+        "text"
+      ]
     }
   ],
   "metadata": {
     "version": "1.0.0",
     "created": "2025-08-31",
     "description": "Basic text copy",
-    "lastUpdated": "2025-08-31T10:45:45.545Z"
+    "lastUpdated": "2025-08-31T11:14:12.677Z"
   }
 }
