@@ -20,6 +20,9 @@ export class TextParser extends BaseParser {
       const textContent = this.extractTextContent(textBody);
       if (!textContent.trim()) return null;
 
+      // Extract rich text structure for tldraw
+      const richTextContent = this.extractRichTextContent(textBody);
+
       // Get transform information
       const spPr = this.safeGet(shape, 'p:spPr.0');
       const xfrm = this.safeGet(spPr, 'a:xfrm.0');
@@ -49,6 +52,7 @@ export class TextParser extends BaseParser {
         height: transform.height,
         rotation: transform.rotation,
         content: textContent,
+        richText: richTextContent,
         style: {
           fontSize: font.size,
           fontFamily: font.family,
@@ -64,7 +68,9 @@ export class TextParser extends BaseParser {
           isTitle: isTitle,
           paragraphCount: this.safeGet(textBody, 'a:p', []).length,
           hasMultipleRuns: this.hasMultipleTextRuns(textBody),
-          shapeType: this.getShapeType(spPr)
+          shapeType: this.getShapeType(spPr),
+          hasBullets: richTextContent && richTextContent.content && 
+                     richTextContent.content.some(item => item.type === 'bulletList')
         }
       };
 

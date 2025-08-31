@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm --filter demo dev",
+    "dev": "pnpm --filter proxy-server dev & pnpm --filter demo dev",
     "build:lib": "pnpm --filter ppt-paste-parser build",
     "build": "pnpm build:lib && pnpm --filter demo build",
     "preview": "pnpm --filter demo preview"

@@ -6,6 +6,7 @@ interface ParsedComponent {
   id: string
   type: string
   content: string
+  richText?: any // Tiptap JSON structure
   x: number
   y: number
   width: number
@@ -29,6 +30,7 @@ interface ParsedComponent {
     name?: string
     description?: string
     isOrphaned?: boolean
+    hasBullets?: boolean
     [key: string]: any
   }
 }
@@ -96,6 +98,16 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
         else tldrawColor = 'black' // Default fallback
       }
       
+      // Use richText structure if available (for bullets), otherwise convert plain text
+      let richTextContent;
+      if (component.richText) {
+        // Use the tiptap JSON structure directly as an object, not a string
+        richTextContent = component.richText;
+      } else {
+        // Convert plain text to rich text
+        richTextContent = toRichText(component.content || 'Sample text');
+      }
+
       // Create text shape using the correct tldraw v3 API with minimal valid properties
       editor.createShape({
         id: shapeId,
@@ -103,7 +115,7 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
         x,
         y,
         props: {
-          richText: toRichText(component.content || 'Sample text'),
+          richText: richTextContent,
           color: tldrawColor,
           size: tldrawSize,
           font: 'draw'

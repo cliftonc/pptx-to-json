@@ -136,28 +136,155 @@ export class BaseParser {
     const paragraphs = textBody['a:p'];
     const textParts = [];
 
-    paragraphs.forEach(paragraph => {
+    paragraphs.forEach((paragraph, pIndex) => {
+      let paragraphText = '';
+      
+      // Check for bullet formatting in paragraph properties
+      const pPr = this.safeGet(paragraph, 'a:pPr.0');
+      const hasBullet = this.hasBulletFormatting(pPr);
+      
       if (paragraph['a:r']) {
         // Text runs
         paragraph['a:r'].forEach(run => {
           if (run['a:t']) {
             run['a:t'].forEach(textNode => {
               if (typeof textNode === 'string') {
-                textParts.push(textNode);
+                paragraphText += textNode;
               } else if (textNode._) {
-                textParts.push(textNode._);
+                paragraphText += textNode._;
               }
             });
           }
         });
       }
+      
+      // Add bullet prefix if this paragraph has bullet formatting
+      if (hasBullet && paragraphText.trim()) {
+        paragraphText = '• ' + paragraphText;
+      }
+      
+      if (paragraphText) {
+        textParts.push(paragraphText);
+      }
+      
       // Add paragraph break except for last paragraph
-      if (paragraph !== paragraphs[paragraphs.length - 1]) {
+      if (pIndex < paragraphs.length - 1) {
         textParts.push('\n');
       }
     });
 
     return textParts.join('').trim();
+  }
+
+  /**
+   * Extract rich text content as tldraw-compatible structure
+   * @param {Object} textBody - Text body object from PowerPoint
+   * @returns {Object} tldraw rich text JSON structure
+   */
+  static extractRichTextContent(textBody) {
+    if (!textBody || !textBody['a:p']) return null;
+
+    const paragraphs = textBody['a:p'];
+    const bulletParagraphs = [];
+    const regularParagraphs = [];
+
+    // Separate bullet and regular paragraphs
+    paragraphs.forEach(paragraph => {
+      const pPr = this.safeGet(paragraph, 'a:pPr.0');
+      const hasBullet = this.hasBulletFormatting(pPr);
+      
+      let paragraphText = '';
+      if (paragraph['a:r']) {
+        paragraph['a:r'].forEach(run => {
+          if (run['a:t']) {
+            run['a:t'].forEach(textNode => {
+              if (typeof textNode === 'string') {
+                paragraphText += textNode;
+              } else if (textNode._) {
+                paragraphText += textNode._;
+              }
+            });
+          }
+        });
+      }
+      
+      if (paragraphText.trim()) {
+        if (hasBullet) {
+          bulletParagraphs.push(paragraphText.trim());
+        } else {
+          regularParagraphs.push(paragraphText.trim());
+        }
+      }
+    });
+
+    // If we have bullets, create a bullet list structure
+    if (bulletParagraphs.length > 0) {
+      const content = [];
+      
+      // Add regular paragraphs first if any
+      regularParagraphs.forEach(text => {
+        content.push({
+          type: 'paragraph',
+          content: [{ type: 'text', text }]
+        });
+      });
+      
+      // Add bullet list
+      content.push({
+        type: 'bulletList',
+        content: bulletParagraphs.map(text => ({
+          type: 'listItem',
+          content: [{
+            type: 'paragraph',
+            content: [{ type: 'text', text }]
+          }]
+        }))
+      });
+
+      return {
+        type: 'doc',
+        content
+      };
+    }
+
+    // No bullets, just regular paragraphs
+    if (regularParagraphs.length > 0) {
+      return {
+        type: 'doc',
+        content: regularParagraphs.map(text => ({
+          type: 'paragraph',
+          content: [{ type: 'text', text }]
+        }))
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Check if paragraph has bullet formatting
+   * @param {Object} pPr - Paragraph properties
+   * @returns {boolean} true if paragraph has bullets
+   */
+  static hasBulletFormatting(pPr) {
+    if (!pPr) return false;
+    
+    // Check for bullet font (a:buFont)
+    if (pPr['a:buFont']) return true;
+    
+    // Check for bullet character (a:buChar)
+    if (pPr['a:buChar']) return true;
+    
+    // Check for auto number bullets (a:buAutoNum)
+    if (pPr['a:buAutoNum']) return true;
+    
+    // Check for bullet size (a:buSzPct or a:buSzPts)
+    if (pPr['a:buSzPct'] || pPr['a:buSzPts']) return true;
+    
+    // Check for bullet color (a:buClr)
+    if (pPr['a:buClr']) return true;
+    
+    return false;
   }
 
   /**
