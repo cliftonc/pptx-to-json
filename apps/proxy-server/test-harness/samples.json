@@ -31,6 +31,12 @@
 	},
 	"bullets-with-formatting": {
 		"bin": "fixtures/bullets-with-formatting.bin",
-		"description": "One line of text with bold formatting, three lines of text with bullets at the front.  The second bullet is bold."		
+		"description": "One line of text with bold formatting, three lines of text with bullets at the front.  The second bullet is bold.",
+		"validated": true
+	},
+	"rotated-shapes": {
+		"bin": "fixtures/rotated-shapes.bin",
+		"description": "A rectangle shape and text shape, both are rotated.",		
+		"validated": true
 	}
 }
