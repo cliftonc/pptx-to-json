@@ -7,7 +7,7 @@
     "deploy": "npm run build && wrangler deploy",
     "build": "npm run build:frontend && npm run copy:frontend",
     "build:frontend": "cd ../demo && pnpm build",
-    "copy:frontend": "cp -r ../demo/dist ./public",
+    "copy:frontend": "cp -r ../demo/dist/* ./public",
     "test": "echo \"No tests configured\""
   },
   "dependencies": {
