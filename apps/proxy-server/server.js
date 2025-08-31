@@ -1,9 +1,12 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { PowerPointClipboardProcessor } from './PowerPointClipboardProcessor.js';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 // Initialize clipboard processor
 const clipboardProcessor = new PowerPointClipboardProcessor();
@@ -11,6 +14,9 @@ const clipboardProcessor = new PowerPointClipboardProcessor();
 // Enable CORS for all origins (in production, restrict this)
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from the public directory (built demo app)
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Proxy endpoint for Microsoft PowerPoint clipboard API
 app.get('/api/proxy-powerpoint-clipboard', async (req, res) => {
@@ -56,7 +62,13 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Catch-all handler: send back React app for any non-API routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 app.listen(PORT, () => {
-  console.log(`🚀 Proxy server running on http://localhost:${PORT}`);
-  console.log(`📡 Proxy endpoint: http://localhost:${PORT}/api/proxy-powerpoint-clipboard?url=<MICROSOFT_URL>`);
+  console.log(`🚀 Combined server running on http://localhost:${PORT}`);
+  console.log(`📡 API endpoint: http://localhost:${PORT}/api/proxy-powerpoint-clipboard?url=<MICROSOFT_URL>`);
+  console.log(`🌐 Web app available at: http://localhost:${PORT}`);
 });

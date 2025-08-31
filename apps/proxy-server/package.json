@@ -5,6 +5,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
+    "dev:full": "concurrently \"npm run dev\" \"cd ../demo && pnpm dev\"",
+    "build": "cd ../demo && pnpm build && cp -r dist ../proxy-server/public",
+    "build:full": "pnpm --filter ppt-paste-parser build && pnpm run build",
     "test": "vitest",
     "test:run": "vitest run",
     "test:watch": "vitest --watch",
@@ -21,7 +24,8 @@
     "yauzl": "^2.10.0"
   },
   "devDependencies": {
-    "vitest": "^1.6.0",
-    "@vitest/coverage-v8": "^1.6.0"
+    "@vitest/coverage-v8": "^1.6.0",
+    "concurrently": "^8.2.2",
+    "vitest": "^1.6.0"
   }
 }
