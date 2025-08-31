@@ -64,6 +64,10 @@ export class BaseParser {
         'lt1': '#FFFFFF',    // Light 1
         'dk2': '#44546A',    // Dark 2
         'lt2': '#E7E6E6',    // Light 2
+        'tx1': '#000000',    // Text 1 (same as dk1)
+        'tx2': '#44546A',    // Text 2 (same as dk2)
+        'bg1': '#FFFFFF',    // Background 1 (same as lt1)
+        'bg2': '#E7E6E6',    // Background 2 (same as lt2)
         'accent1': '#4472C4', // Accent 1
         'accent2': '#E7686B', // Accent 2
         'accent3': '#A5A5A5', // Accent 3

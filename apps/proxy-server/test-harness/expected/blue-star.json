@@ -1,0 +1,43 @@
+{
+  "metadata": {
+    "name": "blue-star",
+    "description": "PowerPoint content: blue-star",
+    "downloadedAt": "2025-08-31T09:24:48.653Z",
+    "size": 3932,
+    "contentType": "application/octet-stream",
+    "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=5f8e6ec3-b5ae-4778-90ba-9b2ffa41f627&DC=GEU7&pkey=29a6fdf8-6a33-41a2-8e91-53663f0da38d&wdwaccluster=GEU7&DataType=shape"
+  },
+  "components": [
+    {
+      "id": "shape-1756632288652-0",
+      "type": "shape",
+      "x": 815,
+      "y": 229,
+      "width": 114,
+      "height": 92,
+      "rotation": 0,
+      "content": "5-point star shape",
+      "style": {
+        "backgroundColor": "#000000",
+        "borderColor": "#4472C4",
+        "borderWidth": 1,
+        "borderStyle": "solid",
+        "opacity": 1,
+        "effects": []
+      },
+      "metadata": {
+        "shapeType": "5-point star",
+        "preset": "star5",
+        "hasCustomGeometry": false,
+        "fillType": "solid",
+        "borderType": "solid",
+        "effects": []
+      },
+      "slideIndex": 0
+    }
+  ],
+  "componentCount": 1,
+  "componentTypes": {
+    "shape": 1
+  }
+}

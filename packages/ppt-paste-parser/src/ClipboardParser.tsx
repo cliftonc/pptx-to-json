@@ -45,6 +45,10 @@ export interface EnhancedPowerPointComponent extends PowerPointComponent {
     imageFormat?: string;
     tableRows?: number;
     tableCols?: number;
+    borderColor?: string;
+    shapeType?: string;
+    borderWidth?: number;
+    opacity?: number;
   };
 }
 

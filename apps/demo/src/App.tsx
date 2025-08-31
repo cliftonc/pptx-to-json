@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ClipboardParser } from 'ppt-paste-parser'
 import TldrawCanvas from './components/TldrawCanvas'
+import RawDataPage from './RawDataPage'
 
 interface ParsedContent {
   formats: Array<{type: string, data: string}>;
@@ -24,6 +25,7 @@ interface ParsedContent {
 import './App.css'
 
 function App() {
+  const [currentPage, setCurrentPage] = useState<'main' | 'raw'>('main')
   const [structuredData, setStructuredData] = useState<any>(null)
 
   const handleStructuredParsed = (data: ParsedContent) => {
@@ -82,6 +84,10 @@ function App() {
     }
   };
 
+  if (currentPage === 'raw') {
+    return <RawDataPage />
+  }
+
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       {/* Left Column - Existing UI */}
@@ -99,6 +105,22 @@ function App() {
           <p style={{ color: '#999', fontSize: '12px', margin: '0' }}>
             Components will appear on canvas →
           </p>
+          <div style={{ marginTop: '10px' }}>
+            <button 
+              onClick={() => setCurrentPage('raw')}
+              style={{
+                padding: '6px 12px',
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px'
+              }}
+            >
+              Raw Data Extractor
+            </button>
+          </div>
         </header>
 
         <div style={{ marginBottom: '40px' }}>

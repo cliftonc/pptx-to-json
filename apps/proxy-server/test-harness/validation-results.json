@@ -1,0 +1,46 @@
+{
+  "timestamp": "2025-08-31T09:09:46.053Z",
+  "summary": {
+    "totalSamples": 1,
+    "errorSamples": 0,
+    "pendingSamples": 1
+  },
+  "results": [
+    {
+      "sampleName": "up-arrow-shape",
+      "description": "An up arrow shape with a green background and red border",
+      "binaryFile": "fixtures/up-arrow-shape.bin",
+      "components": [
+        {
+          "id": "shape-1756631386052-0",
+          "type": "shape",
+          "x": 341,
+          "y": 471,
+          "width": 124,
+          "height": 176,
+          "rotation": 0,
+          "content": "up arrow shape",
+          "style": {
+            "backgroundColor": "#FFFFFF",
+            "borderColor": "transparent",
+            "borderWidth": 0,
+            "borderStyle": "none",
+            "opacity": 1,
+            "effects": []
+          },
+          "metadata": {
+            "shapeType": "up arrow",
+            "preset": "upArrow",
+            "hasCustomGeometry": false,
+            "fillType": "solid",
+            "borderType": "none",
+            "effects": []
+          },
+          "slideIndex": 0
+        }
+      ],
+      "timestamp": "2025-08-31T09:09:46.052Z",
+      "status": "pending_validation"
+    }
+  ]
+}

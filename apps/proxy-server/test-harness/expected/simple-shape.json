@@ -1,0 +1,72 @@
+{
+  "metadata": {
+    "name": "simple-shape",
+    "description": "Basic geometric shape from PowerPoint",
+    "downloadedAt": "2025-08-31T06:45:35.132Z",
+    "size": 4219,
+    "contentType": "application/octet-stream",
+    "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=7b278b8c-0c5b-4785-ad7d-0f5711b9bd5b&DC=GEU7&pkey=4568ec4f-90a8-4227-87dc-9ec5e93ee121&wdwaccluster=GEU7&DataType=shape"
+  },
+  "components": [
+    {
+      "id": "text-1756622735132-0",
+      "type": "text",
+      "x": 58,
+      "y": 306,
+      "width": 1019,
+      "height": 68,
+      "rotation": 0,
+      "content": "HELLO EDITH ROSE ISNT THIS MAGICAL",
+      "style": {
+        "fontSize": 36,
+        "fontFamily": "Arial",
+        "fontWeight": "bold",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#E97132",
+        "backgroundColor": "transparent",
+        "textAlign": "left",
+        "opacity": 1
+      },
+      "metadata": {
+        "isTitle": true,
+        "paragraphCount": 1,
+        "hasMultipleRuns": false,
+        "shapeType": "rect"
+      },
+      "slideIndex": 0
+    },
+    {
+      "id": "text-1756622735132-1",
+      "type": "text",
+      "x": 109,
+      "y": 41,
+      "width": 288,
+      "height": 139,
+      "rotation": 0,
+      "content": "TEXT",
+      "style": {
+        "fontSize": 80,
+        "fontFamily": "Arial",
+        "fontWeight": "normal",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#4EA72E",
+        "backgroundColor": "transparent",
+        "textAlign": "left",
+        "opacity": 1
+      },
+      "metadata": {
+        "isTitle": true,
+        "paragraphCount": 1,
+        "hasMultipleRuns": false,
+        "shapeType": "rect"
+      },
+      "slideIndex": 0
+    }
+  ],
+  "componentCount": 2,
+  "componentTypes": {
+    "text": 2
+  }
+}

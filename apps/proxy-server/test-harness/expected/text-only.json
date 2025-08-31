@@ -1,0 +1,43 @@
+{
+  "metadata": {
+    "name": "text-only",
+    "description": "Simple green text",
+    "downloadedAt": "2025-08-31T06:30:10.759Z",
+    "size": 3996,
+    "contentType": "application/octet-stream"
+  },
+  "components": [
+    {
+      "id": "text-1756621810759-0",
+      "type": "text",
+      "x": 109,
+      "y": 41,
+      "width": 288,
+      "height": 139,
+      "rotation": 0,
+      "content": "TEXT",
+      "style": {
+        "fontSize": 80,
+        "fontFamily": "Arial",
+        "fontWeight": "normal",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#4EA72E",
+        "backgroundColor": "transparent",
+        "textAlign": "left",
+        "opacity": 1
+      },
+      "metadata": {
+        "isTitle": true,
+        "paragraphCount": 1,
+        "hasMultipleRuns": false,
+        "shapeType": "rect"
+      },
+      "slideIndex": 0
+    }
+  ],
+  "componentCount": 1,
+  "componentTypes": {
+    "text": 1
+  }
+}

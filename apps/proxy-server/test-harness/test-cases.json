@@ -1,0 +1,76 @@
+{
+  "testCases": [
+    {
+      "name": "text-only",
+      "description": "Simple green text",
+      "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=78b93618-2199-4809-a01b-c37d3b526cd5&DC=GEU7&pkey=0eb88557-9a54-48df-85f1-e443a1c0b75f&wdwaccluster=GEU7&DataType=shape",
+      "fixtureFile": "text-only.bin",
+      "expectedFile": "text-only.json",
+      "expectedComponentCount": 1,
+      "expectedTypes": [
+        "text"
+      ]
+    },
+    {
+      "name": "simple-shape",
+      "description": "Basic geometric shape from PowerPoint",
+      "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=7b278b8c-0c5b-4785-ad7d-0f5711b9bd5b&DC=GEU7&pkey=4568ec4f-90a8-4227-87dc-9ec5e93ee121&wdwaccluster=GEU7&DataType=shape",
+      "fixtureFile": "simple-shape.bin",
+      "expectedFile": "simple-shape.json",
+      "expectedComponentCount": 2,
+      "expectedTypes": [
+        "text"
+      ]
+    },
+    {
+      "name": "orange-rectangle",
+      "description": "PowerPoint content: orange-rectangle",
+      "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=bd559a8b-7f9b-4364-9a06-425270f5b2b6&amp;DC=GEU7&amp;pkey=a8dcc7f1-493e-4cf2-a839-203f6208a2f0&amp;wdwaccluster=GEU7&amp;DataType=shape",
+      "fixtureFile": "orange-rectangle.bin",
+      "expectedFile": "orange-rectangle.json",
+      "expectedComponentCount": 1,
+      "expectedTypes": [
+        "shape"
+      ]
+    },
+    {
+      "name": "up-arrow-shape",
+      "description": "PowerPoint content: up-arrow-shape",
+      "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=1dc0a166-431d-4945-9bc6-d8b191c56ae2&amp;DC=GEU7&amp;pkey=625295be-f949-4aa0-8e16-3841f9207e55&amp;wdwaccluster=GEU7&amp;DataType=shape",
+      "fixtureFile": "up-arrow-shape.bin",
+      "expectedFile": "up-arrow-shape.json",
+      "expectedComponentCount": 1,
+      "expectedTypes": [
+        "shape"
+      ]
+    },
+    {
+      "name": "blue-star",
+      "description": "PowerPoint content: blue-star",
+      "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=5f8e6ec3-b5ae-4778-90ba-9b2ffa41f627&DC=GEU7&pkey=29a6fdf8-6a33-41a2-8e91-53663f0da38d&wdwaccluster=GEU7&DataType=shape",
+      "fixtureFile": "blue-star.bin",
+      "expectedFile": "blue-star.json",
+      "expectedComponentCount": 1,
+      "expectedTypes": [
+        "shape"
+      ]
+    },
+    {
+      "name": "text-and-image",
+      "description": "PowerPoint content: text-and-image",
+      "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=e9a84c40-5e31-49c0-8662-ac302efc7170&amp;DC=GEU7&amp;pkey=5f0981b1-13b9-409c-a2a4-e5b9de657d58&amp;wdwaccluster=GEU7&amp;DataType=shape",
+      "fixtureFile": "text-and-image.bin",
+      "expectedFile": "text-and-image.json",
+      "expectedComponentCount": 1,
+      "expectedTypes": [
+        "text"
+      ]
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "created": "2025-08-31",
+    "description": "Basic text copy",
+    "lastUpdated": "2025-08-31T09:40:02.800Z"
+  }
+}

@@ -15,20 +15,25 @@ export class ImageParser extends BaseParser {
    */
   static parse(shape, relationships = {}, mediaFiles = {}, index = 0) {
     try {
-      // Check if shape contains an image
-      const pic = this.safeGet(shape, 'p:pic.0');
-      if (!pic) return null;
+      // For clipboard format, the shape IS the picture element
+      // Check if it has the necessary image structure
+      const pic = shape;
+      if (!pic || !this.safeGet(pic, 'a:spPr.0') || !this.safeGet(pic, 'a:blipFill.0')) {
+        return null;
+      }
 
-      // Get transform information
-      const spPr = this.safeGet(pic, 'p:spPr.0');
+      // Get transform information - THIS IS THE KEY! PowerPoint stores the scaled dimensions here
+      const spPr = this.safeGet(pic, 'a:spPr.0');
       const xfrm = this.safeGet(spPr, 'a:xfrm.0');
       const transform = this.parseTransform(xfrm);
+      
+      console.log(`🖼️ Image transform dimensions: ${transform.width}x${transform.height} (these are PowerPoint-scaled dimensions)`);
 
       // Skip if image has no dimensions
       if (transform.width === 0 && transform.height === 0) return null;
 
       // Get image relationship ID
-      const blipFill = this.safeGet(pic, 'p:blipFill.0');
+      const blipFill = this.safeGet(pic, 'a:blipFill.0');
       const blip = this.safeGet(blipFill, 'a:blip.0');
       const rId = blip?.$?.['r:embed'];
 
@@ -40,7 +45,7 @@ export class ImageParser extends BaseParser {
       const cropping = this.parseCropping(blipFill);
 
       // Get image name/description
-      const cNvPr = this.safeGet(pic, 'p:nvPicPr.0.p:cNvPr.0');
+      const cNvPr = this.safeGet(pic, 'a:nvPicPr.0.a:cNvPr.0');
       const name = cNvPr?.$.name || 'Image';
       const description = cNvPr?.$.descr || '';
 
@@ -79,6 +84,88 @@ export class ImageParser extends BaseParser {
   }
 
   /**
+   * Parse a shape that might contain an image (checks for image references in shapes)
+   * This handles cases where clipboard format shapes have both text and image references
+   * @param {Object} shape - Shape data from PowerPoint JSON
+   * @param {Object} relationships - Relationship data from PowerPoint JSON
+   * @param {Object} mediaFiles - Media files from PowerPoint JSON
+   * @param {number} index - Component index for ID generation
+   * @returns {Object|null} parsed image component if shape contains image
+   */
+  static async parseShapeWithImage(shape, relationships = {}, mediaFiles = {}, index = 0) {
+    try {
+      // Check for background image in shape properties (a:spPr format for clipboard)
+      const spPr = this.safeGet(shape, 'a:spPr.0') || this.safeGet(shape, 'p:spPr.0');
+      if (!spPr) return null;
+      
+      const blipFill = this.safeGet(spPr, 'a:blipFill.0');
+      if (!blipFill) return null;
+
+      const blip = this.safeGet(blipFill, 'a:blip.0');
+      const rId = blip?.$?.['r:embed'];
+      
+      if (!rId) return null;
+
+      // Get transform information - THIS IS KEY! PowerPoint stores the scaled dimensions here
+      const xfrm = this.safeGet(spPr, 'a:xfrm.0');
+      const transform = this.parseTransform(xfrm);
+      
+      console.log(`🖼️ Shape with image transform dimensions: ${transform.width}x${transform.height} (PowerPoint-scaled)`);
+
+      // Skip if image has no dimensions
+      if (transform.width === 0 && transform.height === 0) return null;
+
+      // Get image information
+      const imageInfo = this.getImageInfo(rId, relationships, mediaFiles);
+
+      // Parse image effects and cropping
+      const effects = this.parseImageEffects(blipFill);
+      const cropping = this.parseCropping(blipFill);
+
+      // Get image name/description from non-visual properties
+      const nvSpPr = this.safeGet(shape, 'a:nvSpPr.0') || this.safeGet(shape, 'p:nvSpPr.0');
+      const cNvPr = this.safeGet(nvSpPr, 'a:cNvPr.0') || this.safeGet(nvSpPr, 'p:cNvPr.0');
+      const name = cNvPr?.$.name || 'Image';
+      const description = cNvPr?.$.descr || '';
+
+      console.log(`✅ Found image shape with r:embed=${rId}, dimensions: ${transform.width}x${transform.height}`);
+
+      return {
+        id: this.generateId('image', index),
+        type: 'image',
+        x: transform.x,
+        y: transform.y,
+        width: transform.width,
+        height: transform.height,
+        rotation: transform.rotation,
+        content: description || name,
+        style: {
+          opacity: effects.opacity,
+          filter: effects.filter,
+          borderRadius: effects.borderRadius,
+          ...effects.shadow && { boxShadow: effects.shadow }
+        },
+        metadata: {
+          name: name,
+          description: description,
+          relationshipId: rId,
+          imageUrl: imageInfo.url,
+          imageType: imageInfo.type,
+          imageSize: imageInfo.size,
+          originalDimensions: imageInfo.dimensions,
+          cropping: cropping,
+          effects: effects.effectsList,
+          source: 'shape-with-image-reference'
+        }
+      };
+
+    } catch (error) {
+      console.warn('Error parsing shape with image:', error);
+      return null;
+    }
+  }
+
+  /**
    * Get image information from relationship and media data
    * @param {string} rId - Relationship ID
    * @param {Object} relationships - Relationship data
@@ -95,9 +182,9 @@ export class ImageParser extends BaseParser {
       };
     }
 
-    // Find relationship for this image
+    // Find relationship for this image (handles both slide and clipboard formats)
     const relFile = Object.keys(relationships).find(key => 
-      key.includes('slide') && key.includes('_rels')
+      key.includes('_rels') && (key.includes('slide') || key.includes('drawing'))
     );
     
     if (relFile && relationships[relFile]) {
@@ -106,7 +193,14 @@ export class ImageParser extends BaseParser {
       
       if (rel) {
         const target = rel.$.Target;
-        const mediaPath = target.startsWith('../') ? target.slice(3) : `ppt/${target}`;
+        // Handle clipboard format: ../media/image1.png becomes clipboard/media/image1.png
+        // Handle regular format: media/image1.png becomes ppt/media/image1.png
+        let mediaPath;
+        if (target.startsWith('../')) {
+          mediaPath = `clipboard/${target.slice(3)}`;
+        } else {
+          mediaPath = target.startsWith('media/') ? `ppt/${target}` : target;
+        }
         
         // Look for the media file
         const mediaFile = mediaFiles[mediaPath];
@@ -263,7 +357,7 @@ export class ImageParser extends BaseParser {
    * @returns {boolean} true if shape contains image
    */
   static hasImage(shape) {
-    return !!this.safeGet(shape, 'p:pic.0');
+    return !!this.safeGet(shape, 'a:pic.0');
   }
 
   /**

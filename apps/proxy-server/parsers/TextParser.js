@@ -11,7 +11,7 @@ export class TextParser extends BaseParser {
    * @param {number} index - Component index for ID generation
    * @returns {Object|null} parsed text component
    */
-  static parse(shape, index = 0) {
+  static parse(shape, index = 0) {    
     try {
       // Check if shape has text content
       const textBody = this.safeGet(shape, 'p:txBody.0');

@@ -4,7 +4,14 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "download-fixtures": "node scripts/download-fixtures.js",
+    "add-test-case": "node scripts/add-test-case.js",
+    "log-paste": "node scripts/log-paste.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -12,5 +19,9 @@
     "node-fetch": "^3.3.2",
     "pptx2json": "^0.0.10",
     "yauzl": "^2.10.0"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0",
+    "@vitest/coverage-v8": "^1.6.0"
   }
 }

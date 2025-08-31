@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Tldraw, Editor, createShapeId, toRichText } from '@tldraw/tldraw'
+import { Tldraw, Editor, createShapeId, toRichText, AssetRecordType } from '@tldraw/tldraw'
 import '@tldraw/tldraw/tldraw.css'
 
 interface ParsedComponent {
@@ -17,6 +17,19 @@ interface ParsedComponent {
     color?: string
     backgroundColor?: string
     textAlign?: string
+    borderColor?: string
+    shapeType?: string
+    borderWidth?: number
+    opacity?: number
+  }
+  metadata?: {
+    imageUrl?: string
+    imageType?: string
+    imageSize?: number
+    name?: string
+    description?: string
+    isOrphaned?: boolean
+    [key: string]: any
   }
 }
 
@@ -32,7 +45,7 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
     drawComponents(components)
   }
 
-  const drawComponents = (components: ParsedComponent[]) => {
+  const drawComponents = async (components: ParsedComponent[]) => {
     const editor = editorRef.current
     if (!editor || !components.length) return
 
@@ -98,8 +111,350 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
       })
     })
 
+    // Draw shape components
+    const shapeComponents = components.filter(comp => comp.type === 'shape')
+    
+    console.log('=== SHAPE DEBUGGING ===')
+    shapeComponents.forEach((component, index) => {
+      console.log(`\n--- Shape ${index} ---`)
+      console.log('Component:', {
+        backgroundColor: component.style?.backgroundColor,
+        borderColor: component.style?.borderColor,
+        shapeType: component.style?.shapeType || component.metadata?.shapeType
+      })
+      const shapeId = createShapeId(`shape-${component.id || index}`)
+      
+      const scale = 1
+      const x = (component.x || 0) * scale
+      const y = (component.y || 0) * scale
+      const width = (component.width || 100) * scale
+      const height = (component.height || 100) * scale
+      
+      // Map PowerPoint colors to tldraw colors with better color matching
+      let fillColor: 'black' | 'grey' | 'light-violet' | 'violet' | 'blue' | 'light-blue' | 'yellow' | 'orange' | 'green' | 'light-green' | 'light-red' | 'red' = 'grey'
+      if (component.style?.backgroundColor && component.style.backgroundColor !== 'transparent') {
+        const hexColor = component.style.backgroundColor.toLowerCase()
+        
+        // Specific color mappings
+        if (hexColor === '#000000') fillColor = 'black'
+        else if (hexColor === '#ffffff') fillColor = 'grey' // tldraw doesn't have white, use light grey
+        // PowerPoint standard colors
+        else if (hexColor === '#ed7d31') fillColor = 'orange' // PowerPoint orange
+        else if (hexColor === '#4472c4') fillColor = 'blue' // PowerPoint blue
+        else if (hexColor === '#5b9bd5') fillColor = 'light-blue' // PowerPoint light blue
+        else if (hexColor === '#70ad47') fillColor = 'green' // PowerPoint green
+        else if (hexColor === '#ffc000') fillColor = 'yellow' // PowerPoint yellow
+        else if (hexColor === '#c55a5a') fillColor = 'red' // PowerPoint red
+        // Color range matching
+        else if (hexColor.startsWith('#ed') || hexColor.startsWith('#e9') || hexColor.startsWith('#f') && !hexColor.includes('ff')) fillColor = 'orange'
+        else if (hexColor.startsWith('#44') || hexColor.startsWith('#45')) fillColor = 'blue'
+        else if (hexColor.startsWith('#5b') || hexColor.startsWith('#5a')) fillColor = 'light-blue'
+        else if (hexColor.startsWith('#70') || hexColor.startsWith('#6') || hexColor.startsWith('#4e')) fillColor = 'green'
+        else if (hexColor.startsWith('#ff') && hexColor.includes('c')) fillColor = 'yellow'
+        else if (hexColor.startsWith('#ff') && !hexColor.includes('c')) fillColor = 'red'
+        else if (hexColor.startsWith('#c5') || hexColor.includes('red')) fillColor = 'red'
+        else if (hexColor.startsWith('#e7') || hexColor.startsWith('#a5')) fillColor = 'grey'
+        // Fallback by first character
+        else if (hexColor.startsWith('#4')) fillColor = 'blue'
+        else if (hexColor.startsWith('#5')) fillColor = 'light-blue' 
+        else if (hexColor.startsWith('#7') || hexColor.startsWith('#6')) fillColor = 'green'
+        else if (hexColor.startsWith('#e') || hexColor.startsWith('#f')) fillColor = 'orange'
+        else fillColor = 'grey'
+        
+        console.log(`✓ Background: ${hexColor} → ${fillColor}`)
+      } else {
+        console.log('✗ No background color or transparent')
+      }
+
+      let strokeColor: 'black' | 'grey' | 'light-violet' | 'violet' | 'blue' | 'light-blue' | 'yellow' | 'orange' | 'green' | 'light-green' | 'light-red' | 'red' = 'black'
+      if (component.style?.borderColor && component.style.borderColor !== 'transparent') {
+        const hexColor = component.style.borderColor.toLowerCase()
+        
+        // Specific color mappings for borders
+        if (hexColor === '#000000') strokeColor = 'black'
+        else if (hexColor === '#ffffff') strokeColor = 'grey'
+        // PowerPoint standard colors
+        else if (hexColor === '#ed7d31') strokeColor = 'orange' // PowerPoint orange
+        else if (hexColor === '#4472c4') strokeColor = 'blue' // PowerPoint blue
+        else if (hexColor === '#5b9bd5') strokeColor = 'light-blue' // PowerPoint light blue
+        else if (hexColor === '#70ad47') strokeColor = 'green' // PowerPoint green
+        else if (hexColor === '#ffc000') strokeColor = 'yellow' // PowerPoint yellow
+        else if (hexColor === '#c55a5a') strokeColor = 'red' // PowerPoint red
+        // Color range matching
+        else if (hexColor.startsWith('#ed') || hexColor.startsWith('#e9') || hexColor.startsWith('#f') && !hexColor.includes('ff')) strokeColor = 'orange'
+        else if (hexColor.startsWith('#44') || hexColor.startsWith('#45')) strokeColor = 'blue'
+        else if (hexColor.startsWith('#5b') || hexColor.startsWith('#5a')) strokeColor = 'light-blue'
+        else if (hexColor.startsWith('#70') || hexColor.startsWith('#6') || hexColor.startsWith('#4e')) strokeColor = 'green'
+        else if (hexColor.startsWith('#ff') && hexColor.includes('c')) strokeColor = 'yellow'
+        else if (hexColor.startsWith('#ff') && !hexColor.includes('c')) strokeColor = 'red'
+        else if (hexColor.startsWith('#c5') || hexColor.includes('red')) strokeColor = 'red'
+        else if (hexColor.startsWith('#e7') || hexColor.startsWith('#a5')) strokeColor = 'grey'
+        // Fallback by first character
+        else if (hexColor.startsWith('#4')) strokeColor = 'blue'
+        else if (hexColor.startsWith('#5')) strokeColor = 'light-blue'
+        else if (hexColor.startsWith('#7') || hexColor.startsWith('#6')) strokeColor = 'green'
+        else if (hexColor.startsWith('#e') || hexColor.startsWith('#f')) strokeColor = 'orange'
+        else strokeColor = 'black'
+        
+        console.log(`✓ Border: ${hexColor} → ${strokeColor}`)
+      } else {
+        console.log('✗ No border color or transparent')
+      }
+      
+      // Determine the best tldraw shape type based on PowerPoint shape type
+      let tldrawShapeType: 'geo' = 'geo'
+      let geoType: 'rectangle' | 'ellipse' | 'triangle' | 'diamond' | 'pentagon' | 'hexagon' | 'octagon' | 'star' | 'rhombus' | 'oval' | 'trapezoid' | 'arrow-right' | 'arrow-left' | 'arrow-up' | 'arrow-down' | 'x-box' | 'check-box' | 'cloud' | 'heart' = 'rectangle'
+      
+      // Map PowerPoint shape types to tldraw geo types
+      const shapeType = component.style?.shapeType || component.metadata?.shapeType || component.metadata?.preset || 'rectangle'
+      
+      switch (shapeType) {
+        case 'rect':
+        case 'rectangle':
+          geoType = 'rectangle'
+          break
+        case 'ellipse':
+        case 'oval':
+          geoType = 'ellipse'
+          break
+        case 'triangle':
+        case 'rtTriangle':
+          geoType = 'triangle'
+          break
+        case 'diamond':
+          geoType = 'diamond'
+          break
+        case 'pentagon':
+          geoType = 'pentagon'
+          break
+        case 'hexagon':
+          geoType = 'hexagon'
+          break
+        case 'octagon':
+          geoType = 'octagon'
+          break
+        // Handle PowerPoint star preset names
+        case 'star4':
+        case 'star5':
+        case 'star6':
+        case 'star8':
+        case 'star10':
+        case 'star12':
+        case 'star16':
+        case 'star24':
+        case 'star32':
+        case '4-point star':
+        case '5-point star':
+        case '6-point star':
+        case '8-point star':
+        case '10-point star':
+        case '12-point star':
+        case '16-point star':
+        case '24-point star':
+        case '32-point star':
+          geoType = 'star'
+          break
+        case 'rightArrow':
+        case 'right arrow':
+          geoType = 'arrow-right'
+          break
+        case 'leftArrow':
+        case 'left arrow':
+          geoType = 'arrow-left'
+          break
+        case 'upArrow':
+        case 'up arrow':
+          geoType = 'arrow-up'
+          break
+        case 'downArrow':
+        case 'down arrow':
+          geoType = 'arrow-down'
+          break
+        case 'trapezoid':
+          geoType = 'trapezoid'
+          break
+        case 'cloud':
+          geoType = 'cloud'
+          break
+        case 'heart':
+          geoType = 'heart'
+          break
+        default:
+          geoType = 'rectangle'
+      }
+      
+      // Create geometric shape using the tldraw v3 API
+      const finalColor = fillColor === 'grey' ? strokeColor : fillColor;
+      const finalFill = component.style?.backgroundColor && component.style.backgroundColor !== 'transparent' ? 'solid' : 'none';
+      
+      console.log(`Creating tldraw shape:`, {
+        geo: geoType,
+        color: finalColor,
+        fill: finalFill,
+        fillColor: fillColor,
+        strokeColor: strokeColor
+      });
+      
+      editor.createShape({
+        id: shapeId,
+        type: 'geo',
+        x,
+        y,
+        props: {
+          geo: geoType,
+          color: finalColor,
+          fill: finalFill,
+          size: 'm',
+          w: width,
+          h: height
+        }
+      })
+    })
+
+    // Draw image components
+    const imageComponents = components.filter(comp => comp.type === 'image')
+    
+    console.log('=== IMAGE DEBUGGING ===')
+    for (const [index, component] of imageComponents.entries()) {
+      console.log(`\n--- Image ${index} ---`)
+      console.log('Component:', {
+        content: component.content,
+        hasImageUrl: !!(component.metadata?.imageUrl),
+        imageType: component.metadata?.imageType,
+        size: component.metadata?.imageSize
+      })
+      
+      const imageId = createShapeId(`image-${component.id || index}`)
+      
+      // Log the component dimensions for debugging
+      console.log(`Image dimensions from parser: ${component.width} x ${component.height}`)
+      
+      const scale = 1
+      const x = (component.x || 0) * scale
+      const y = (component.y || 0) * scale
+      
+      // Use exact PowerPoint dimensions
+      const width = component.width || 200
+      const height = component.height || 150
+      console.log(`Using exact PowerPoint dimensions: ${width}x${height}`)
+      
+      // Check if we have a data URL for the image
+      if (component.metadata?.imageUrl && component.metadata.imageUrl.startsWith('data:')) {
+        console.log(`✓ Creating image shape with data URL (${component.metadata.imageSize} bytes)`)
+        
+        // Convert data URL to asset first, then create image shape
+        const dataUrl = component.metadata.imageUrl
+        
+        try {
+          // Create asset from data URL (revert to working approach)
+          console.log(`Attempting to create image with dimensions: ${width}x${height}`)
+          
+          // Convert data URL to blob
+          const response = await fetch(dataUrl)
+          const blob = await response.blob()
+          
+          // Create asset ID using the correct tldraw v3 API
+          const assetId = AssetRecordType.createId()
+          
+          // Create the asset using the correct API
+          editor.createAssets([{
+            id: assetId,
+            type: 'image',
+            typeName: 'asset',
+            props: {
+              name: component.metadata?.name || 'image',
+              src: dataUrl,
+              w: width,
+              h: height,
+              mimeType: blob.type,
+              isAnimated: false
+            },
+            meta: {}
+          }])
+          
+          // Create image shape using the asset
+          editor.createShape({
+            id: imageId,
+            type: 'image',
+            x,
+            y,
+            props: {
+              assetId,
+              w: width,
+              h: height
+            }
+          })
+          
+          console.log(`✓ Image created successfully using asset`)
+          
+        } catch (error) {
+          console.warn(`❌ Failed to create image asset:`, error)
+          // Fallback: create a placeholder rectangle
+          editor.createShape({
+            id: createShapeId(`placeholder-${component.id || index}`),
+            type: 'geo',
+            x,
+            y,
+            props: {
+              geo: 'rectangle',
+              color: 'grey',
+              fill: 'pattern',
+              size: 'm',
+              w: width,
+              h: height
+            }
+          })
+          
+          // Add text shape for the placeholder label
+          editor.createShape({
+            id: createShapeId(`placeholder-text-${component.id || index}`),
+            type: 'text',
+            x: x + 10,
+            y: y + height/2 - 10,
+            props: {
+              richText: toRichText(`📷 ${component.metadata?.name || 'Image'}`),
+              color: 'black',
+              size: 's',
+              font: 'draw'
+            }
+          })
+        }
+      } else {
+        console.log(`❌ No valid image data URL found, creating placeholder`)
+        // Create a placeholder rectangle for images without data
+        editor.createShape({
+          id: createShapeId(`placeholder-${component.id || index}`),
+          type: 'geo',
+          x,
+          y,
+          props: {
+            geo: 'rectangle',
+            color: 'grey',
+            fill: 'pattern',
+            size: 'm',
+            w: width,
+            h: height
+          }
+        })
+        
+        // Add text shape for the placeholder label  
+        editor.createShape({
+          id: createShapeId(`placeholder-text-${component.id || index}`),
+          type: 'text',
+          x: x + 10,
+          y: y + height/2 - 10,
+          props: {
+            richText: toRichText(`📷 ${component.content || 'Image'}`),
+            color: 'black',
+            size: 's',
+            font: 'draw'
+          }
+        })
+      }
+    }
+
     // Fit the viewport to show all shapes
-    if (textComponents.length > 0) {
+    if (textComponents.length > 0 || shapeComponents.length > 0 || imageComponents.length > 0) {
       editor.zoomToFit({ animation: { duration: 500 } })
     }
   }
