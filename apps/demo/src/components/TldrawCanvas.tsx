@@ -63,8 +63,31 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
       
       // PowerPoint coordinates look good - try with less scaling or no scaling
       const scale = 1 // Try no scaling first since coordinates look reasonable (629, 413, etc.)
-      const x = (component.x || 0) * scale
-      const y = (component.y || 0) * scale
+      let x = (component.x || 0) * scale
+      let y = (component.y || 0) * scale
+      
+      // Adjust position for rotation - PowerPoint gives us top-left of unrotated shape
+      // We need to calculate where the top-left should be after rotation around center
+      if (component.rotation && component.rotation !== 0) {
+        console.log(`Text rotation: ${component.rotation}° at original position (${x}, ${y})`)
+        
+        const width = component.width || 0
+        const height = component.height || 0
+        const angleRad = (component.rotation * Math.PI) / 180
+        
+        // Original center point
+        const originalCenterX = x + width / 2
+        const originalCenterY = y + height / 2
+        
+        // The center stays the same, we need to find new top-left after rotation
+        // When rotating around center, the new top-left position is:
+        const newX = originalCenterX - (width / 2) * Math.cos(angleRad) + (height / 2) * Math.sin(angleRad)
+        const newY = originalCenterY - (width / 2) * Math.sin(angleRad) - (height / 2) * Math.cos(angleRad)
+        
+        x = newX
+        y = newY
+        console.log(`Text adjusted position for TLDraw: (${x}, ${y})`)
+      }
       
       // Convert PowerPoint font size (pt) to tldraw size categories
       // Your API shows: 12pt, 36pt, 80pt
@@ -127,12 +150,13 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
         richTextContent = toRichText(component.content || 'Sample text');
       }
 
-      // Create text shape using the correct tldraw v3 API with minimal valid properties
+      // Create text shape with rotation applied directly (this worked for text)
       editor.createShape({
         id: shapeId,
         type: 'text',
         x,
         y,
+        rotation: component.rotation ? (component.rotation * Math.PI) / 180 : 0, // Convert degrees to radians
         props: {
           richText: richTextContent,
           color: tldrawColor,
@@ -156,10 +180,15 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
       const shapeId = createShapeId(`shape-${component.id || index}`)
       
       const scale = 1
-      const x = (component.x || 0) * scale
-      const y = (component.y || 0) * scale
+      let x = (component.x || 0) * scale
+      let y = (component.y || 0) * scale
       const width = (component.width || 100) * scale
       const height = (component.height || 100) * scale
+      
+      // Debug: log original position for shapes
+      if (component.rotation && component.rotation !== 0) {
+        console.log(`Shape rotation: ${component.rotation}° at PowerPoint position (${x}, ${y}) size ${width}x${height}`)
+      }
       
       // Map PowerPoint colors to tldraw colors with better color matching
       let fillColor: 'black' | 'grey' | 'light-violet' | 'violet' | 'blue' | 'light-blue' | 'yellow' | 'orange' | 'green' | 'light-green' | 'light-red' | 'red' = 'grey'
@@ -326,11 +355,12 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
         strokeColor: strokeColor
       });
       
+      // First create the shape at origin
       editor.createShape({
         id: shapeId,
         type: 'geo',
-        x,
-        y,
+        x: 0,
+        y: 0,
         props: {
           geo: geoType,
           color: finalColor,
@@ -340,6 +370,25 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
           h: height
         }
       })
+      
+      // Then apply rotation if needed
+      if (component.rotation && component.rotation !== 0) {
+        editor.updateShape({
+          id: shapeId,
+          type: 'geo',
+          rotation: (component.rotation * Math.PI) / 180 // Convert degrees to radians
+        })
+        console.log(`Applied rotation ${component.rotation}° to shape`)
+      }
+      
+      // Finally position the rotated shape at PowerPoint coordinates
+      editor.updateShape({
+        id: shapeId,
+        type: 'geo',
+        x,
+        y
+      })
+      console.log(`Positioned rotated shape at (${x}, ${y})`)
     })
 
     // Draw image components
@@ -409,6 +458,7 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
             type: 'image',
             x,
             y,
+            rotation: component.rotation ? (component.rotation * Math.PI) / 180 : 0, // Convert degrees to radians
             props: {
               assetId,
               w: width,
