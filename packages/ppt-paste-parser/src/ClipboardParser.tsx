@@ -9,13 +9,14 @@ export interface PowerPointComponent {
   id: string;
   type: 'text' | 'image' | 'shape' | 'table' | 'unknown';
   content: string;
-  bounds: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation?: number;
+  style?: any;
   metadata?: any;
+  slideIndex?: number;
 }
 
 export interface ParsedContent {
@@ -79,7 +80,7 @@ const fetchParsedPowerPointData = async (clipboardBytesUrl: string): Promise<Pow
   try {
     console.log('🔗 Fetching PowerPoint data via proxy:', clipboardBytesUrl.substring(0, 100) + '...');
     
-    const proxyUrl = `http://localhost:3001/api/proxy-powerpoint-clipboard?url=${encodeURIComponent(clipboardBytesUrl)}`;
+    const proxyUrl = `/api/proxy-powerpoint-clipboard?url=${encodeURIComponent(clipboardBytesUrl)}`;
     
     const response = await fetch(proxyUrl, {
       method: 'GET',

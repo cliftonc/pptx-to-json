@@ -1,26 +1,7 @@
 import { useState } from 'react'
-import { ClipboardParser } from 'ppt-paste-parser'
+import { ClipboardParser, type ParsedContent } from 'ppt-paste-parser'
 import TldrawCanvas from './components/TldrawCanvas'
 import RawDataPage from './RawDataPage'
-
-interface ParsedContent {
-  formats: Array<{type: string, data: string}>;
-  isPowerPoint: boolean;
-  components: Array<{
-    id: string;
-    type: string;
-    content: string;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    rotation?: number;
-    style?: any;
-    metadata?: any;
-    // Legacy support for old format
-    bounds?: {x: number, y: number, width: number, height: number};
-  }>;
-}
 
 import './App.css'
 
@@ -172,7 +153,7 @@ function App() {
                   <div><strong>Total:</strong> {structuredData.totalComponents}</div>
                   {Object.entries(structuredData.componentsByType).map(([type, count]) => (
                     <div key={type}>
-                      <strong>{getTypeIcon(type)} {type}:</strong> {count}
+                      <strong>{getTypeIcon(type) as string} {type}:</strong> {count as number}
                     </div>
                   ))}
                 </div>
@@ -191,7 +172,7 @@ function App() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                         <div>
                           <strong style={{ fontSize: '16px' }}>
-                            {getTypeIcon(component.type)} Component #{index + 1}
+                            {getTypeIcon(component.type) as string} Component #{index + 1}
                           </strong>
                           <span style={{ 
                             marginLeft: '10px', 
@@ -220,10 +201,10 @@ function App() {
                         color: '#555'
                       }}>
                         <div>
-                          <strong>Position:</strong> ({Math.round(component.x || component.bounds?.x || 0)}, {Math.round(component.y || component.bounds?.y || 0)})
+                          <strong>Position:</strong> ({Math.round(component.x || 0)}, {Math.round(component.y || 0)})
                         </div>
                         <div>
-                          <strong>Size:</strong> {Math.round(component.width || component.bounds?.width || 0)} × {Math.round(component.height || component.bounds?.height || 0)}
+                          <strong>Size:</strong> {Math.round(component.width || 0)} × {Math.round(component.height || 0)}
                         </div>
                         {component.rotation && (
                           <div>

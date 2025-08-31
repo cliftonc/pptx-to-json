@@ -1,59 +1,27 @@
 import { useEffect, useRef } from 'react'
 import { Tldraw, Editor, createShapeId, toRichText, AssetRecordType } from '@tldraw/tldraw'
+import type { PowerPointComponent } from 'ppt-paste-parser'
 import '@tldraw/tldraw/tldraw.css'
 
-interface ParsedComponent {
-  id: string
-  type: string
-  content: string
-  richText?: any // Tiptap JSON structure
-  x: number
-  y: number
-  width: number
-  height: number
-  rotation?: number
-  style?: {
-    fontSize?: number
-    fontFamily?: string
-    color?: string
-    backgroundColor?: string
-    textAlign?: string
-    borderColor?: string
-    shapeType?: string
-    borderWidth?: number
-    opacity?: number
-  }
-  metadata?: {
-    imageUrl?: string
-    imageType?: string
-    imageSize?: number
-    name?: string
-    description?: string
-    isOrphaned?: boolean
-    hasBullets?: boolean
-    [key: string]: any
-  }
-}
-
 interface TldrawCanvasProps {
-  components: ParsedComponent[]
+  components: PowerPointComponent[]
 }
 
 export default function TldrawCanvas({ components }: TldrawCanvasProps) {
-  const editorRef = useRef<Editor>()
+  const editorRef = useRef<Editor | null>(null)
 
   const handleMount = (editor: Editor) => {
     editorRef.current = editor
-    drawComponents(components)
+    drawComponents(components, editor)
   }
 
-  const drawComponents = async (components: ParsedComponent[]) => {
-    const editor = editorRef.current
-    if (!editor || !components.length) return
+  const drawComponents = async (components: PowerPointComponent[], editor?: Editor) => {
+    const editorInstance = editor || editorRef.current
+    if (!editorInstance || !components.length) return
 
     // Clear existing shapes
-    const allShapes = editor.getCurrentPageShapes()
-    editor.deleteShapes(allShapes.map(shape => shape.id))
+    const allShapes = editorInstance.getCurrentPageShapes()
+    editorInstance.deleteShapes(allShapes.map(shape => shape.id))
 
     // Draw text components
     const textComponents = components.filter(comp => comp.type === 'text')
@@ -142,16 +110,16 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
       
       // Use richText structure if available (for bullets), otherwise convert plain text
       let richTextContent;
-      if (component.richText) {
+      if ((component.metadata as any)?.richText) {
         // Use the tiptap JSON structure directly as an object, not a string
-        richTextContent = component.richText;
+        richTextContent = (component.metadata as any)?.richText;
       } else {
         // Convert plain text to rich text
         richTextContent = toRichText(component.content || 'Sample text');
       }
 
       // Create text shape with rotation applied directly (this worked for text)
-      editor.createShape({
+      editorInstance.createShape({
         id: shapeId,
         type: 'text',
         x,
@@ -262,7 +230,7 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
       }
       
       // Determine the best tldraw shape type based on PowerPoint shape type
-      let tldrawShapeType: 'geo' = 'geo'
+      // let tldrawShapeType: 'geo' = 'geo'
       let geoType: 'rectangle' | 'ellipse' | 'triangle' | 'diamond' | 'pentagon' | 'hexagon' | 'octagon' | 'star' | 'rhombus' | 'oval' | 'trapezoid' | 'arrow-right' | 'arrow-left' | 'arrow-up' | 'arrow-down' | 'x-box' | 'check-box' | 'cloud' | 'heart' = 'rectangle'
       
       // Map PowerPoint shape types to tldraw geo types
@@ -356,7 +324,7 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
       });
       
       // First create the shape at origin
-      editor.createShape({
+      editorInstance.createShape({
         id: shapeId,
         type: 'geo',
         x: 0,
@@ -373,7 +341,7 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
       
       // Then apply rotation if needed
       if (component.rotation && component.rotation !== 0) {
-        editor.updateShape({
+        editorInstance.updateShape({
           id: shapeId,
           type: 'geo',
           rotation: (component.rotation * Math.PI) / 180 // Convert degrees to radians
@@ -382,7 +350,7 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
       }
       
       // Finally position the rotated shape at PowerPoint coordinates
-      editor.updateShape({
+      editorInstance.updateShape({
         id: shapeId,
         type: 'geo',
         x,
@@ -437,7 +405,7 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
           const assetId = AssetRecordType.createId()
           
           // Create the asset using the correct API
-          editor.createAssets([{
+          editorInstance.createAssets([{
             id: assetId,
             type: 'image',
             typeName: 'asset',
@@ -453,7 +421,7 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
           }])
           
           // Create image shape using the asset
-          editor.createShape({
+          editorInstance.createShape({
             id: imageId,
             type: 'image',
             x,
@@ -471,7 +439,7 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
         } catch (error) {
           console.warn(`❌ Failed to create image asset:`, error)
           // Fallback: create a placeholder rectangle
-          editor.createShape({
+          editorInstance.createShape({
             id: createShapeId(`placeholder-${component.id || index}`),
             type: 'geo',
             x,
@@ -487,7 +455,7 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
           })
           
           // Add text shape for the placeholder label
-          editor.createShape({
+          editorInstance.createShape({
             id: createShapeId(`placeholder-text-${component.id || index}`),
             type: 'text',
             x: x + 10,
@@ -503,7 +471,7 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
       } else {
         console.log(`❌ No valid image data URL found, creating placeholder`)
         // Create a placeholder rectangle for images without data
-        editor.createShape({
+        editorInstance.createShape({
           id: createShapeId(`placeholder-${component.id || index}`),
           type: 'geo',
           x,
@@ -519,7 +487,7 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
         })
         
         // Add text shape for the placeholder label  
-        editor.createShape({
+        editorInstance.createShape({
           id: createShapeId(`placeholder-text-${component.id || index}`),
           type: 'text',
           x: x + 10,
@@ -536,14 +504,14 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
 
     // Fit the viewport to show all shapes
     if (textComponents.length > 0 || shapeComponents.length > 0 || imageComponents.length > 0) {
-      editor.zoomToFit({ animation: { duration: 500 } })
+      editorInstance.zoomToFit({ animation: { duration: 500 } })
     }
   }
 
   // Redraw when components change
   useEffect(() => {
     if (editorRef.current) {
-      drawComponents(components)
+      drawComponents(components, editorRef.current)
     }
   }, [components])
 
