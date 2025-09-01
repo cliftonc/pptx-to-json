@@ -27,19 +27,11 @@ The system extracts:
 
 ## Quick Start
 
-1. **Start the proxy server:**
-   ```bash
-   cd apps/proxy-server
-   npm run dev  # Runs on http://localhost:3001
+1. **Start the dev server:**
+   ```bash   
+   npm run dev  # Runs FE on http://localhost:5173
    ```
-
-2. **Start the demo app:**
-   ```bash
-   cd apps/demo
-   pnpm dev  # Runs on http://localhost:5173
-   ```
-
-3. **Test the system:**
+2. **Test the system:**
    - Copy content from PowerPoint (shapes, text, images)
    - Paste in the demo app
    - View the parsed component data
