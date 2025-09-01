@@ -3,6 +3,11 @@ main = "worker.js"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 
+# R2 bucket for PPTX file storage
+[[r2_buckets]]
+binding = "PPTX_STORAGE"
+bucket_name = "ppt-paste-files"
+
 # Static assets binding
 [assets]
 directory = "./public"

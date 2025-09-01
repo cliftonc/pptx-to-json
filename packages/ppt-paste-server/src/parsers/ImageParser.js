@@ -5,6 +5,130 @@
 import { BaseParser, isBufferLike, bufferFrom } from './BaseParser.js';
 
 export class ImageParser extends BaseParser {
+
+  /**
+   * Parse image component from normalized data (works for both PPTX and clipboard)
+   * @param {Object} imageComponent - Normalized image component
+   * @param {Object} relationships - Relationship data
+   * @param {Object} mediaFiles - Media files
+   * @param {number} componentIndex - Component index
+   * @param {number} slideIndex - Slide index
+   * @returns {Promise<Object>} - Parsed image component
+   */
+  static async parseFromNormalized(imageComponent, relationships, mediaFiles, componentIndex, slideIndex) {
+    const { data, spPr, nvPicPr, blipFill, namespace } = imageComponent;
+    
+    if (!spPr || !blipFill) {
+      throw new Error('No spPr or blipFill found in normalized image component');
+    }
+
+    // Extract positioning from spPr (namespace-agnostic)
+    const xfrm = ImageParser.safeGet(spPr, 'a:xfrm');
+    const transform = ImageParser.parseTransform(xfrm);
+
+    // Extract component info from nvPicPr
+    const cNvPr = ImageParser.safeGet(nvPicPr, 'a:cNvPr') || ImageParser.safeGet(nvPicPr, 'p:cNvPr');
+    const componentName = ImageParser.safeGet(cNvPr, '$name') || `image-${componentIndex}`;
+    const description = ImageParser.safeGet(cNvPr, '$descr') || '';
+
+    // Extract image reference from blipFill
+    const blip = ImageParser.safeGet(blipFill, 'a:blip');
+    const relationshipId = ImageParser.safeGet(blip, '$r:embed') || ImageParser.safeGet(blip, '$xmlns:r');
+
+    // Find the actual image file using relationships
+    let imageDataUrl = null;
+    let imageFormat = 'unknown';
+    let imageSize = 0;
+
+    if (relationshipId && relationships && mediaFiles) {
+      // This would require relationship resolution - simplified for now
+      const mediaFile = ImageParser.findMediaFile(relationshipId, relationships, mediaFiles);
+      if (mediaFile) {
+        imageDataUrl = ImageParser.createDataUrl(mediaFile.data, mediaFile.type);
+        imageFormat = mediaFile.type;
+        imageSize = mediaFile.size;
+      }
+    }
+
+    // Parse image effects using existing method
+    const effects = ImageParser.parseImageEffects(blipFill);
+
+    return {
+      id: componentName,
+      type: 'image',
+      content: description || componentName,
+      x: transform.x,
+      y: transform.y,
+      width: transform.width,
+      height: transform.height,
+      rotation: transform.rotation || 0,
+      slideIndex,
+      style: {
+        opacity: 1,
+        effects: effects.length > 0 ? effects : null
+      },
+      metadata: {
+        namespace,
+        name: componentName,
+        description,
+        relationshipId,
+        imageUrl: imageDataUrl, // This is where the old implementation put it
+        imageType: imageFormat,
+        imageSize: imageSize,
+        originalFormat: 'normalized',
+        hasEffects: effects.length > 0
+      }
+    };
+  }
+
+  /**
+   * Find media file from relationships and mediaFiles
+   */
+  static findMediaFile(relationshipId, relationships, mediaFiles) {
+    // Simplified - would need proper relationship resolution
+    for (const [path, data] of Object.entries(mediaFiles)) {
+      if (path.includes('image')) {
+        return {
+          data,
+          type: this.getImageTypeFromPath(path),
+          size: data.length || 0
+        };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Get image type from file path
+   */
+  static getImageTypeFromPath(path) {
+    const ext = path.toLowerCase().split('.').pop();
+    switch (ext) {
+      case 'png': return 'image/png';
+      case 'jpg':
+      case 'jpeg': return 'image/jpeg';
+      case 'gif': return 'image/gif';
+      case 'svg': return 'image/svg+xml';
+      default: return 'image/unknown';
+    }
+  }
+
+  /**
+   * Create data URL from binary data
+   */
+  static createDataUrl(data, type) {
+    if (!data) return null;
+    
+    try {
+      // Convert buffer to base64
+      const base64 = Buffer.from(data).toString('base64');
+      return `data:${type};base64,${base64}`;
+    } catch (error) {
+      console.warn('Failed to create data URL:', error);
+      return null;
+    }
+  }
+
   /**
    * Parse an image component from PowerPoint shape data
    * @param {Object} shape - Shape data from PowerPoint JSON

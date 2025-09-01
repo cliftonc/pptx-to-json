@@ -6,6 +6,131 @@ const app = new Hono();
 // Initialize clipboard processor with properly bound fetch
 const clipboardProcessor = new PowerPointClipboardProcessor(fetch.bind(globalThis));
 
+// Generate a unique file ID using crypto
+const generateFileId = () => {
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+};
+
+// Upload PPTX file endpoint
+app.post('/api/upload-pptx', async (c) => {
+  try {
+    const formData = await c.req.formData();
+    const file = formData.get('file');
+    
+    if (!file) {
+      return c.json({ error: 'No file provided' }, 400);
+    }
+    
+    // Validate file type
+    if (!file.name.toLowerCase().endsWith('.pptx')) {
+      return c.json({ error: 'Only PPTX files are allowed' }, 400);
+    }
+    
+    // Generate unique file ID
+    const fileId = generateFileId();
+    const fileName = `${fileId}.pptx`;
+    
+    // Get file buffer
+    const buffer = await file.arrayBuffer();
+    
+    // Store in R2
+    await c.env.PPTX_STORAGE.put(fileName, buffer, {
+      httpMetadata: {
+        contentType: file.type || 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      },
+      customMetadata: {
+        originalName: file.name,
+        uploadedAt: new Date().toISOString(),
+        size: buffer.byteLength.toString()
+      }
+    });
+    
+    return c.json({
+      success: true,
+      fileId,
+      fileName: file.name,
+      size: buffer.byteLength,
+      processUrl: `/api/process-pptx/${fileId}`
+    });
+    
+  } catch (error) {
+    console.error('❌ Upload error:', error);
+    return c.json({ 
+      error: 'Upload failed', 
+      message: error.message 
+    }, 500);
+  }
+});
+
+// Process uploaded PPTX file endpoint
+app.get('/api/process-pptx/:fileId', async (c) => {
+  try {
+    const fileId = c.req.param('fileId');
+    const debug = c.req.query('debug') === 'true';
+    
+    if (!fileId) {
+      return c.json({ error: 'File ID is required' }, 400);
+    }
+    
+    const fileName = `${fileId}.pptx`;
+    
+    // Retrieve file from R2
+    const object = await c.env.PPTX_STORAGE.get(fileName);
+    
+    if (!object) {
+      return c.json({ error: 'File not found' }, 404);
+    }
+    
+    // Get file buffer
+    const buffer = await object.arrayBuffer();
+    const uint8Array = new Uint8Array(buffer);
+    
+    if (debug) {
+      console.log('📦 Processing uploaded PPTX file:', fileName);
+      console.log('📦 File size:', buffer.byteLength, 'bytes');
+    }
+    
+    // Use existing clipboard processor to parse the PPTX buffer
+    const components = await clipboardProcessor.parseClipboardBuffer(uint8Array, { debug });
+    
+    // Calculate component type statistics
+    const componentTypes = components.reduce((acc, comp) => {
+      acc[comp.type] = (acc[comp.type] || 0) + 1;
+      return acc;
+    }, {});
+    
+    // Get file metadata
+    const metadata = {
+      originalName: object.customMetadata?.originalName || 'Unknown',
+      uploadedAt: object.customMetadata?.uploadedAt,
+      size: buffer.byteLength
+    };
+    
+    return c.json({
+      type: 'powerpoint',
+      source: 'uploaded_file',
+      fileId,
+      metadata,
+      components,
+      isPowerPoint: components.length > 0,
+      debug: {
+        componentCount: components.length,
+        componentTypes
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Processing error:', error);
+    return c.json({ 
+      error: 'Processing failed', 
+      message: error.message,
+      stack: error.stack
+    }, 500);
+  }
+});
+
 // Proxy endpoint for Microsoft PowerPoint clipboard API
 app.get('/api/proxy-powerpoint-clipboard', async (c) => {
   try {
@@ -69,7 +194,9 @@ app.get('/*', async (c) => {
 });
 
 console.log('🚀 PPT Paste Worker initialized');
-console.log('📡 API endpoint: /api/proxy-powerpoint-clipboard?url=<MICROSOFT_URL>');
+console.log('📡 Clipboard API: /api/proxy-powerpoint-clipboard?url=<MICROSOFT_URL>');
+console.log('📤 Upload API: /api/upload-pptx (POST with file)');
+console.log('🔄 Process API: /api/process-pptx/:fileId');
 console.log('🌐 Web app available at root /');
 
 export default app;

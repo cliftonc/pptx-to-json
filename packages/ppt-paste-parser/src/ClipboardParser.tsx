@@ -212,6 +212,7 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
   debugMode = false
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
 
   const handlePaste = async (event: React.ClipboardEvent) => {
     event.preventDefault();
@@ -335,32 +336,132 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
     }
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.name.toLowerCase().endsWith('.pptx')) {
+      alert('Please select a PPTX file');
+      return;
+    }
+
+    setIsProcessing(true);
+    setUploadProgress('Uploading file...');
+
+    try {
+      // Upload the file
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const uploadResponse = await fetch('/api/upload-pptx', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        const error = await uploadResponse.json();
+        throw new Error(error.message || 'Upload failed');
+      }
+
+      const uploadResult = await uploadResponse.json();
+      setUploadProgress('Processing file...');
+
+      // Process the uploaded file
+      const processResponse = await fetch(uploadResult.processUrl + (debugMode ? '?debug=true' : ''));
+      
+      if (!processResponse.ok) {
+        const error = await processResponse.json();
+        throw new Error(error.message || 'Processing failed');
+      }
+
+      const processResult = await processResponse.json();
+      
+      // Convert to the same format as clipboard paste
+      if (onParse) {
+        onParse({
+          formats: [{ type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', data: file.name }],
+          isPowerPoint: processResult.isPowerPoint,
+          components: processResult.components || []
+        });
+      }
+
+      setUploadProgress(null);
+
+    } catch (error) {
+      console.error('❌ Error uploading/processing file:', error);
+      alert(`Error: ${error.message}`);
+      setUploadProgress(null);
+      
+      if (onParse) {
+        onParse({
+          formats: [],
+          isPowerPoint: false,
+          components: []
+        });
+      }
+    } finally {
+      setIsProcessing(false);
+      // Reset the input
+      event.target.value = '';
+    }
+  };
+
   return (
-    <div
-      className={`clipboard-parser ${className}`}
-      onPaste={handlePaste}
-      contentEditable
-      suppressContentEditableWarning
-      style={{
-        minHeight: '100px',
-        padding: '10px',
-        border: '2px dashed #ccc',
-        borderRadius: '4px',
-        outline: 'none',
-        backgroundColor: isProcessing ? '#f0f8ff' : 'white',
-        cursor: isProcessing ? 'wait' : 'text',
-        opacity: isProcessing ? 0.7 : 1,
-      }}
-    >
-      {isProcessing ? (
-        <span style={{ color: '#666', fontStyle: 'italic' }}>
-          Processing PowerPoint data...
-        </span>
-      ) : (
-        <span style={{ color: '#999' }}>
-          {placeholder}
-        </span>
-      )}
+    <div className={`clipboard-parser ${className}`}>
+      {/* File Upload Section */}
+      <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <input
+          type="file"
+          accept=".pptx"
+          onChange={handleFileUpload}
+          disabled={isProcessing}
+          style={{ display: 'none' }}
+          id="pptx-file-input"
+        />
+        <label
+          htmlFor="pptx-file-input"
+          style={{
+            padding: '8px 16px',
+            backgroundColor: isProcessing ? '#ccc' : '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: isProcessing ? 'not-allowed' : 'pointer',
+            fontSize: '14px',
+          }}
+        >
+          📤 Upload PPTX File
+        </label>
+        <span style={{ color: '#666', fontSize: '14px' }}>or</span>
+      </div>
+
+      {/* Paste Area */}
+      <div
+        onPaste={handlePaste}
+        contentEditable
+        suppressContentEditableWarning
+        style={{
+          minHeight: '100px',
+          padding: '10px',
+          border: '2px dashed #ccc',
+          borderRadius: '4px',
+          outline: 'none',
+          backgroundColor: isProcessing ? '#f0f8ff' : 'white',
+          cursor: isProcessing ? 'wait' : 'text',
+          opacity: isProcessing ? 0.7 : 1,
+        }}
+      >
+        {isProcessing ? (
+          <span style={{ color: '#666', fontStyle: 'italic' }}>
+            {uploadProgress || 'Processing PowerPoint data...'}
+          </span>
+        ) : (
+          <span style={{ color: '#999' }}>
+            {placeholder}
+          </span>
+        )}
+      </div>
     </div>
   );
 };

@@ -159,7 +159,7 @@ function App() {
         <header style={{ textAlign: 'center', marginBottom: '40px' }}>
           <h1 style={{ fontSize: '24px', margin: '0 0 10px 0' }}>PowerPoint Parser</h1>
           <p style={{ color: '#666', fontSize: '16px', margin: '0 0 5px 0' }}>
-            Paste PowerPoint content from web based Powerpoint (sorry <b>not desktop</b>)
+            Upload PPTX files or paste PowerPoint content from web based Powerpoint
           </p>
           <p style={{ color: '#999', fontSize: '12px', margin: '0' }}>
             Components will appear on canvas →
@@ -190,7 +190,7 @@ function App() {
           backgroundColor: '#f8f9fa',
           marginBottom: '20px'
         }}>
-          <h3>📋 Paste PowerPoint Content:</h3>
+          <h3>📋 Upload or Paste PowerPoint Content:</h3>
           <ClipboardParser 
             onParse={handleStructuredParsed}
             placeholder="Paste PowerPoint shapes, text, or images here..."

@@ -5,6 +5,71 @@
 import { BaseParser } from './BaseParser.js';
 
 export class ShapeParser extends BaseParser {
+
+  /**
+   * Parse shape component from normalized data (works for both PPTX and clipboard)
+   * @param {Object} shapeComponent - Normalized shape component
+   * @param {number} componentIndex - Component index
+   * @param {number} slideIndex - Slide index
+   * @returns {Promise<Object>} - Parsed shape component
+   */
+  static async parseFromNormalized(shapeComponent, componentIndex, slideIndex) {
+    const { data, spPr, nvSpPr, namespace } = shapeComponent;
+    
+    if (!spPr) {
+      throw new Error('No spPr found in normalized shape component');
+    }
+
+    // Extract positioning from spPr (namespace-agnostic)
+    const xfrm = ShapeParser.safeGet(spPr, 'a:xfrm');
+    const transform = ShapeParser.parseTransform(xfrm);
+
+    // Skip if shape has no dimensions
+    if (transform.width === 0 && transform.height === 0) return null;
+
+    // Parse shape geometry using existing method
+    const geometry = ShapeParser.parseGeometry(spPr);
+    const shapeType = geometry ? geometry.type : 'rectangle';
+
+    // Extract component info from nvSpPr
+    const cNvPr = ShapeParser.safeGet(nvSpPr, 'a:cNvPr') || ShapeParser.safeGet(nvSpPr, 'p:cNvPr');
+    const componentName = ShapeParser.safeGet(cNvPr, '$name') || `shape-${componentIndex}`;
+
+    // Parse styling from spPr (no style available in normalized data yet)
+    const fill = ShapeParser.parseFill(spPr, null);
+    const border = ShapeParser.parseBorder(spPr, null);
+    const effects = ShapeParser.parseEffects(spPr);
+
+    return {
+      id: componentName,
+      type: 'shape',
+      content: `${shapeType} shape`,
+      x: transform.x,
+      y: transform.y,
+      width: transform.width,
+      height: transform.height,
+      rotation: transform.rotation || 0,
+      slideIndex,
+      style: {
+        backgroundColor: fill.color,
+        borderColor: border.color,
+        borderWidth: border.width,
+        borderStyle: border.style,
+        opacity: fill.opacity,
+        ...effects
+      },
+      metadata: {
+        namespace,
+        geometry,
+        originalFormat: 'normalized',
+        shapeType: geometry.type,
+        hasEffects: effects.length > 0,
+        hasFill: !!fill.color,
+        hasBorder: border.type !== 'none'
+      }
+    };
+  }
+
   /**
    * Parse a shape component from PowerPoint shape data
    * @param {Object} shape - Shape data from PowerPoint JSON
