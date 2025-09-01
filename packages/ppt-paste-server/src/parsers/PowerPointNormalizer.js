@@ -157,6 +157,7 @@ export class PowerPointNormalizer {
         data: sp,
         spPr: sp['p:spPr'],
         nvSpPr: sp['p:nvSpPr'],
+        style: sp['p:style'], // Add style data for fill/border parsing
         textBody: sp['p:txBody'] // Direct access
       });
     }
@@ -188,6 +189,7 @@ export class PowerPointNormalizer {
           data: sp,
           spPr: sp['a:spPr'],
           nvSpPr: sp['a:nvSpPr'],
+          style: sp['a:style'], // Add style data for fill/border parsing
           textBody: sp['a:txSp'] ? sp['a:txSp']['a:txBody'] : null // Extra layer!
         });
       }
@@ -267,6 +269,7 @@ export class PowerPointNormalizer {
           data: sp,
           spPr: sp['p:spPr'],
           nvSpPr: sp['p:nvSpPr'],
+          style: sp['p:style'], // Add style data for consistency
           textBody: sp['p:txBody'] // Direct access
         });
       }
@@ -297,6 +300,7 @@ export class PowerPointNormalizer {
             data: sp,
             spPr: sp['a:spPr'],
             nvSpPr: sp['a:nvSpPr'],
+            style: sp['a:style'], // Add style data for consistency
             textBody: sp['a:txSp']['a:txBody'] // Navigate extra layer
           });
         }

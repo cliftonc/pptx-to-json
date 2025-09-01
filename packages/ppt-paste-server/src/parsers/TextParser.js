@@ -74,6 +74,7 @@ export class TextParser extends BaseParser {
         fontFamily: dominantFont.family,
         fontWeight: dominantFont.weight,
         fontStyle: dominantFont.style,
+        textDecoration: dominantFont.decoration,
         color: dominantFont.color,
         backgroundColor: 'transparent', // Text components don't have background by default
         textAlign: 'left',

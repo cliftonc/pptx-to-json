@@ -14,7 +14,7 @@ export class ShapeParser extends BaseParser {
    * @returns {Promise<Object>} - Parsed shape component
    */
   static async parseFromNormalized(shapeComponent, componentIndex, slideIndex) {
-    const { data, spPr, nvSpPr, namespace } = shapeComponent;
+    const { data, spPr, nvSpPr, namespace, style } = shapeComponent;
     
     if (!spPr) {
       throw new Error('No spPr found in normalized shape component');
@@ -35,9 +35,9 @@ export class ShapeParser extends BaseParser {
     const cNvPr = ShapeParser.safeGet(nvSpPr, 'a:cNvPr') || ShapeParser.safeGet(nvSpPr, 'p:cNvPr');
     const componentName = ShapeParser.safeGet(cNvPr, '$name') || `shape-${componentIndex}`;
 
-    // Parse styling from spPr (no style available in normalized data yet)
-    const fill = ShapeParser.parseFill(spPr, null);
-    const border = ShapeParser.parseBorder(spPr, null);
+    // Parse styling from spPr and style data
+    const fill = ShapeParser.parseFill(spPr, style);
+    const border = ShapeParser.parseBorder(spPr, style);
     const effects = ShapeParser.parseEffects(spPr);
 
     return {
