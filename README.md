@@ -1,6 +1,6 @@
 # PowerPoint Paste Parser
 
-A TypeScript library and proxy server that extracts structured component data from PowerPoint clipboard operations. When you copy content from PowerPoint and paste it elsewhere, this system intercepts the paste operation, calls Microsoft's internal APIs, and parses the Office Open XML format to provide detailed component analysis.
+A library and proxy server that extracts structured component data from PowerPoint clipboard operations. When you copy content from PowerPoint and paste it elsewhere, this system intercepts the paste operation, calls Microsoft's internal APIs, and parses the Office Open XML format to provide detailed component analysis.
 
 ## What It Does
 
