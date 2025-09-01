@@ -4,6 +4,14 @@ A library and proxy server that extracts structured component data from PowerPoi
 
 Working version:  https://ppt-paste.clifton-cunningham.workers.dev/
 
+## Powerpoint to TLDraw
+
+<p float="left">
+  <img width="45%" alt="Screenshot 2025-09-01 at 11 31 25" src="https://github.com/user-attachments/assets/49673138-1e54-4839-9791-40f468769aed" />
+   <span>&nbsp;</span>
+  <img width="45%" alt="Screenshot 2025-09-01 at 11 31 42" src="https://github.com/user-attachments/assets/84100548-fd37-42a5-b63a-f47cb8041e2f" />  
+</p>
+
 ## What It Does
 
 - **Detects PowerPoint clipboard data** from paste operations
