@@ -2,6 +2,8 @@
 
 A library and proxy server that extracts structured component data from PowerPoint clipboard operations. When you copy content from PowerPoint and paste it elsewhere, this system intercepts the paste operation, calls Microsoft's internal APIs, and parses the Office Open XML format to provide detailed component analysis.
 
+Working version:  https://ppt-paste.clifton-cunningham.workers.dev/
+
 ## What It Does
 
 - **Detects PowerPoint clipboard data** from paste operations
