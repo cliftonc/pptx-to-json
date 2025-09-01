@@ -14,4 +14,3 @@ export { PowerPointParser } from './parsers/PowerPointParser.js';
 export { TextParser } from './parsers/TextParser.js';
 export { ShapeParser } from './parsers/ShapeParser.js';
 export { ImageParser } from './parsers/ImageParser.js';
-export { TableParser } from './parsers/TableParser.js';

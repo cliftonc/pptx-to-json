@@ -70,72 +70,6 @@ export class ShapeParser extends BaseParser {
     };
   }
 
-  /**
-   * Parse a shape component from PowerPoint shape data
-   * @param {Object} shape - Shape data from PowerPoint JSON
-   * @param {number} index - Component index for ID generation
-   * @returns {Object|null} parsed shape component
-   */
-  static parse(shape, index = 0) {    
-    try {
-      // Get shape properties
-      const spPr = this.safeGet(shape, 'p:spPr');
-      if (!spPr) return null;
-
-      // Get style properties (may contain additional styling)
-      const style = this.safeGet(shape, 'p:style');
-
-      // Get transform information
-      const xfrm = this.safeGet(spPr, 'a:xfrm');
-      const transform = this.parseTransform(xfrm);
-
-      // Skip if shape has no dimensions
-      if (transform.width === 0 && transform.height === 0) return null;
-
-      // Parse shape geometry
-      const geometry = this.parseGeometry(spPr);
-      
-      // Parse fill properties (try style first, then spPr)
-      const fill = this.parseFill(spPr, style);
-      
-      // Parse line/border properties (try style first, then spPr)
-      const border = this.parseBorder(spPr, style);
-
-      // Parse effects (shadows, glows, etc.)
-      const effects = this.parseEffects(spPr);
-
-      return {
-        id: this.generateId('shape', index),
-        type: 'shape',
-        x: transform.x,
-        y: transform.y,
-        width: transform.width,
-        height: transform.height,
-        rotation: transform.rotation,
-        content: `${geometry.type} shape`,
-        style: {
-          backgroundColor: fill.color,
-          borderColor: border.color,
-          borderWidth: border.width,
-          borderStyle: border.style,
-          opacity: fill.opacity,
-          ...effects
-        },
-        metadata: {
-          shapeType: geometry.type,
-          preset: geometry.preset,
-          hasCustomGeometry: geometry.isCustom,
-          fillType: fill.type,
-          borderType: border.type,
-          effects: effects.effects
-        }
-      };
-
-    } catch (error) {
-      console.warn('Error parsing shape component:', error);
-      return null;
-    }
-  }
 
   /**
    * Parse shape geometry information
@@ -613,23 +547,4 @@ export class ShapeParser extends BaseParser {
     return schemeColors[scheme] || null;
   }
 
-  /**
-   * Check if a shape should be parsed as a shape (not text)
-   * @param {Object} shape - Shape data
-   * @returns {boolean} true if shape should be parsed as shape
-   */
-  static isShape(shape) {
-    // Has shape properties but no meaningful text content
-    const spPr = this.safeGet(shape, 'p:spPr');
-    const textBody = this.safeGet(shape, 'p:txBody');
-    
-    if (!spPr) return false;
-    
-    // If no text body, it's definitely a shape
-    if (!textBody) return true;
-    
-    // If has text content, it should be parsed as text, not shape
-    const textContent = this.extractTextContent(textBody);
-    return !textContent.trim();
-  }
 }
