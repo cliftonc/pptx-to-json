@@ -1,0 +1,44 @@
+{
+  "metadata": {
+    "name": "bullets",
+    "description": "PowerPoint content: bullets",
+    "downloadedAt": "2025-08-31T10:45:45.544Z",
+    "size": 4035,
+    "contentType": "application/octet-stream",
+    "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=96521f45-872d-4153-8de8-2612b01d1d17&amp;DC=GEU7&amp;pkey=cdd901f0-1e08-4709-af07-b40c0ad89cc2&amp;wdwaccluster=GEU7&amp;DataType=shape"
+  },
+  "components": [
+    {
+      "id": "text-1756637145543-0",
+      "type": "text",
+      "x": 75,
+      "y": 410,
+      "width": 288,
+      "height": 97,
+      "rotation": 0,
+      "content": "• TEXT\n• Bullets\n• Bullets",
+      "style": {
+        "fontSize": 12,
+        "fontFamily": "Arial",
+        "fontWeight": "normal",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#000000",
+        "backgroundColor": "transparent",
+        "textAlign": "left",
+        "opacity": 1
+      },
+      "metadata": {
+        "isTitle": false,
+        "paragraphCount": 3,
+        "hasMultipleRuns": false,
+        "shapeType": "rect"
+      },
+      "slideIndex": 0
+    }
+  ],
+  "componentCount": 1,
+  "componentTypes": {
+    "text": 1
+  }
+}

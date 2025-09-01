@@ -1,0 +1,20 @@
+{
+  "name": "worker",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --port=3001",
+    "start": "wrangler dev --port=3001",
+    "deploy": "npm run build && wrangler deploy",
+    "build": "npm run build:frontend && npm run copy:frontend",
+    "build:frontend": "cd ../demo && pnpm build",
+    "copy:frontend": "cp -r ../demo/dist/* ./public"
+  },
+  "dependencies": {
+    "hono": "^4.9.5",
+    "ppt-paste-server": "workspace:*"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}

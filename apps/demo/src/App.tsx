@@ -329,6 +329,54 @@ function App() {
                         </div>
                       )}
 
+                      {/* Table Data */}
+                      {component.type === 'table' && component.metadata?.tableData && (
+                        <div style={{ marginBottom: '10px' }}>
+                          <strong>Table Data ({component.metadata.rows} rows × {component.metadata.cols} columns):</strong>
+                          <div style={{
+                            marginTop: '5px',
+                            border: '1px solid #ddd',
+                            borderRadius: '3px',
+                            overflow: 'auto',
+                            maxHeight: '300px'
+                          }}>
+                            <table style={{
+                              width: '100%',
+                              borderCollapse: 'collapse',
+                              fontSize: '13px'
+                            }}>
+                              <tbody>
+                                {component.metadata.tableData.map((row: string[], rowIndex: number) => (
+                                  <tr key={rowIndex}>
+                                    {row.map((cell: string, cellIndex: number) => (
+                                      <td key={cellIndex} style={{
+                                        border: '1px solid #ddd',
+                                        padding: '6px',
+                                        backgroundColor: rowIndex === 0 && component.metadata.hasHeader 
+                                          ? '#f8f9fa' 
+                                          : 'white',
+                                        fontWeight: rowIndex === 0 && component.metadata.hasHeader 
+                                          ? 'bold' 
+                                          : 'normal'
+                                      }}>
+                                        {cell || <em style={{color: '#999'}}>empty</em>}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <div style={{
+                            marginTop: '5px',
+                            fontSize: '11px',
+                            color: '#666'
+                          }}>
+                            Source: {component.metadata.source || 'unknown'}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Enhanced Style Information */}
                       {component.style && (
                         <div style={{ marginBottom: '10px' }}>

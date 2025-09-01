@@ -1,0 +1,36 @@
+{
+  "name": "ppt-paste-server",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/index.js",
+  "module": "./src/index.js",
+  "exports": {
+    ".": {
+      "import": "./src/index.js"
+    }
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "download-fixtures": "node scripts/download-fixtures.js",
+    "add-test-case": "node scripts/add-test-case.js",
+    "log-paste": "node scripts/log-paste.js",
+    "validate-samples": "node scripts/validate-samples.js"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^5.2.5",
+    "jszip": "^3.10.1"
+  },
+  "optionalDependencies": {
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^1.6.0",
+    "vitest": "^1.6.0"
+  }
+}

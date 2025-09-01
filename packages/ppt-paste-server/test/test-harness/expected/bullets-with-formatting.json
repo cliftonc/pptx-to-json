@@ -1,0 +1,147 @@
+{
+  "metadata": {
+    "name": "bullets-with-formatting",
+    "description": "PowerPoint content: bullets-with-formatting",
+    "downloadedAt": "2025-08-31T11:14:12.676Z",
+    "size": 4155,
+    "contentType": "application/octet-stream",
+    "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=69e5164a-5ad3-4bf0-aa07-2640c28be2fe&amp;DC=GEU7&amp;pkey=e0ef15a6-9683-42c0-853d-911e53af606a&amp;wdwaccluster=GEU7&amp;DataType=shape"
+  },
+  "components": [
+    {
+    "id": "text-1756705492879-0",
+    "type": "text",
+    "x": 75,
+    "y": 410,
+    "width": 288,
+    "height": 242,
+    "rotation": 0,
+    "content": "Not sureaboutthis\n\n• TEXT\n• Bullets\n• Bullets\n• Indented",
+    "richText": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "Not sure"
+            },
+            {
+              "type": "text",
+              "text": " "
+            },
+            {
+              "type": "text",
+              "text": "about",
+              "marks": [
+                {
+                  "type": "bold"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " "
+            },
+            {
+              "type": "text",
+              "text": "this"
+            }
+          ]
+        },
+        {
+          "type": "bulletList",
+          "content": [
+            {
+              "type": "listItem",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "TEXT"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Bullets",
+                      "marks": [
+                        {
+                          "type": "bold"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Bullets"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Indented"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "style": {
+      "fontSize": 12,
+      "fontFamily": "Arial",
+      "fontWeight": "normal",
+      "fontStyle": "normal",
+      "textDecoration": "none",
+      "color": "#000000",
+      "backgroundColor": "transparent",
+      "textAlign": "left",
+      "opacity": 1
+    },
+    "metadata": {
+      "isTitle": false,
+      "paragraphCount": 8,
+      "hasMultipleRuns": true,
+      "shapeType": "rect",
+      "hasBullets": true,
+      "shapeId": 73
+    },
+    "slideIndex": 0
+  }
+  ],
+  "componentCount": 1,
+  "componentTypes": {
+    "text": 1
+  }
+}

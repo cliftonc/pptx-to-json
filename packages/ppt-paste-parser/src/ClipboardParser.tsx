@@ -75,6 +75,85 @@ const extractClipboardBytesUrl = (html: string): string | null => {
   return match ? match[1] : null;
 };
 
+// Parse HTML table data from clipboard
+const parseHtmlTableData = (html: string): PowerPointComponent[] => {
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const tables = doc.querySelectorAll('table.ExportedPPTTable');
+    
+    const components: PowerPointComponent[] = [];
+    
+    // Also extract shape IDs from the main element for correlation
+    const mainElement = doc.querySelector('[data-shapeids]');
+    const shapeIds = mainElement?.getAttribute('data-shapeids')?.split(',').map(id => parseInt(id.trim())) || [];
+    
+    tables.forEach((table, tableIndex) => {
+      const rows = Array.from(table.querySelectorAll('tr'));
+      const tableData: string[][] = [];
+      
+      // Extract table metadata
+      const shapeCreationId = table.getAttribute('data-shape-creation-id');
+      const tableElement = table as HTMLElement;
+      const tableWidth = tableElement.style.width ? parseFloat(tableElement.style.width) : 0;
+      
+      // Extract table structure and content
+      rows.forEach(row => {
+        const cells = Array.from(row.querySelectorAll('td'));
+        const rowData = cells.map(cell => {
+          // Extract text content, removing extra whitespace
+          const textContent = cell.textContent?.trim().replace(/\u200B/g, '') || '';
+          return textContent;
+        });
+        if (rowData.length > 0) {
+          tableData.push(rowData);
+        }
+      });
+      
+      if (tableData.length > 0) {
+        // Create a table component
+        const tableComponent: PowerPointComponent = {
+          id: `table-clipboard-${Date.now()}-${tableIndex}`,
+          type: 'table',
+          content: `Table (${tableData.length} rows × ${tableData[0]?.length || 0} columns)`,
+          x: 0, // Will be updated if we can correlate with binary data
+          y: 0,
+          width: tableWidth || 0,
+          height: 0,
+          style: {
+            borderColor: '#ffffff',
+            backgroundColor: 'transparent'
+          },
+          metadata: {
+            tableData,
+            rows: tableData.length,
+            cols: tableData[0]?.length || 0,
+            hasHeader: true, // Assume first row is header for now
+            source: 'clipboard-html',
+            shapeCreationId,
+            possibleShapeIds: shapeIds,
+            htmlWidth: tableWidth
+          }
+        };
+        
+        components.push(tableComponent);
+        console.log('📊 Parsed HTML table:', {
+          rows: tableData.length,
+          cols: tableData[0]?.length || 0,
+          firstRow: tableData[0],
+          shapeCreationId,
+          shapeIds
+        });
+      }
+    });
+    
+    return components;
+  } catch (error) {
+    console.error('❌ Error parsing HTML table data:', error);
+    return [];
+  }
+};
+
 // Call the proxy server to get parsed PowerPoint components
 const fetchParsedPowerPointData = async (clipboardBytesUrl: string): Promise<PowerPointComponent[]> => {
   try {
@@ -168,22 +247,68 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
         console.log('🎨 PowerPoint cloud service data detected!');
         isPowerPoint = true;
         
-        // Extract the Microsoft API URL
+        // Parse HTML table data directly from clipboard (if any)
+        const htmlTableComponents = parseHtmlTableData(htmlFormat.data);
+        if (htmlTableComponents.length > 0) {
+          console.log(`📊 Found ${htmlTableComponents.length} HTML table(s) in clipboard!`);
+        }
+        
+        // Always try to get other components from binary XML
         const clipboardBytesUrl = extractClipboardBytesUrl(htmlFormat.data);
+        let binaryComponents: PowerPointComponent[] = [];
         
         if (clipboardBytesUrl) {
-          console.log('🔗 Found clipboard bytes URL:', clipboardBytesUrl.substring(0, 100) + '...');
+          console.log('🔗 Found clipboard bytes URL, fetching binary data:', clipboardBytesUrl.substring(0, 100) + '...');
           
           // Fetch parsed components from proxy server
-          components = await fetchParsedPowerPointData(clipboardBytesUrl);
+          binaryComponents = await fetchParsedPowerPointData(clipboardBytesUrl);
           
-          if (components.length > 0) {
-            console.log(`✅ Successfully parsed ${components.length} PowerPoint components!`);
+          if (binaryComponents.length > 0) {
+            console.log(`✅ Successfully parsed ${binaryComponents.length} PowerPoint components from binary data!`);
           } else {
             console.warn('❌ No components returned from proxy server');
           }
         } else {
           console.warn('❌ No clipboard bytes URL found in PowerPoint data');
+        }
+        
+        // Add default positioning to HTML tables and merge with binary components
+        const positionedTableComponents = htmlTableComponents.map((tableComponent, tableIndex) => {
+          // Use smart default positioning for all HTML tables
+          const defaultX = 100;
+          let defaultY = 100;
+          
+          if (binaryComponents.length > 0) {
+            // Position below the lowest binary component with some spacing
+            const maxBottom = Math.max(...binaryComponents.map(c => (c.y || 0) + (c.height || 100)));
+            defaultY = maxBottom + 50; // 50px spacing
+          }
+          
+          // Stack multiple tables vertically
+          defaultY += tableIndex * 200; // 200px spacing between multiple tables
+          
+          console.log(`📍 Positioning HTML table ${tableIndex + 1} at: (${defaultX}, ${defaultY})`);
+          
+          return {
+            ...tableComponent,
+            x: defaultX,
+            y: defaultY,
+            // Use reasonable default size if not specified
+            width: tableComponent.width || 300,
+            height: tableComponent.height || 150,
+            metadata: {
+              ...tableComponent.metadata,
+              positionEstimated: true,
+              source: 'html-fallback'
+            }
+          };
+        });
+        
+        // Simply merge HTML tables with all binary components
+        components = [...positionedTableComponents, ...binaryComponents];
+        
+        if (components.length > 0) {
+          console.log(`🎨 Combined result: ${positionedTableComponents.length} table(s) + ${binaryComponents.length} binary component(s) = ${components.length} total components`);
         }
       }
 

@@ -1,0 +1,47 @@
+{
+	"orange-rectangle": {
+		"bin": "fixtures/orange-rectangle.bin",
+		"description": "This should be a simple orange rectangle",
+		"validated": true
+	},
+	"text-only": {
+		"bin": "fixtures/text-only.bin",
+		"description": "Text, large, green with content TEXT",
+		"validated": true
+	},
+	"up-arrow-shape": {
+		"bin": "fixtures/up-arrow-shape.bin",
+		"description": "An up arrow shape with a green background and red border",
+		"validated": true
+	},
+	"blue-star": {
+		"bin": "fixtures/blue-star.bin",
+		"description": "A five sided star with a blue background",
+		"validated": true
+	},	
+	"text-and-image": {
+		"bin": "fixtures/text-and-image.bin",
+		"description": "Two components, one text with TEXT, and an image.",
+		"validated": true
+	},
+	"bullets": {
+		"bin": "fixtures/bullets.bin",
+		"description": "Three lines of text with bullets at the front",
+		"validated": true
+	},
+	"bullets-with-formatting": {
+		"bin": "fixtures/bullets-with-formatting.bin",
+		"description": "One line of text with bold formatting, three lines of text with bullets at the front.  The second bullet is bold.",
+		"validated": true
+	},
+	"rotated-shapes": {
+		"bin": "fixtures/rotated-shapes.bin",
+		"description": "A rectangle shape and text shape, both are rotated.",		
+		"validated": true
+	},
+	"basic-table": {
+		"bin": "fixtures/basic-table.bin",
+		"description": "A single text element with green text 'TEXT' (misnamed - no actual table)",		
+		"validated": true
+	}
+}

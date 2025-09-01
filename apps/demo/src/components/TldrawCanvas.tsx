@@ -506,8 +506,123 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
       }
     }
 
+    // Draw table components
+    const tableComponents = components.filter(comp => comp.type === 'table')
+    
+    console.log('=== TABLE DEBUGGING ===')
+    console.log(`Found ${tableComponents.length} table components`)
+    
+    tableComponents.forEach((component, index) => {
+      console.log(`\n--- Table ${index} ---`)
+      console.log('Component:', {
+        content: component.content,
+        position: `(${component.x}, ${component.y})`,
+        size: `${component.width}x${component.height}`,
+        tableData: component.metadata?.tableData,
+        rows: component.metadata?.rows,
+        cols: component.metadata?.cols
+      })
+      
+      // Get table data from metadata
+      const tableData = component.metadata?.tableData || []
+      const rows = component.metadata?.rows || tableData.length
+      const cols = component.metadata?.cols || (tableData[0]?.length || 0)
+      
+      if (tableData.length === 0) {
+        console.log(`❌ No table data found for table ${index}`)
+        return
+      }
+      
+      console.log(`✓ Processing table with ${rows} rows × ${cols} columns`)
+      
+      // Calculate cell dimensions
+      const tableWidth = component.width || 300
+      const tableHeight = component.height || 150
+      const cellWidth = tableWidth / cols
+      const cellHeight = tableHeight / rows
+      
+      const scale = 1
+      const tableX = (component.x || 0) * scale
+      const tableY = (component.y || 0) * scale
+      
+      // Create shapes for each table cell
+      tableData.forEach((row: any[], rowIndex: number) => {
+        if (!Array.isArray(row)) return
+        
+        row.forEach((cellContent: any, colIndex: number) => {
+          const cellX = tableX + (colIndex * cellWidth)
+          const cellY = tableY + (rowIndex * cellHeight)
+          
+          // Create cell background rectangle
+          const cellRectId = createShapeId(`table-${component.id || index}-cell-bg-${rowIndex}-${colIndex}`)
+          
+          // Determine cell colors (header vs data)
+          const isHeader = rowIndex === 0 && component.metadata?.hasHeader
+          let fillColor: 'black' | 'grey' | 'light-violet' | 'violet' | 'blue' | 'light-blue' | 'yellow' | 'orange' | 'green' | 'light-green' | 'light-red' | 'red' = 'grey'
+          
+          if (isHeader) {
+            fillColor = 'blue' // Header cells in blue
+          } else {
+            fillColor = 'light-blue' // Data cells in light blue
+          }
+          
+          editorInstance.createShape({
+            id: cellRectId,
+            type: 'geo',
+            x: cellX,
+            y: cellY,
+            props: {
+              geo: 'rectangle',
+              color: 'black',
+              fill: 'solid',
+              size: 's',
+              w: cellWidth,
+              h: cellHeight
+            }
+          })
+          
+          // Update the rectangle color after creation
+          editorInstance.updateShape({
+            id: cellRectId,
+            type: 'geo',
+            props: {
+              color: fillColor
+            }
+          })
+          
+          // Create cell text if there's content
+          if (cellContent && cellContent.trim()) {
+            const cellTextId = createShapeId(`table-${component.id || index}-cell-text-${rowIndex}-${colIndex}`)
+            
+            // Position text in the center of the cell with some padding
+            const textX = cellX + 8 // Small left padding
+            const textY = cellY + cellHeight / 2 - 6 // Center vertically
+            
+            // Text styling
+            const textColor = isHeader ? 'black' : 'black'
+            const textSize: 's' | 'm' | 'l' | 'xl' = 's' // Small text for table cells
+            
+            editorInstance.createShape({
+              id: cellTextId,
+              type: 'text',
+              x: textX,
+              y: textY,
+              props: {
+                richText: toRichText(cellContent.toString()),
+                color: textColor,
+                size: textSize,
+                font: 'sans'
+              }
+            })
+          }
+        })
+      })
+      
+      console.log(`✓ Created table with ${rows * cols} cells at (${tableX}, ${tableY})`)
+    })
+
     // Fit the viewport to show all shapes
-    if (textComponents.length > 0 || shapeComponents.length > 0 || imageComponents.length > 0) {
+    if (textComponents.length > 0 || shapeComponents.length > 0 || imageComponents.length > 0 || tableComponents.length > 0) {
       editorInstance.zoomToFit({ animation: { duration: 500 } })
     }
   }
