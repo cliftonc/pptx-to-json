@@ -201,6 +201,11 @@ pnpm dev
 
 # Type checking
 pnpm --filter ppt-paste-parser tsc --noEmit
+
+# Debug PowerPoint binary files
+pnpm log-bin <filename>        # Parse binary file from fixtures/
+pnpm log-bin bullets.bin       # Example: parse bullets.bin
+pnpm log-bin bullets.bin --debug  # Example: with debug output
 ```
 
 ## Dependencies

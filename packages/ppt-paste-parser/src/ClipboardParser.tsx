@@ -19,10 +19,24 @@ export interface PowerPointComponent {
   slideIndex?: number;
 }
 
+export interface PowerPointSlide {
+  slideIndex: number;
+  slideNumber: number;
+  components: PowerPointComponent[];
+  metadata?: {
+    name?: string;
+    notes?: string;
+    width?: number;
+    height?: number;
+    componentCount?: number;
+    format?: string;
+  };
+}
+
 export interface ParsedContent {
   formats: ClipboardData[];
   isPowerPoint: boolean;
-  components: PowerPointComponent[];
+  slides: PowerPointSlide[]; // Always use slides array now
 }
 
 export interface EnhancedPowerPointComponent extends PowerPointComponent {
@@ -154,8 +168,8 @@ const parseHtmlTableData = (html: string): PowerPointComponent[] => {
   }
 };
 
-// Call the proxy server to get parsed PowerPoint components
-const fetchParsedPowerPointData = async (clipboardBytesUrl: string): Promise<PowerPointComponent[]> => {
+// Call the proxy server to get parsed PowerPoint data as slides
+const fetchParsedPowerPointData = async (clipboardBytesUrl: string): Promise<{ slides: PowerPointSlide[] }> => {
   try {
     console.log('🔗 Fetching PowerPoint data via proxy:', clipboardBytesUrl.substring(0, 100) + '...');
     
@@ -170,38 +184,51 @@ const fetchParsedPowerPointData = async (clipboardBytesUrl: string): Promise<Pow
     
     if (!response.ok) {
       console.error('❌ Proxy request failed:', response.status);
-      return [];
+      return { slides: [] };
     }
     
     const data = await response.json();
     console.log('📦 Received from proxy:', {
       type: data.type,
-      componentCount: data.components?.length || 0,
+      slideCount: data.slides?.length || 0,
+      componentCount: data.debug?.componentCount || 0,
       isPowerPoint: data.isPowerPoint
     });
     
-    if (data.type === 'powerpoint' && data.components) {
-      console.log('🎨 PowerPoint components:', data.components.length);
-      data.components.forEach((comp: any, i: number) => {
-        if (comp && typeof comp === 'object') {
-          console.log(`🎨 Component ${i + 1}:`, {
-            id: comp.id || 'unknown',
-            type: comp.type || 'unknown',
-            content: (comp.content || '').substring(0, 50) + '...',
-            position: `(${Math.round(comp.x || comp.bounds?.x || 0)}, ${Math.round(comp.y || comp.bounds?.y || 0)})`,
-            size: `${Math.round(comp.width || comp.bounds?.width || 0)}x${Math.round(comp.height || comp.bounds?.height || 0)}`
-          });
-        } else {
-          console.log(`🎨 Component ${i + 1}: Invalid component`, comp);
-        }
+    if (data.type === 'powerpoint' && data.slides) {
+      console.log('📄 PowerPoint slides:', data.slides.length);
+      
+      // Log details for each slide and its components
+      let totalComponents = 0;
+      data.slides.forEach((slide: any, i: number) => {
+        const componentCount = slide.components?.length || 0;
+        totalComponents += componentCount;
+        console.log(`📄 Slide ${i + 1}: ${componentCount} components`);
+        
+        slide.components?.forEach((comp: any, compIndex: number) => {
+          if (comp && typeof comp === 'object') {
+            console.log(`  🎨 Component ${compIndex + 1}:`, {
+              id: comp.id || 'unknown',
+              type: comp.type || 'unknown',
+              content: (comp.content || '').substring(0, 30) + '...',
+              position: `(${Math.round(comp.x || 0)}, ${Math.round(comp.y || 0)})`,
+              size: `${Math.round(comp.width || 0)}x${Math.round(comp.height || 0)}`
+            });
+          }
+        });
       });
-      return data.components;
+      
+      console.log(`🎨 Total components across all slides: ${totalComponents}`);
+      
+      return {
+        slides: data.slides
+      };
     }
     
-    return [];
+    return { slides: [] };
   } catch (error) {
     console.error('❌ Error fetching PowerPoint data:', error);
-    return [];
+    return { slides: [] };
   }
 };
 
@@ -221,7 +248,7 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
     try {
       const clipboardData = event.clipboardData;
       const formats: ClipboardData[] = [];
-      let components: PowerPointComponent[] = [];
+      let slides: PowerPointSlide[] = [];
       
       // Get all available formats
       const types = Array.from(clipboardData.types);
@@ -254,62 +281,95 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
           console.log(`📊 Found ${htmlTableComponents.length} HTML table(s) in clipboard!`);
         }
         
-        // Always try to get other components from binary XML
+        // Always try to get slides from binary XML
         const clipboardBytesUrl = extractClipboardBytesUrl(htmlFormat.data);
-        let binaryComponents: PowerPointComponent[] = [];
         
         if (clipboardBytesUrl) {
           console.log('🔗 Found clipboard bytes URL, fetching binary data:', clipboardBytesUrl.substring(0, 100) + '...');
           
-          // Fetch parsed components from proxy server
-          binaryComponents = await fetchParsedPowerPointData(clipboardBytesUrl);
+          // Fetch parsed slides from proxy server
+          const result = await fetchParsedPowerPointData(clipboardBytesUrl);
+          slides = result.slides;
           
-          if (binaryComponents.length > 0) {
-            console.log(`✅ Successfully parsed ${binaryComponents.length} PowerPoint components from binary data!`);
+          if (slides.length > 0) {
+            const totalComponents = slides.reduce((sum, slide) => sum + slide.components.length, 0);
+            console.log(`✅ Successfully parsed ${totalComponents} PowerPoint components from binary data!`);
+            console.log(`📄 Organized into ${slides.length} slides`);
           } else {
-            console.warn('❌ No components returned from proxy server');
+            console.warn('❌ No slides returned from proxy server');
           }
         } else {
           console.warn('❌ No clipboard bytes URL found in PowerPoint data');
         }
         
-        // Add default positioning to HTML tables and merge with binary components
-        const positionedTableComponents = htmlTableComponents.map((tableComponent, tableIndex) => {
-          // Use smart default positioning for all HTML tables
-          const defaultX = 100;
-          let defaultY = 100;
-          
-          if (binaryComponents.length > 0) {
-            // Position below the lowest binary component with some spacing
-            const maxBottom = Math.max(...binaryComponents.map(c => (c.y || 0) + (c.height || 100)));
-            defaultY = maxBottom + 50; // 50px spacing
-          }
-          
-          // Stack multiple tables vertically
-          defaultY += tableIndex * 200; // 200px spacing between multiple tables
-          
-          console.log(`📍 Positioning HTML table ${tableIndex + 1} at: (${defaultX}, ${defaultY})`);
-          
-          return {
-            ...tableComponent,
-            x: defaultX,
-            y: defaultY,
-            // Use reasonable default size if not specified
-            width: tableComponent.width || 300,
-            height: tableComponent.height || 150,
-            metadata: {
-              ...tableComponent.metadata,
-              positionEstimated: true,
-              source: 'html-fallback'
+        // Add HTML tables to slides structure
+        if (htmlTableComponents.length > 0) {
+          const positionedTableComponents = htmlTableComponents.map((tableComponent, tableIndex) => {
+            // Use smart default positioning for HTML tables
+            const defaultX = 100;
+            let defaultY = 100;
+            
+            // If we have slides with components, position below existing components
+            if (slides.length > 0 && slides[0].components.length > 0) {
+              const maxBottom = Math.max(...slides[0].components.map(c => (c.y || 0) + (c.height || 100)));
+              defaultY = maxBottom + 50; // 50px spacing
             }
-          };
-        });
+            
+            // Stack multiple tables vertically
+            defaultY += tableIndex * 200; // 200px spacing between multiple tables
+            
+            console.log(`📍 Positioning HTML table ${tableIndex + 1} at: (${defaultX}, ${defaultY})`);
+            
+            return {
+              ...tableComponent,
+              x: defaultX,
+              y: defaultY,
+              // Use reasonable default size if not specified
+              width: tableComponent.width || 300,
+              height: tableComponent.height || 150,
+              metadata: {
+                ...tableComponent.metadata,
+                positionEstimated: true,
+                source: 'html-fallback'
+              }
+            };
+          });
+          
+          // Add HTML tables to the first slide or create a default slide
+          if (slides.length > 0) {
+            slides[0].components.push(...positionedTableComponents);
+            slides[0].metadata = {
+              ...slides[0].metadata,
+              componentCount: slides[0].components.length
+            };
+          } else {
+            // Create default slide with just HTML tables
+            slides = [{
+              slideIndex: 0,
+              slideNumber: 1,
+              components: positionedTableComponents,
+              metadata: {
+                name: 'Clipboard Paste',
+                componentCount: positionedTableComponents.length
+              }
+            }];
+          }
+        } else if (slides.length === 0) {
+          // No components at all - create empty default slide
+          slides = [{
+            slideIndex: 0,
+            slideNumber: 1,
+            components: [],
+            metadata: {
+              name: 'Clipboard Paste',
+              componentCount: 0
+            }
+          }];
+        }
         
-        // Simply merge HTML tables with all binary components
-        components = [...positionedTableComponents, ...binaryComponents];
-        
-        if (components.length > 0) {
-          console.log(`🎨 Combined result: ${positionedTableComponents.length} table(s) + ${binaryComponents.length} binary component(s) = ${components.length} total components`);
+        const totalComponents = slides.reduce((sum, slide) => sum + slide.components.length, 0);
+        if (totalComponents > 0) {
+          console.log(`🎨 Final result: ${totalComponents} total components across ${slides.length} slide(s)`);
         }
       }
 
@@ -318,7 +378,7 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
         onParse({
           formats,
           isPowerPoint,
-          components
+          slides
         });
       }
 
@@ -328,7 +388,7 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
         onParse({
           formats: [],
           isPowerPoint: false,
-          components: []
+          slides: []
         });
       }
     } finally {
@@ -367,7 +427,7 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
       const uploadResult = await uploadResponse.json();
       setUploadProgress('Processing file...');
 
-      // Process the uploaded file
+      // Process the uploaded file (server always returns slides now)
       const processResponse = await fetch(uploadResult.processUrl + (debugMode ? '?debug=true' : ''));
       
       if (!processResponse.ok) {
@@ -377,12 +437,12 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
 
       const processResult = await processResponse.json();
       
-      // Convert to the same format as clipboard paste
+      // Server now always returns slides structure
       if (onParse) {
         onParse({
           formats: [{ type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', data: file.name }],
           isPowerPoint: processResult.isPowerPoint,
-          components: processResult.components || []
+          slides: processResult.slides || []
         });
       }
 
@@ -397,7 +457,7 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
         onParse({
           formats: [],
           isPowerPoint: false,
-          components: []
+          slides: []
         });
       }
     } finally {

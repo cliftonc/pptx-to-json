@@ -111,12 +111,50 @@
       "expectedTypes": [
         "text"
       ]
+    },
+    {
+      "name": "text-multiple-images",
+      "description": "PowerPoint content: text-multiple-images",
+      "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=f46ca3e3-aa0d-41b4-a85e-4b8cf1ea6d7c&amp;DC=GEU7&amp;pkey=809a0898-ff56-41ac-a46f-57e6ed82d403&amp;wdwaccluster=GEU7&amp;DataType=shape",
+      "fixtureFile": "text-multiple-images.bin",
+      "expectedFile": "text-multiple-images.json",
+      "expectedComponentCount": 7,
+      "expectedTypes": [
+        "text",
+        "shape",
+        "image"
+      ]
+    },
+    {
+      "name": "failing-to-parse",
+      "description": "PowerPoint content: failing-to-parse",
+      "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=0569f5c4-27f1-4019-9225-6c72eb502f4e&amp;DC=GEU7&amp;pkey=9dc682cb-c343-4517-810f-9b8562ff0962&amp;wdwaccluster=GEU7&amp;DataType=shape",
+      "fixtureFile": "failing-to-parse.bin",
+      "expectedFile": "failing-to-parse.json",
+      "expectedComponentCount": 3,
+      "expectedTypes": [
+        "text",
+        "image"
+      ]
+    },
+    {
+      "name": "presentation-2",
+      "description": "PowerPoint content: presentation-2",
+      "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=fc476251-eac3-4c0c-bbc9-79c53ce2caad&amp;DC=GEU7&amp;pkey=665dfcf3-a462-46aa-ae96-68fc66fde555&amp;wdwaccluster=GEU7&amp;DataType=shape",
+      "fixtureFile": "presentation-2.bin",
+      "expectedFile": "presentation-2.json",
+      "expectedComponentCount": 8,
+      "expectedTypes": [
+        "text",
+        "shape",
+        "image"
+      ]
     }
   ],
   "metadata": {
     "version": "1.0.0",
     "created": "2025-08-31",
     "description": "Basic text copy",
-    "lastUpdated": "2025-08-31T19:02:14.606Z"
+    "lastUpdated": "2025-09-01T19:02:35.791Z"
   }
 }

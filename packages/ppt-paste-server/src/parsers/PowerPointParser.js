@@ -17,9 +17,12 @@ export class PowerPointParser extends BaseParser {
   /**
    * Parse PowerPoint JSON data into structured components using the normalizer
    * @param {Object} json - Parsed PowerPoint JSON data
-   * @returns {Promise<Array>} array of parsed components
+   * @param {Object} options - Parsing options
+   * @param {boolean} options.debug - Enable debug logging
+   * @param {boolean} options.returnSlides - Return slides structure instead of flat components
+   * @returns {Promise<Array|Object>} array of parsed components or slides structure
    */
-  async parseJson(json, { debug = false } = {}) {
+  async parseJson(json, { debug = false, returnSlides = false } = {}) {
     try {
       if (debug) console.log('🎨 Processing PowerPoint JSON data...');
       
@@ -30,15 +33,20 @@ export class PowerPointParser extends BaseParser {
       }
       
       // Step 2: Process all slides using unified structure
-      const components = [];
-      let componentIndex = 0;
+      const slides = [];
+      const components = []; // Keep flat array for backward compatibility
+      let globalComponentIndex = 0;
       
-      for (let slideIndex = 0; slideIndex < normalized.slides.length; slideIndex++) {
-        const slide = normalized.slides[slideIndex];
+      for (let arrayIndex = 0; arrayIndex < normalized.slides.length; arrayIndex++) {
+        const slide = normalized.slides[arrayIndex];
+        const slideNumber = slide.slideNumber || (arrayIndex + 1); // Use extracted number or fallback
         
         if (debug) {
-          console.log(`📄 Processing slide ${slideIndex + 1}: ${slide.shapes.length} shapes, ${slide.text.length} text, ${slide.images.length} images`);
+          console.log(`📄 Processing slide ${slideNumber}: ${slide.shapes.length} shapes, ${slide.text.length} text, ${slide.images.length} images`);
         }
+        
+        const slideComponents = [];
+        let localComponentIndex = 0;
         
         // Process text components
         for (const textComponent of slide.text) {
@@ -46,11 +54,17 @@ export class PowerPointParser extends BaseParser {
             textComponent, 
             normalized.relationships,
             normalized.mediaFiles,
-            componentIndex++,
-            slideIndex,
+            globalComponentIndex++,
+            slideNumber - 1, // Use 0-based index for relationships
             { debug }
           );
-          if (component) components.push(component);
+          if (component) {
+            // Fix the slideIndex to show the actual slide number (not the relationship index)
+            component.slideIndex = slideNumber;
+            slideComponents.push(component);
+            components.push(component);
+            localComponentIndex++;
+          }
         }
         
         // Process shape components (non-text)
@@ -59,11 +73,17 @@ export class PowerPointParser extends BaseParser {
             shapeComponent,
             normalized.relationships,
             normalized.mediaFiles, 
-            componentIndex++,
-            slideIndex,
+            globalComponentIndex++,
+            slideNumber - 1, // Use 0-based index for relationships
             { debug }
           );
-          if (component) components.push(component);
+          if (component) {
+            // Fix the slideIndex to show the actual slide number (not the relationship index)
+            component.slideIndex = slideNumber;
+            slideComponents.push(component);
+            components.push(component);
+            localComponentIndex++;
+          }
         }
         
         // Process image components
@@ -72,16 +92,53 @@ export class PowerPointParser extends BaseParser {
             imageComponent,
             normalized.relationships,
             normalized.mediaFiles,
-            componentIndex++,
-            slideIndex,
+            globalComponentIndex++,
+            slideNumber - 1, // Use 0-based index for relationships
             { debug }
           );
-          if (component) components.push(component);
+          if (component) {
+            // Fix the slideIndex to show the actual slide number (not the relationship index)
+            component.slideIndex = slideNumber;
+            slideComponents.push(component);
+            components.push(component);
+            localComponentIndex++;
+          }
+        }
+        
+        // Create slide object
+        const slideObject = {
+          slideIndex: slideNumber - 1, // For compatibility, keep 0-based index
+          slideNumber: slideNumber,    // Actual slide number from filename
+          components: slideComponents,
+          metadata: {
+            name: `Slide ${slideNumber}`,
+            componentCount: slideComponents.length,
+            format: normalized.format,
+            slideFile: slide.slideFile || null
+          }
+        };
+        
+        slides.push(slideObject);
+        
+        if (debug) {
+          console.log(`📄 Slide ${slideNumber} complete: ${slideComponents.length} components`);
         }
       }
       
-      if (debug) console.log('✅ Unified parsing complete:', components.length, 'components');
-      return components;
+      if (debug) {
+        console.log('✅ Unified parsing complete:', components.length, 'total components in', slides.length, 'slides');
+      }
+      
+      // Return slides structure or flat components for backward compatibility
+      if (returnSlides) {
+        return {
+          slides,
+          totalComponents: components.length,
+          format: normalized.format
+        };
+      } else {
+        return components;
+      }
 
     } catch (error) {
       console.error('❌ Error processing PowerPoint JSON:', error);

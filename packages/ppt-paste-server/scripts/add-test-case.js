@@ -17,9 +17,28 @@ import { PowerPointClipboardProcessor } from '../src/processors/PowerPointClipbo
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const FIXTURES_DIR = path.join(__dirname, '..', 'test-harness', 'fixtures')
-const EXPECTED_DIR = path.join(__dirname, '..', 'test-harness', 'expected')
-const TEST_CASES_FILE = path.join(__dirname, '..', 'test-harness', 'test-cases.json')
+const FIXTURES_DIR = path.join(__dirname, '..', 'test', 'test-harness', 'fixtures')
+const EXPECTED_DIR = path.join(__dirname, '..', 'test', 'test-harness', 'expected')
+const TEST_CASES_FILE = path.join(__dirname, '..', 'test', 'test-harness', 'test-cases.json')
+
+function truncateForLogging(components) {
+  return components.map(component => {
+    const truncated = { ...component }
+    
+    // Truncate content field if it's longer than 100 characters
+    if (truncated.content && truncated.content.length > 100) {
+      truncated.content = truncated.content.substring(0, 100) + '...'
+    }
+    
+    // Truncate imageUrl in metadata if present
+    if (truncated.metadata && truncated.metadata.imageUrl && truncated.metadata.imageUrl.length > 100) {
+      truncated.metadata = { ...truncated.metadata }
+      truncated.metadata.imageUrl = truncated.metadata.imageUrl.substring(0, 100) + '...'
+    }
+    
+    return truncated
+  })
+}
 
 async function addTestCase() {
   // Parse command line arguments
@@ -62,7 +81,8 @@ async function addTestCase() {
 
     console.log('📊 Component types found:', componentTypes)
     console.log('🎯 Components summary:')
-    components.forEach((comp, index) => {
+    const truncatedForDisplay = truncateForLogging(components)
+    truncatedForDisplay.forEach((comp, index) => {
       console.log(`   ${index + 1}. ${comp.type}: "${comp.content}" at (${comp.x}, ${comp.y})`)
     })
 

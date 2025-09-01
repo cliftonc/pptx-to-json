@@ -15,11 +15,14 @@ export class PowerPointNormalizer {
   normalize(json) {
     const formatType = this.detectFormat(json);
     
+    // Strip all namespaces from the entire JSON structure at the very start
+    const strippedJson = this.stripNamespaces(json);
+    
     switch (formatType) {
       case 'pptx':
-        return this.normalizePPTX(json);
+        return this.normalizePPTX(strippedJson, formatType);
       case 'clipboard':
-        return this.normalizeClipboard(json);
+        return this.normalizeClipboard(strippedJson, formatType);
       default:
         throw new Error(`Unknown PowerPoint format: ${formatType}`);
     }
@@ -48,31 +51,37 @@ export class PowerPointNormalizer {
   
   /**
    * Normalize PPTX file structure
-   * @param {Object} json - PPTX JSON data
+   * @param {Object} json - PPTX JSON data (already namespace-stripped)
+   * @param {string} formatType - Format type for reference
    * @returns {Object} - Normalized structure
    */
-  normalizePPTX(json) {
+  normalizePPTX(json, formatType) {
     const slides = [];
     const files = Object.keys(json);
     
-    // Find slide files
+    // Find slide files (no sorting needed - we'll extract slide numbers)
     const slideFiles = files.filter(f => 
       f.startsWith('ppt/slides/slide') && f.endsWith('.xml')
-    ).sort();
+    );
     
     for (const slideFile of slideFiles) {
       const slideData = json[slideFile];
-      if (!slideData || !slideData['p:sld']) continue;
+      if (!slideData || !slideData['sld']) continue;
+      
+      // Extract slide number from filename (e.g., 'ppt/slides/slide5.xml' -> 5)
+      const slideNumberMatch = slideFile.match(/slide(\d+)\.xml/);
+      const slideNumber = slideNumberMatch ? parseInt(slideNumberMatch[1], 10) : 1;
       
       // Extract slide content
-      const slide = slideData['p:sld'];
-      const cSld = this.ensureObject(slide['p:cSld']) || slide;
-      const spTree = this.ensureObject(cSld['p:spTree']);
+      const slide = slideData['sld'];
+      const cSld = this.ensureObject(slide['cSld']) || slide;
+      const spTree = this.ensureObject(cSld['spTree']);
       
       if (!spTree) continue;
       
       const normalizedSlide = {
         slideFile,
+        slideNumber, // Add extracted slide number
         format: 'pptx',
         shapes: this.extractPPTXShapes(spTree),
         images: this.extractPPTXImages(spTree),
@@ -93,10 +102,11 @@ export class PowerPointNormalizer {
   
   /**
    * Normalize clipboard structure
-   * @param {Object} json - Clipboard JSON data 
+   * @param {Object} json - Clipboard JSON data (already namespace-stripped)
+   * @param {string} formatType - Format type for reference
    * @returns {Object} - Normalized structure
    */
-  normalizeClipboard(json) {
+  normalizeClipboard(json, formatType) {
     const slides = [];
     const files = Object.keys(json);
     
@@ -107,14 +117,14 @@ export class PowerPointNormalizer {
     
     for (const drawingFile of drawingFiles) {
       const drawingData = json[drawingFile];
-      if (!drawingData || !drawingData['a:graphic']) continue;
+      if (!drawingData || !drawingData['graphic']) continue;
       
       // Navigate clipboard structure
-      const graphic = drawingData['a:graphic'];
-      const graphicData = graphic['a:graphicData'];
+      const graphic = drawingData['graphic'];
+      const graphicData = graphic['graphicData'];
       if (!graphicData) continue;
       
-      const lockedCanvas = graphicData['lc:lockedCanvas'];
+      const lockedCanvas = graphicData['lockedCanvas'];
       if (!lockedCanvas) continue;
       
       const normalizedSlide = {
@@ -144,21 +154,24 @@ export class PowerPointNormalizer {
    */
   extractPPTXShapes(spTree) {
     const shapes = [];
-    const spArray = this.ensureArray(spTree['p:sp']);
+    const spArray = this.ensureArray(spTree['sp']);
     
     for (const sp of spArray) {
       // Skip text boxes (they're handled in extractText)
-      if (sp['p:nvSpPr'] && sp['p:nvSpPr']['p:cNvSpPr'] && sp['p:nvSpPr']['p:cNvSpPr']['$txBox']) continue;
+      if (sp['nvSpPr'] && sp['nvSpPr']['cNvSpPr'] && sp['nvSpPr']['cNvSpPr']['$txBox']) continue;
+      
+      // Skip shapes with actual text content (they're handled in extractPPTXText)
+      if (sp['txBody'] && this.hasTextContent(sp['txBody'])) continue;
       
       shapes.push({
         type: 'shape',
         namespace: 'p',
         element: 'sp',
         data: sp,
-        spPr: sp['p:spPr'],
-        nvSpPr: sp['p:nvSpPr'],
-        style: sp['p:style'], // Add style data for fill/border parsing
-        textBody: sp['p:txBody'] // Direct access
+        spPr: sp['spPr'],
+        nvSpPr: sp['nvSpPr'],
+        style: sp['style'], // Add style data for fill/border parsing
+        textBody: sp['txBody'] // Direct access for empty text containers
       });
     }
     
@@ -172,7 +185,7 @@ export class PowerPointNormalizer {
    */
   extractClipboardShapes(lockedCanvas) {
     const shapes = [];
-    const spData = lockedCanvas['a:sp'];
+    const spData = lockedCanvas['sp'];
     
     if (spData) {
       // Clipboard usually has single shape object, not array
@@ -180,17 +193,20 @@ export class PowerPointNormalizer {
       
       for (const sp of spArray) {
         // Skip text boxes (they're handled in extractText)
-        if (sp['a:nvSpPr'] && sp['a:nvSpPr']['a:cNvSpPr'] && sp['a:nvSpPr']['a:cNvSpPr']['$txBox']) continue;
+        if (sp['nvSpPr'] && sp['nvSpPr']['cNvSpPr'] && sp['nvSpPr']['cNvSpPr']['$txBox']) continue;
+        
+        // Skip shapes with actual text content (they're handled in extractClipboardText)
+        if (sp['txSp'] && sp['txSp']['txBody'] && this.hasTextContent(sp['txSp']['txBody'])) continue;
         
         shapes.push({
           type: 'shape',
           namespace: 'a',
           element: 'sp', 
           data: sp,
-          spPr: sp['a:spPr'],
-          nvSpPr: sp['a:nvSpPr'],
-          style: sp['a:style'], // Add style data for fill/border parsing
-          textBody: sp['a:txSp'] ? sp['a:txSp']['a:txBody'] : null // Extra layer!
+          spPr: sp['spPr'],
+          nvSpPr: sp['nvSpPr'],
+          style: sp['style'], // Add style data for fill/border parsing
+          textBody: sp['txSp'] ? sp['txSp']['txBody'] : null // Extra layer!
         });
       }
     }
@@ -205,7 +221,7 @@ export class PowerPointNormalizer {
    */
   extractPPTXImages(spTree) {
     const images = [];
-    const picArray = this.ensureArray(spTree['p:pic']);
+    const picArray = this.ensureArray(spTree['pic']);
     
     for (const pic of picArray) {
       images.push({
@@ -213,9 +229,9 @@ export class PowerPointNormalizer {
         namespace: 'p',
         element: 'pic',
         data: pic,
-        nvPicPr: pic['p:nvPicPr'],
-        blipFill: pic['p:blipFill'],
-        spPr: pic['p:spPr']
+        nvPicPr: pic['nvPicPr'],
+        blipFill: pic['blipFill'],
+        spPr: pic['spPr']
       });
     }
     
@@ -229,7 +245,7 @@ export class PowerPointNormalizer {
    */
   extractClipboardImages(lockedCanvas) {
     const images = [];
-    const picData = lockedCanvas['a:pic'];
+    const picData = lockedCanvas['pic'];
     
     if (picData) {
       const picArray = this.ensureArray(picData);
@@ -240,9 +256,9 @@ export class PowerPointNormalizer {
           namespace: 'a',
           element: 'pic',
           data: pic,
-          nvPicPr: pic['a:nvPicPr'], 
-          blipFill: pic['a:blipFill'],
-          spPr: pic['a:spPr']
+          nvPicPr: pic['nvPicPr'], 
+          blipFill: pic['blipFill'],
+          spPr: pic['spPr']
         });
       }
     }
@@ -257,20 +273,20 @@ export class PowerPointNormalizer {
    */
   extractPPTXText(spTree) {
     const textComponents = [];
-    const spArray = this.ensureArray(spTree['p:sp']);
+    const spArray = this.ensureArray(spTree['sp']);
     
     for (const sp of spArray) {
-      // Only process text boxes and shapes with text
-      if (sp['p:txBody']) {
+      // Only process shapes with actual text content
+      if (sp['txBody'] && this.hasTextContent(sp['txBody'])) {
         textComponents.push({
           type: 'text',
           namespace: 'p',
           element: 'sp',
           data: sp,
-          spPr: sp['p:spPr'],
-          nvSpPr: sp['p:nvSpPr'],
-          style: sp['p:style'], // Add style data for consistency
-          textBody: sp['p:txBody'] // Direct access
+          spPr: sp['spPr'],
+          nvSpPr: sp['nvSpPr'],
+          style: sp['style'], // Add style data for consistency
+          textBody: sp['txBody'] // Direct access
         });
       }
     }
@@ -285,24 +301,27 @@ export class PowerPointNormalizer {
    */
   extractClipboardText(lockedCanvas) {
     const textComponents = [];
-    const spData = lockedCanvas['a:sp'];
+    const spData = lockedCanvas['sp'];
     
     if (spData) {
       const spArray = this.ensureArray(spData);
       
       for (const sp of spArray) {
         // Check for text content in the extra txSp layer
-        if (sp['a:txSp'] && sp['a:txSp']['a:txBody']) {
-          textComponents.push({
-            type: 'text',
-            namespace: 'a',
-            element: 'sp',
-            data: sp,
-            spPr: sp['a:spPr'],
-            nvSpPr: sp['a:nvSpPr'],
-            style: sp['a:style'], // Add style data for consistency
-            textBody: sp['a:txSp']['a:txBody'] // Navigate extra layer
-          });
+        if (sp['txSp'] && sp['txSp']['txBody']) {
+          // Only treat as text component if there's actual text content
+          if (this.hasTextContent(sp['txSp']['txBody'])) {
+            textComponents.push({
+              type: 'text',
+              namespace: 'a',
+              element: 'sp',
+              data: sp,
+              spPr: sp['spPr'],
+              nvSpPr: sp['nvSpPr'],
+              style: sp['style'], // Add style data for consistency
+              textBody: sp['txSp']['txBody'] // Navigate extra layer
+            });
+          }
         }
       }
     }
@@ -366,5 +385,73 @@ export class PowerPointNormalizer {
   ensureArray(value) {
     if (!value) return [];
     return Array.isArray(value) ? value : [value];
+  }
+
+  /**
+   * Check if a textBody contains actual text content
+   * @param {Object} textBody - Text body to check
+   * @returns {boolean} - True if has text content, false otherwise
+   */
+  hasTextContent(textBody) {
+    if (!textBody) return false;
+    
+    // Get paragraphs
+    const paragraphs = textBody['p'];
+    if (!paragraphs) return false;
+    
+    const paragraphArray = Array.isArray(paragraphs) ? paragraphs : [paragraphs];
+    
+    // Check each paragraph for actual text runs
+    for (const p of paragraphArray) {
+      const runs = p['r'];
+      if (runs) {
+        const runArray = Array.isArray(runs) ? runs : [runs];
+        for (const run of runArray) {
+          const text = run['t'];
+          if (text && typeof text === 'string' && text.trim().length > 0) {
+            return true;
+          }
+        }
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * Recursively strip namespace prefixes from all object keys
+   * Converts 'p:spPr' -> 'spPr', 'a:xfrm' -> 'xfrm', etc.
+   * @param {*} obj - Object to strip namespaces from
+   * @returns {*} - Object with namespace prefixes removed
+   */
+  stripNamespaces(obj) {
+    if (obj === null || obj === undefined) {
+      return obj;
+    }
+
+    // Handle binary data (Uint8Array, ArrayBuffer, Buffer) - don't process recursively
+    if (obj instanceof Uint8Array || obj instanceof ArrayBuffer || 
+        (typeof Buffer !== 'undefined' && Buffer.isBuffer && Buffer.isBuffer(obj))) {
+      return obj;
+    }
+
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.stripNamespaces(item));
+    }
+
+    if (typeof obj === 'object') {
+      const stripped = {};
+      
+      for (const [key, value] of Object.entries(obj)) {
+        // Strip namespace prefix (everything before and including the colon)
+        const strippedKey = key.includes(':') ? key.split(':')[1] : key;
+        stripped[strippedKey] = this.stripNamespaces(value);
+      }
+      
+      return stripped;
+    }
+
+    // Primitive values (string, number, boolean) pass through unchanged
+    return obj;
   }
 }

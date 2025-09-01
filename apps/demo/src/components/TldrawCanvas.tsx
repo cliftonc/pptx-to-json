@@ -1,39 +1,143 @@
 import { useEffect, useRef } from 'react'
 import { Tldraw, Editor, createShapeId, toRichText, AssetRecordType } from '@tldraw/tldraw'
-import type { PowerPointComponent } from 'ppt-paste-parser'
+import type { PowerPointComponent, PowerPointSlide } from 'ppt-paste-parser'
 import '@tldraw/tldraw/tldraw.css'
 
 interface TldrawCanvasProps {
   components: PowerPointComponent[]
+  slides?: PowerPointSlide[]
 }
 
 
-export default function TldrawCanvas({ components }: TldrawCanvasProps) {
+export default function TldrawCanvas({ components, slides }: TldrawCanvasProps) {
   const editorRef = useRef<Editor | null>(null)
 
   const handleMount = (editor: Editor) => {
     editorRef.current = editor
-    drawComponents(components, editor)
+    if (slides && slides.length > 0) {
+      drawSlides(slides, editor)
+    } else if (components && components.length > 0) {
+      // Legacy fallback
+      drawComponents(components, editor)
+    }
+  }
+
+  const drawSlides = async (slides: PowerPointSlide[], editor?: Editor) => {
+    const editorInstance = editor || editorRef.current
+    if (!editorInstance || !slides.length) return
+
+    console.log(`🖼️ Drawing ${slides.length} slides with frames`)
+
+    // Clear existing shapes
+    const allShapes = editorInstance.getCurrentPageShapes()
+    editorInstance.deleteShapes(allShapes.map(shape => shape.id))
+
+    // Standard PowerPoint slide dimensions (16:9 widescreen)
+    // PowerPoint uses 1280×720 as a common resolution, with some padding for components that extend beyond
+    const SLIDE_SPACING = 200  // Increased vertical spacing
+    const SLIDES_PER_ROW = 4   // 4 slides per row
+
+    // Calculate maximum bounds across all slides for uniform frame sizing
+    let maxSlideWidth = 1280  // Standard 16:9 PowerPoint width
+    let maxSlideHeight = 720  // Standard 16:9 PowerPoint height
+    const PADDING = 50
+    
+    slides.forEach(slide => {
+      const componentBounds = calculateComponentBounds(slide.components)
+      maxSlideWidth = Math.max(maxSlideWidth, componentBounds.maxX + PADDING)
+      maxSlideHeight = Math.max(maxSlideHeight, componentBounds.maxY + PADDING)
+    })
+
+    console.log(`📏 Using uniform slide size: ${maxSlideWidth}x${maxSlideHeight} for all slides`)
+
+    for (let slideIndex = 0; slideIndex < slides.length; slideIndex++) {
+      const slide = slides[slideIndex]
+      
+      // Use uniform slide dimensions for all frames
+      const slideWidth = maxSlideWidth
+      const slideHeight = maxSlideHeight
+      
+      // Calculate slide position in grid layout
+      const col = slideIndex % SLIDES_PER_ROW
+      const row = Math.floor(slideIndex / SLIDES_PER_ROW)
+      const slideX = col * (slideWidth + SLIDE_SPACING) + 50
+      const slideY = row * (slideHeight + SLIDE_SPACING) + 50
+
+      console.log(`📄 Drawing slide ${slideIndex + 1} at (${slideX}, ${slideY}) size ${slideWidth}x${slideHeight} with ${slide.components.length} components`)
+
+      // Create frame for the slide
+      const frameId = createShapeId(`slide-frame-${slideIndex}`)
+      editorInstance.createShape({
+        id: frameId,
+        type: 'frame',
+        x: slideX,
+        y: slideY,
+        props: {
+          w: slideWidth,
+          h: slideHeight,
+          name: slide.metadata?.name || `Slide ${slide.slideNumber}`
+        }
+      })
+
+      // Draw all components within this slide frame - await to prevent race conditions
+      await drawComponentsInFrame(slide.components, slideX, slideY, editorInstance, slideIndex, frameId)
+    }
+
+    // Fit the viewport to show all slides
+    if (slides.length > 0) {
+      editorInstance.zoomToFit({ animation: { duration: 500 } })
+    }
   }
 
   const drawComponents = async (components: PowerPointComponent[], editor?: Editor) => {
     const editorInstance = editor || editorRef.current
     if (!editorInstance || !components.length) return
 
+    console.log(`🖼️ Drawing ${components.length} components without slides structure`)
+
     // Clear existing shapes
     const allShapes = editorInstance.getCurrentPageShapes()
     editorInstance.deleteShapes(allShapes.map(shape => shape.id))
+
+    // Draw components without slide frames (legacy mode) - no frame parent
+    await drawComponentsInFrame(components, 0, 0, editorInstance, 0, null)
+
+    // Fit the viewport to show all components
+    editorInstance.zoomToFit({ animation: { duration: 500 } })
+  }
+
+  const calculateComponentBounds = (components: PowerPointComponent[]) => {
+    if (components.length === 0) {
+      return { maxX: 0, maxY: 0 };
+    }
+    
+    let maxX = 0;
+    let maxY = 0;
+    
+    components.forEach(comp => {
+      const compMaxX = (comp.x || 0) + (comp.width || 0);
+      const compMaxY = (comp.y || 0) + (comp.height || 0);
+      
+      if (compMaxX > maxX) maxX = compMaxX;
+      if (compMaxY > maxY) maxY = compMaxY;
+    });
+    
+    return { maxX, maxY };
+  };
+
+  const drawComponentsInFrame = async (components: PowerPointComponent[], frameX: number, frameY: number, editorInstance: Editor, slideIndex: number, frameId: any) => {
 
     // Draw text components
     const textComponents = components.filter(comp => comp.type === 'text')
     
     textComponents.forEach((component, index) => {
-      const shapeId = createShapeId(`text-${component.id || index}`)
+      const shapeId = createShapeId(`text-${slideIndex}-${component.id || index}`)
       
       // PowerPoint coordinates look good - try with less scaling or no scaling
       const scale = 1 // Try no scaling first since coordinates look reasonable (629, 413, etc.)
-      let x = (component.x || 0) * scale
-      let y = (component.y || 0) * scale
+      // When inside a frame, use component's original coordinates relative to frame
+      let x = frameId ? (component.x || 0) * scale : frameX + (component.x || 0) * scale
+      let y = frameId ? (component.y || 0) * scale : frameY + (component.y || 0) * scale
       
       // Adjust position for rotation - PowerPoint gives us top-left of unrotated shape
       // We need to calculate where the top-left should be after rotation around center
@@ -119,8 +223,8 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
         richTextContent = toRichText(component.content || 'Sample text');
       }
 
-      // Create text shape with rotation applied directly (this worked for text)
-      editorInstance.createShape({
+      // Create text shape with rotation applied directly and parent it to frame
+      const shapeProps: any = {
         id: shapeId,
         type: 'text',
         x,
@@ -130,9 +234,18 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
           richText: richTextContent,
           color: tldrawColor,
           size: tldrawSize,
-          font: tldrawFont
+          font: tldrawFont,
+          // Set width constraint and disable autoSize to force text wrapping at the same width as PowerPoint
+          autoSize: false,
+          w: component.width || 300
         }
-      })
+      };
+      
+      if (frameId) {
+        shapeProps.parentId = frameId;
+      }
+      
+      editorInstance.createShape(shapeProps)
     })
 
     // Draw shape components
@@ -146,11 +259,12 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
         borderColor: component.style?.borderColor,
         shapeType: component.style?.shapeType || component.metadata?.shapeType
       })
-      const shapeId = createShapeId(`shape-${component.id || index}`)
+      const shapeId = createShapeId(`shape-${slideIndex}-${component.id || index}`)
       
       const scale = 1
-      let x = (component.x || 0) * scale
-      let y = (component.y || 0) * scale
+      // When inside a frame, use component's original coordinates relative to frame
+      let x = frameId ? (component.x || 0) * scale : frameX + (component.x || 0) * scale
+      let y = frameId ? (component.y || 0) * scale : frameY + (component.y || 0) * scale
       const width = (component.width || 100) * scale
       const height = (component.height || 100) * scale
       
@@ -324,12 +438,13 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
         strokeColor: strokeColor
       });
       
-      // First create the shape at origin
-      editorInstance.createShape({
+      // Create the shape with parent frame, position, and rotation all at once
+      const geoShapeProps: any = {
         id: shapeId,
         type: 'geo',
-        x: 0,
-        y: 0,
+        x,
+        y,
+        rotation: component.rotation ? (component.rotation * Math.PI) / 180 : 0,
         props: {
           geo: geoType,
           color: finalColor,
@@ -338,25 +453,13 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
           w: width,
           h: height
         }
-      })
+      };
       
-      // Then apply rotation if needed
-      if (component.rotation && component.rotation !== 0) {
-        editorInstance.updateShape({
-          id: shapeId,
-          type: 'geo',
-          rotation: (component.rotation * Math.PI) / 180 // Convert degrees to radians
-        })
-        console.log(`Applied rotation ${component.rotation}° to shape`)
+      if (frameId) {
+        geoShapeProps.parentId = frameId;
       }
       
-      // Finally position the rotated shape at PowerPoint coordinates
-      editorInstance.updateShape({
-        id: shapeId,
-        type: 'geo',
-        x,
-        y
-      })
+      editorInstance.createShape(geoShapeProps)
       console.log(`Positioned rotated shape at (${x}, ${y})`)
     })
 
@@ -375,14 +478,15 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
       })
       console.log('Full component:', component)
       
-      const imageId = createShapeId(`image-${component.id || index}`)
+      const imageId = createShapeId(`image-${slideIndex}-${component.id || index}`)
       
       // Log the component dimensions for debugging
       console.log(`Image dimensions from parser: ${component.width} x ${component.height}`)
       
       const scale = 1
-      const x = (component.x || 0) * scale
-      const y = (component.y || 0) * scale
+      // When inside a frame, use component's original coordinates relative to frame
+      const x = frameId ? (component.x || 0) * scale : frameX + (component.x || 0) * scale
+      const y = frameId ? (component.y || 0) * scale : frameY + (component.y || 0) * scale
       
       // Use exact PowerPoint dimensions
       const width = component.width || 200
@@ -424,8 +528,8 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
             meta: {}
           }])
           
-          // Create image shape using the asset
-          editorInstance.createShape({
+          // Create image shape using the asset and parent it to frame
+          const imageShapeProps: any = {
             id: imageId,
             type: 'image',
             x,
@@ -436,7 +540,13 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
               w: width,
               h: height
             }
-          })
+          };
+          
+          if (frameId) {
+            imageShapeProps.parentId = frameId;
+          }
+          
+          editorInstance.createShape(imageShapeProps)
           
           console.log(`✓ Image created successfully using asset`)
           
@@ -475,8 +585,8 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
       } else {
         console.log(`❌ No valid image data URL found, creating placeholder`)
         // Create a placeholder rectangle for images without data
-        editorInstance.createShape({
-          id: createShapeId(`placeholder-${component.id || index}`),
+        const placeholderRectProps: any = {
+          id: createShapeId(`placeholder-${slideIndex}-${component.id || index}`),
           type: 'geo',
           x,
           y,
@@ -488,11 +598,10 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
             w: width,
             h: height
           }
-        })
+        };
         
-        // Add text shape for the placeholder label  
-        editorInstance.createShape({
-          id: createShapeId(`placeholder-text-${component.id || index}`),
+        const placeholderTextProps: any = {
+          id: createShapeId(`placeholder-text-${slideIndex}-${component.id || index}`),
           type: 'text',
           x: x + 10,
           y: y + height/2 - 10,
@@ -502,7 +611,15 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
             size: 's',
             font: 'draw'
           }
-        })
+        };
+        
+        if (frameId) {
+          placeholderRectProps.parentId = frameId;
+          placeholderTextProps.parentId = frameId;
+        }
+        
+        editorInstance.createShape(placeholderRectProps);
+        editorInstance.createShape(placeholderTextProps);
       }
     }
 
@@ -542,8 +659,9 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
       const cellHeight = tableHeight / rows
       
       const scale = 1
-      const tableX = (component.x || 0) * scale
-      const tableY = (component.y || 0) * scale
+      // When inside a frame, use component's original coordinates relative to frame
+      const tableX = frameId ? (component.x || 0) * scale : frameX + (component.x || 0) * scale
+      const tableY = frameId ? (component.y || 0) * scale : frameY + (component.y || 0) * scale
       
       // Create shapes for each table cell
       tableData.forEach((row: any[], rowIndex: number) => {
@@ -554,7 +672,7 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
           const cellY = tableY + (rowIndex * cellHeight)
           
           // Create cell background rectangle
-          const cellRectId = createShapeId(`table-${component.id || index}-cell-bg-${rowIndex}-${colIndex}`)
+          const cellRectId = createShapeId(`table-${slideIndex}-${component.id || index}-cell-bg-${rowIndex}-${colIndex}`)
           
           // Determine cell colors (header vs data)
           const isHeader = rowIndex === 0 && component.metadata?.hasHeader
@@ -566,7 +684,7 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
             fillColor = 'light-blue' // Data cells in light blue
           }
           
-          editorInstance.createShape({
+          const cellRectProps: any = {
             id: cellRectId,
             type: 'geo',
             x: cellX,
@@ -579,7 +697,13 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
               w: cellWidth,
               h: cellHeight
             }
-          })
+          };
+          
+          if (frameId) {
+            cellRectProps.parentId = frameId;
+          }
+          
+          editorInstance.createShape(cellRectProps)
           
           // Update the rectangle color after creation
           editorInstance.updateShape({
@@ -592,7 +716,7 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
           
           // Create cell text if there's content
           if (cellContent && cellContent.trim()) {
-            const cellTextId = createShapeId(`table-${component.id || index}-cell-text-${rowIndex}-${colIndex}`)
+            const cellTextId = createShapeId(`table-${slideIndex}-${component.id || index}-cell-text-${rowIndex}-${colIndex}`)
             
             // Position text in the center of the cell with some padding
             const textX = cellX + 8 // Small left padding
@@ -602,7 +726,7 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
             const textColor = isHeader ? 'black' : 'black'
             const textSize: 's' | 'm' | 'l' | 'xl' = 's' // Small text for table cells
             
-            editorInstance.createShape({
+            const cellTextProps: any = {
               id: cellTextId,
               type: 'text',
               x: textX,
@@ -613,26 +737,32 @@ export default function TldrawCanvas({ components }: TldrawCanvasProps) {
                 size: textSize,
                 font: 'sans'
               }
-            })
+            };
+            
+            if (frameId) {
+              cellTextProps.parentId = frameId;
+            }
+            
+            editorInstance.createShape(cellTextProps)
           }
         })
       })
       
       console.log(`✓ Created table with ${rows * cols} cells at (${tableX}, ${tableY})`)
     })
-
-    // Fit the viewport to show all shapes
-    if (textComponents.length > 0 || shapeComponents.length > 0 || imageComponents.length > 0 || tableComponents.length > 0) {
-      editorInstance.zoomToFit({ animation: { duration: 500 } })
-    }
   }
 
-  // Redraw when components change
+  // Redraw when slides change
   useEffect(() => {
     if (editorRef.current) {
-      drawComponents(components, editorRef.current)
+      if (slides && slides.length > 0) {
+        drawSlides(slides, editorRef.current)
+      } else if (components && components.length > 0) {
+        // Legacy fallback for components-only data
+        drawComponents(components, editorRef.current)
+      }
     }
-  }, [components])
+  }, [slides, components])
 
   return (
     <div style={{ width: '100%', height: '100%' }}>

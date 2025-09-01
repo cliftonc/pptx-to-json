@@ -223,7 +223,16 @@ describe('PowerPointClipboardProcessor', () => {
         type: 'powerpoint',
         contentType: 'application/octet-stream',
         size: 6,
-        components: mockComponents,
+        slides: [{
+          slideIndex: 0,
+          slideNumber: 1,
+          components: mockComponents,
+          metadata: {
+            name: 'Clipboard Paste',
+            componentCount: 2
+          }
+        }],
+        slideCount: 1,
         isPowerPoint: true,
         debug: expect.objectContaining({
           componentCount: 2,

@@ -58,20 +58,20 @@ export class BaseParser {
     if (!colorDef) return '#000000';
 
     // Direct RGB color
-    if (colorDef['a:srgbClr']) {
-      const val = colorDef['a:srgbClr'].$val;
+    if (colorDef['srgbClr']) {
+      const val = colorDef['srgbClr'].$val;
       if (val) return `#${val}`;
     }
 
     // System color
-    if (colorDef['a:sysClr']) {
-      const lastClr = colorDef['a:sysClr'].$lastClr;
+    if (colorDef['sysClr']) {
+      const lastClr = colorDef['sysClr'].$lastClr;
       if (lastClr) return `#${lastClr}`;
     }
 
     // Scheme color (theme colors) - map to reasonable defaults
-    if (colorDef['a:schemeClr']) {
-      const val = colorDef['a:schemeClr'].$val;
+    if (colorDef['schemeClr']) {
+      const val = colorDef['schemeClr'].$val;
       const schemeColors = {
         'dk1': '#000000',    // Dark 1
         'lt1': '#FFFFFF',    // Light 1
@@ -113,8 +113,8 @@ export class BaseParser {
     if (!xfrm) return result;
 
     // Position offset
-    if (xfrm['a:off']) {
-      const off = xfrm['a:off'];
+    if (xfrm['off']) {
+      const off = xfrm['off'];
       if (off) {
         result.x = this.emuToPixels(parseInt(off.$x || 0));
         result.y = this.emuToPixels(parseInt(off.$y || 0));
@@ -122,8 +122,8 @@ export class BaseParser {
     }
 
     // Size extents
-    if (xfrm['a:ext']) {
-      const ext = xfrm['a:ext'];
+    if (xfrm['ext']) {
+      const ext = xfrm['ext'];
       if (ext) {
         result.width = this.emuToPixels(parseInt(ext.$cx || 0));
         result.height = this.emuToPixels(parseInt(ext.$cy || 0));
@@ -144,26 +144,26 @@ export class BaseParser {
    * @returns {string} combined text content
    */
   static extractTextContent(textBody) {
-    if (!textBody || !textBody['a:p']) return '';
+    if (!textBody || !textBody['p']) return '';
 
     // Handle both array and single paragraph formats
-    const paragraphs = Array.isArray(textBody['a:p']) ? textBody['a:p'] : [textBody['a:p']];
+    const paragraphs = Array.isArray(textBody['p']) ? textBody['p'] : [textBody['p']];
     const textParts = [];
 
     paragraphs.forEach((paragraph, pIndex) => {
       let paragraphText = '';
       
       // Check for bullet formatting in paragraph properties
-      const pPr = this.safeGet(paragraph, 'a:pPr');
+      const pPr = this.safeGet(paragraph, 'pPr');
       const hasBullet = this.hasBulletFormatting(pPr);
       
-      if (paragraph['a:r']) {
+      if (paragraph['r']) {
         // Handle both array and single run formats
-        const runs = Array.isArray(paragraph['a:r']) ? paragraph['a:r'] : [paragraph['a:r']];
+        const runs = Array.isArray(paragraph['r']) ? paragraph['r'] : [paragraph['r']];
         runs.forEach(run => {
-          if (run['a:t']) {
+          if (run['t']) {
             // In fast-xml-parser, text is directly a string, not an array
-            const text = run['a:t'];
+            const text = run['t'];
             if (typeof text === 'string') {
               paragraphText += text;
             } else if (text._) {
@@ -196,154 +196,7 @@ export class BaseParser {
    * @param {Object} textBody - Text body object from PowerPoint
    * @returns {Object} tldraw rich text JSON structure
    */
-  static extractRichTextContent(textBody) {
-    if (!textBody || !textBody['a:p']) return null;
 
-    // Handle both array and single paragraph formats  
-    const paragraphs = Array.isArray(textBody['a:p']) ? textBody['a:p'] : [textBody['a:p']];
-    const bulletParagraphs = [];
-    const regularParagraphs = [];
-
-    // Process each paragraph and preserve individual text run formatting
-    paragraphs.forEach(paragraph => {
-      const pPr = this.safeGet(paragraph, 'a:pPr');
-      const hasBullet = this.hasBulletFormatting(pPr);
-      
-      // Extract text runs with their formatting
-      const textRuns = [];
-      if (paragraph['a:r']) {
-        // Handle both array and single run formats
-        const runs = Array.isArray(paragraph['a:r']) ? paragraph['a:r'] : [paragraph['a:r']];
-        runs.forEach(run => {
-          if (run['a:t']) {
-            const rPr = this.safeGet(run, 'a:rPr');
-            const font = this.parseFont(rPr);
-            
-            // In fast-xml-parser, text is directly a string, not an array
-            const text = run['a:t'];
-            if (text && typeof text === 'string') {
-              // Create text node with marks based on formatting
-              const textNodeObj = { type: 'text', text };
-              const marks = [];
-              
-              // Add formatting marks
-              if (font.isBold) {
-                marks.push({ type: 'bold' });
-              }
-              if (font.isItalic) {
-                marks.push({ type: 'italic' });
-              }
-              
-              // Add custom formatting attributes for size and color
-              const attrs = {};
-              if (font.size && font.size !== 12) { // Only add if different from default
-                attrs.fontSize = font.size;
-              }
-              if (font.color && font.color !== '#000000') { // Only add if different from black
-                attrs.color = font.color;
-              }
-              if (font.family && font.family !== 'Arial') { // Only add if different from default
-                attrs.fontFamily = font.family;
-              }
-              
-              if (marks.length > 0) {
-                textNodeObj.marks = marks;
-              }
-              if (Object.keys(attrs).length > 0) {
-                textNodeObj.attrs = attrs;
-              }
-              
-              textRuns.push(textNodeObj);
-            } else if (text && text._) {
-              // Handle case where text might be an object with underscore
-              const textNodeObj = { type: 'text', text: text._ };
-              textRuns.push(textNodeObj);
-            }
-          }
-        });
-      }
-      
-      if (textRuns.length > 0) {
-        // Fix spacing between text runs
-        const fixedTextRuns = this.fixSpacingInTextRuns(textRuns);
-        
-        if (hasBullet) {
-          bulletParagraphs.push(fixedTextRuns);
-        } else {
-          regularParagraphs.push(fixedTextRuns);
-        }
-      }
-    });
-
-    // If we have bullets, create a bullet list structure
-    if (bulletParagraphs.length > 0) {
-      const content = [];
-      
-      // Add regular paragraphs first if any
-      regularParagraphs.forEach(textRuns => {
-        content.push({
-          type: 'paragraph',
-          content: textRuns
-        });
-      });
-      
-      // Add bullet list
-      content.push({
-        type: 'bulletList',
-        content: bulletParagraphs.map(textRuns => ({
-          type: 'listItem',
-          content: [{
-            type: 'paragraph',
-            content: textRuns
-          }]
-        }))
-      });
-
-      return {
-        type: 'doc',
-        content
-      };
-    }
-
-    // No bullets, just regular paragraphs
-    if (regularParagraphs.length > 0) {
-      return {
-        type: 'doc',
-        content: regularParagraphs.map(textRuns => ({
-          type: 'paragraph',
-          content: textRuns
-        }))
-      };
-    }
-
-    return null;
-  }
-
-  /**
-   * Check if paragraph has bullet formatting
-   * @param {Object} pPr - Paragraph properties
-   * @returns {boolean} true if paragraph has bullets
-   */
-  static hasBulletFormatting(pPr) {
-    if (!pPr) return false;
-    
-    // Check for bullet font (a:buFont)
-    if (pPr['a:buFont']) return true;
-    
-    // Check for bullet character (a:buChar)
-    if (pPr['a:buChar']) return true;
-    
-    // Check for auto number bullets (a:buAutoNum)
-    if (pPr['a:buAutoNum']) return true;
-    
-    // Check for bullet size (a:buSzPct or a:buSzPts)
-    if (pPr['a:buSzPct'] || pPr['a:buSzPts']) return true;
-    
-    // Check for bullet color (a:buClr)
-    if (pPr['a:buClr']) return true;
-    
-    return false;
-  }
 
   /**
    * Extract font information from text run properties
@@ -370,8 +223,8 @@ export class BaseParser {
     if (!rPr) return font;
 
     // Font family
-    if (rPr['a:latin']) {
-      font.family = rPr['a:latin'].$typeface || font.family;
+    if (rPr['latin']) {
+      font.family = rPr['latin'].$typeface || font.family;
     }
 
     // Font size (in hundreds of a point)
@@ -413,8 +266,8 @@ export class BaseParser {
     }
 
     // Color
-    if (rPr['a:solidFill']) {
-      font.color = this.parseColor(rPr['a:solidFill']);
+    if (rPr['solidFill']) {
+      font.color = this.parseColor(rPr['solidFill']);
     }
 
     return font;

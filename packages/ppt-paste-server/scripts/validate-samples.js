@@ -32,13 +32,32 @@ const colors = {
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const SAMPLES_FILE = path.join(__dirname, '..', 'test-harness', 'samples.json')
-const VALIDATION_RESULTS_FILE = path.join(__dirname, '..', 'test-harness', 'validation-results.json')
+const SAMPLES_FILE = path.join(__dirname, '..', 'test', 'test-harness', 'samples.json')
+const VALIDATION_RESULTS_FILE = path.join(__dirname, '..', 'test', 'test-harness', 'validation-results.json')
 
 class SampleValidator {
   constructor() {
     this.processor = new PowerPointClipboardProcessor()
     this.results = []
+  }
+
+  truncateForLogging(components) {
+    return components.map(component => {
+      const truncated = { ...component }
+      
+      // Truncate content field if it's longer than 100 characters
+      if (truncated.content && truncated.content.length > 100) {
+        truncated.content = truncated.content.substring(0, 100) + '...'
+      }
+      
+      // Truncate imageUrl in metadata if present
+      if (truncated.metadata && truncated.metadata.imageUrl && truncated.metadata.imageUrl.length > 100) {
+        truncated.metadata = { ...truncated.metadata }
+        truncated.metadata.imageUrl = truncated.metadata.imageUrl.substring(0, 100) + '...'
+      }
+      
+      return truncated
+    })
   }
 
   async validate() {
@@ -83,7 +102,7 @@ class SampleValidator {
     if(!isValidated) {
       let originalLog = console.log
       try {
-        const binaryPath = path.join(__dirname, '..', 'test-harness', sampleData.bin)
+        const binaryPath = path.join(__dirname, '..', 'test', 'test-harness', sampleData.bin)
         const buffer = await fs.readFile(binaryPath)
         
         // Temporarily suppress console output during parsing
@@ -108,7 +127,8 @@ class SampleValidator {
           
           // Show parsed JSON for verification
           console.log(colors.cyan + '   Parsed JSON:' + colors.reset)
-          console.log(colors.white + '   ' + JSON.stringify(components, null, 2).replace(/\n/g, '\n   ') + colors.reset)
+          const truncatedComponents = this.truncateForLogging(components)
+          console.log(colors.white + '   ' + JSON.stringify(truncatedComponents, null, 2).replace(/\n/g, '\n   ') + colors.reset)
         } else {
           console.log(colors.red + '   Components: None found (parsing issue)' + colors.reset)
         }
@@ -134,7 +154,7 @@ class SampleValidator {
 
       // Step 2: Load and parse the PowerPoint data from binary file
       console.log(colors.cyan + '🔄 Loading binary file and parsing PowerPoint data...' + colors.reset)
-      const binaryPath = path.join(__dirname, '..', 'test-harness', sampleData.bin)
+      const binaryPath = path.join(__dirname, '..', 'test', 'test-harness', sampleData.bin)
       const buffer = await fs.readFile(binaryPath)
       const components = await this.processor.parseClipboardBuffer(buffer, { debug: false })
       
@@ -157,7 +177,8 @@ class SampleValidator {
       console.log(colors.cyan + `Description: "${sampleData.description}"` + colors.reset)
       console.log()
       console.log(colors.cyan + 'Parsed Components:' + colors.reset)
-      console.log(JSON.stringify(components, null, 2))
+      const truncatedComponents = this.truncateForLogging(components)
+      console.log(JSON.stringify(truncatedComponents, null, 2))
       console.log()
       console.log(colors.yellow + 'Questions:' + colors.reset)
       console.log(colors.white + '1. Does the parsed output match the visual description? (Yes/No)' + colors.reset)

@@ -69,6 +69,7 @@ app.get('/api/process-pptx/:fileId', async (c) => {
   try {
     const fileId = c.req.param('fileId');
     const debug = c.req.query('debug') === 'true';
+    const returnSlides = c.req.query('returnSlides') === 'true';
     
     if (!fileId) {
       return c.json({ error: 'File ID is required' }, 400);
@@ -90,16 +91,23 @@ app.get('/api/process-pptx/:fileId', async (c) => {
     if (debug) {
       console.log('📦 Processing uploaded PPTX file:', fileName);
       console.log('📦 File size:', buffer.byteLength, 'bytes');
+      console.log('📦 Return slides:', returnSlides);
     }
     
-    // Use existing clipboard processor to parse the PPTX buffer
-    const components = await clipboardProcessor.parseClipboardBuffer(uint8Array, { debug });
+    // Always use slides structure now
+    const result = await clipboardProcessor.parseClipboardBuffer(uint8Array, { debug, returnSlides: true });
     
-    // Calculate component type statistics
-    const componentTypes = components.reduce((acc, comp) => {
-      acc[comp.type] = (acc[comp.type] || 0) + 1;
-      return acc;
-    }, {});
+    const slides = result.slides;
+    let totalComponents = 0;
+    let componentTypes = {};
+    
+    // Calculate component type statistics from all slides
+    slides.forEach(slide => {
+      totalComponents += slide.components.length;
+      slide.components.forEach(comp => {
+        componentTypes[comp.type] = (componentTypes[comp.type] || 0) + 1;
+      });
+    });
     
     // Get file metadata
     const metadata = {
@@ -108,18 +116,22 @@ app.get('/api/process-pptx/:fileId', async (c) => {
       size: buffer.byteLength
     };
     
-    return c.json({
+    const response = {
       type: 'powerpoint',
       source: 'uploaded_file',
       fileId,
       metadata,
-      components,
-      isPowerPoint: components.length > 0,
+      slides: slides,
+      slideCount: slides.length,
+      isPowerPoint: totalComponents > 0,
       debug: {
-        componentCount: components.length,
-        componentTypes
+        componentCount: totalComponents,
+        componentTypes,
+        slideCount: slides.length
       }
-    });
+    };
+    
+    return c.json(response);
     
   } catch (error) {
     console.error('❌ Processing error:', error);
@@ -136,13 +148,18 @@ app.get('/api/proxy-powerpoint-clipboard', async (c) => {
   try {
     const url = c.req.query('url');
     const debug = c.req.query('debug') === 'true';
+    const returnSlides = c.req.query('returnSlides') === 'true';
     
     if (!url) {
       return c.json({ error: 'URL parameter is required' }, 400);
     }
     
-    // Use the clipboard processor to handle the request
-    const result = await clipboardProcessor.processClipboardUrl(url, { debug });
+    if (debug) {
+      console.log('🔗 Proxying PowerPoint clipboard URL with returnSlides:', returnSlides);
+    }
+    
+    // Always use slides structure now
+    const result = await clipboardProcessor.processClipboardUrl(url, { debug, returnSlides: true });
     
     return c.json(result);
     

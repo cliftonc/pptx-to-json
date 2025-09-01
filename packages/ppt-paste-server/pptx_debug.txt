@@ -1,0 +1,1037 @@
+📁 Binary file: /Users/cliftonc/work/ppt-paste/packages/ppt-paste-server/test/test-harness/presentation.pptx
+
+📥 Step 1: Loading binary file...
+✅ Loaded: 222662 bytes
+🔍 File signature: 50 4b 03 04
+📦 Format detected: ZIP/Office Open XML
+
+🔄 Step 2: Parsing PowerPoint data...
+📦 Detected ZIP file (Office Open XML)! Parsing...
+📦 PowerPoint parsed to JSON, files: 39
+📦 Files found: [
+  '[Content_Types].xml',
+  '_rels/.rels',
+  'ppt/slides/_rels/slide1.xml.rels',
+  'ppt/slides/slide1.xml',
+  'ppt/_rels/presentation.xml.rels',
+  'ppt/presentation.xml',
+  'ppt/slideLayouts/_rels/slideLayout8.xml.rels',
+  'ppt/slideLayouts/slideLayout1.xml',
+  'ppt/slideLayouts/slideLayout2.xml',
+  'ppt/slideLayouts/slideLayout3.xml',
+  'ppt/slideLayouts/slideLayout4.xml',
+  'ppt/slideLayouts/slideLayout5.xml',
+  'ppt/slideLayouts/slideLayout6.xml',
+  'ppt/slideLayouts/slideLayout7.xml',
+  'ppt/slideLayouts/slideLayout8.xml',
+  'ppt/slideLayouts/slideLayout9.xml',
+  'ppt/slideLayouts/slideLayout10.xml',
+  'ppt/slideLayouts/slideLayout11.xml',
+  'ppt/slideLayouts/_rels/slideLayout4.xml.rels',
+  'ppt/slideLayouts/_rels/slideLayout11.xml.rels',
+  'ppt/slideLayouts/_rels/slideLayout3.xml.rels',
+  'ppt/slideLayouts/_rels/slideLayout10.xml.rels',
+  'ppt/slideLayouts/_rels/slideLayout9.xml.rels',
+  'ppt/slideLayouts/_rels/slideLayout7.xml.rels',
+  'ppt/slideLayouts/_rels/slideLayout6.xml.rels',
+  'ppt/slideMasters/_rels/slideMaster1.xml.rels',
+  'ppt/slideMasters/slideMaster1.xml',
+  'ppt/slideLayouts/_rels/slideLayout1.xml.rels',
+  'ppt/slideLayouts/_rels/slideLayout2.xml.rels',
+  'ppt/slideLayouts/_rels/slideLayout5.xml.rels',
+  'docProps/thumbnail.jpeg',
+  'ppt/theme/theme1.xml',
+  'ppt/viewProps.xml',
+  'ppt/presProps.xml',
+  'ppt/tableStyles.xml',
+  'docProps/core.xml',
+  'ppt/revisionInfo.xml',
+  'docProps/app.xml',
+  'ppt/media/image1.png'
+]
+🎨 Processing PowerPoint JSON data...
+🔄 Normalized pptx format with 1 slides
+📄 Processing slide 1: 4 shapes, 8 text, 1 images
+📄 Slide 1 complete: 9 components
+✅ Unified parsing complete: 9 total components in 1 slides
+✅ PowerPoint parsing complete: 9 components found
+✅ Parsed: 9 components
+
+🐛 DEBUG: Full parsed JSON output:
+[
+  {
+    "id": "TextBox 72",
+    "type": "text",
+    "content": "Not sureaboutthis\n\nTEXT\n\nBullets\n\nBullets\n\nIndented",
+    "x": 75,
+    "y": 410,
+    "width": 288,
+    "height": 242,
+    "rotation": 0,
+    "slideIndex": 0,
+    "style": {
+      "fontSize": 12,
+      "fontFamily": "Arial",
+      "fontWeight": "normal",
+      "fontStyle": "normal",
+      "textDecoration": "none",
+      "color": "#000000",
+      "backgroundColor": "transparent",
+      "textAlign": "left",
+      "opacity": 1
+    },
+    "richText": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "Not sure"
+            },
+            {
+              "type": "text",
+              "text": "about",
+              "marks": [
+                {
+                  "type": "bold"
+                },
+                {
+                  "type": "italic"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "this"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "TEXT",
+              "marks": [
+                {
+                  "type": "bold"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "Bullets",
+              "marks": [
+                {
+                  "type": "bold"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "Bullets"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "Indented"
+            }
+          ]
+        }
+      ]
+    },
+    "metadata": {
+      "namespace": "p",
+      "isTextBox": true,
+      "originalFormat": "normalized",
+      "paragraphCount": 8,
+      "hasMultipleRuns": true
+    }
+  },
+  {
+    "id": "TextBox 1",
+    "type": "text",
+    "content": "HELLO THIS IS MAGICAL",
+    "x": 262,
+    "y": 287,
+    "width": 594,
+    "height": 68,
+    "rotation": -36,
+    "slideIndex": 0,
+    "style": {
+      "fontSize": 36,
+      "fontFamily": "Arial",
+      "fontWeight": "bold",
+      "fontStyle": "normal",
+      "textDecoration": "none",
+      "color": "#E97132",
+      "backgroundColor": "transparent",
+      "textAlign": "left",
+      "opacity": 1
+    },
+    "richText": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "HELLO THIS IS MAGICAL",
+              "marks": [
+                {
+                  "type": "bold"
+                }
+              ],
+              "attrs": {
+                "fontSize": 36
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "metadata": {
+      "namespace": "p",
+      "isTextBox": true,
+      "originalFormat": "normalized",
+      "paragraphCount": 1,
+      "hasMultipleRuns": false
+    }
+  },
+  {
+    "id": "TextBox 4",
+    "type": "text",
+    "content": "TEXT",
+    "x": 51,
+    "y": 50,
+    "width": 288,
+    "height": 139,
+    "rotation": 0,
+    "slideIndex": 0,
+    "style": {
+      "fontSize": 80,
+      "fontFamily": "Arial",
+      "fontWeight": "normal",
+      "fontStyle": "normal",
+      "textDecoration": "none",
+      "color": "#4EA72E",
+      "backgroundColor": "transparent",
+      "textAlign": "left",
+      "opacity": 1
+    },
+    "richText": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "TEXT",
+              "attrs": {
+                "fontSize": 80
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "metadata": {
+      "namespace": "p",
+      "isTextBox": true,
+      "originalFormat": "normalized",
+      "paragraphCount": 1,
+      "hasMultipleRuns": false
+    }
+  },
+  {
+    "id": "TextBox 8",
+    "type": "text",
+    "content": "WOW",
+    "x": 869,
+    "y": 43,
+    "width": 374,
+    "height": 139,
+    "rotation": 0,
+    "slideIndex": 0,
+    "style": {
+      "fontSize": 80,
+      "fontFamily": "Arial",
+      "fontWeight": "normal",
+      "fontStyle": "normal",
+      "textDecoration": "none",
+      "color": "#0B769F",
+      "backgroundColor": "transparent",
+      "textAlign": "left",
+      "opacity": 1
+    },
+    "richText": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "WOW",
+              "attrs": {
+                "fontSize": 80
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "metadata": {
+      "namespace": "p",
+      "isTextBox": true,
+      "originalFormat": "normalized",
+      "paragraphCount": 1,
+      "hasMultipleRuns": false
+    }
+  },
+  {
+    "id": "Rectangle 10",
+    "type": "shape",
+    "content": "rectangle shape",
+    "x": 581,
+    "y": 71,
+    "width": 150,
+    "height": 97,
+    "rotation": 0,
+    "slideIndex": 0,
+    "style": {
+      "backgroundColor": "#ED7D31",
+      "borderColor": "transparent",
+      "borderWidth": 0,
+      "borderStyle": "none",
+      "opacity": 1,
+      "effects": []
+    },
+    "metadata": {
+      "namespace": "p",
+      "geometry": {
+        "type": "rectangle",
+        "preset": "rect",
+        "isCustom": false
+      },
+      "originalFormat": "normalized",
+      "shapeType": "rectangle",
+      "hasEffects": false,
+      "hasFill": true,
+      "hasBorder": false
+    }
+  },
+  {
+    "id": "Star: 5 Points 11",
+    "type": "shape",
+    "content": "5-point star shape",
+    "x": 874,
+    "y": 364,
+    "width": 114,
+    "height": 92,
+    "rotation": 0,
+    "slideIndex": 0,
+    "style": {
+      "backgroundColor": "#44546A",
+      "borderColor": "#4472C4",
+      "borderWidth": 1,
+      "borderStyle": "solid",
+      "opacity": 1,
+      "effects": []
+    },
+    "metadata": {
+      "namespace": "p",
+      "geometry": {
+        "type": "5-point star",
+        "preset": "star5",
+        "isCustom": false
+      },
+      "originalFormat": "normalized",
+      "shapeType": "5-point star",
+      "hasEffects": false,
+      "hasFill": true,
+      "hasBorder": true
+    }
+  },
+  {
+    "id": "Arrow: Up 12",
+    "type": "shape",
+    "content": "up arrow shape",
+    "x": 457,
+    "y": 435,
+    "width": 124,
+    "height": 176,
+    "rotation": 0,
+    "slideIndex": 0,
+    "style": {
+      "backgroundColor": "#70AD47",
+      "borderColor": "#E7686B",
+      "borderWidth": 1,
+      "borderStyle": "solid",
+      "opacity": 1,
+      "effects": []
+    },
+    "metadata": {
+      "namespace": "p",
+      "geometry": {
+        "type": "up arrow",
+        "preset": "upArrow",
+        "isCustom": false
+      },
+      "originalFormat": "normalized",
+      "shapeType": "up arrow",
+      "hasEffects": false,
+      "hasFill": true,
+      "hasBorder": true
+    }
+  },
+  {
+    "id": "Arrow: Up-Down 6",
+    "type": "shape",
+    "content": "up down arrow shape",
+    "x": 982,
+    "y": 173,
+    "width": 113,
+    "height": 462,
+    "rotation": -43,
+    "slideIndex": 0,
+    "style": {
+      "backgroundColor": "#4472C4",
+      "borderColor": "transparent",
+      "borderWidth": 0,
+      "borderStyle": "none",
+      "opacity": 1,
+      "effects": []
+    },
+    "metadata": {
+      "namespace": "p",
+      "geometry": {
+        "type": "up down arrow",
+        "preset": "upDownArrow",
+        "isCustom": false
+      },
+      "originalFormat": "normalized",
+      "shapeType": "up down arrow",
+      "hasEffects": false,
+      "hasFill": true,
+      "hasBorder": false
+    }
+  },
+  {
+    "id": "Picture 2",
+    "type": "image",
+    "content": "A screenshot of a graph&#xA;&#xA;AI-generated content may be incorrect.",
+    "x": 627,
+    "y": 562,
+    "width": 424,
+    "height": 137,
+    "rotation": 0,
+    "slideIndex": 0,
+    "style": {
+      "opacity": 1,
+      "effects": null
+    },
+    "metadata": {
+      "namespace": "p",
+      "name": "Picture 2",
+      "description": "A screenshot of a graph&#xA;&#xA;AI-generated content may be incorrect.",
+      "relationshipId": "rId2",
+      "imageUrl": null,
+      "imageType": "unknown",
+      "imageSize": 0,
+      "originalFormat": "normalized",
+      "hasEffects": false
+    }
+  }
+]
+
+📊 Component types found: { text: 4, shape: 4, image: 1 }
+
+🎯 Components summary:
+
+--- Component 1 (text) ---
+Content: Not sureaboutthis
+
+TEXT
+
+Bullets
+
+Bullets
+
+Indented
+Position: (75, 410)
+Size: 288 × 242
+Style:
+  fontSize: 12
+  fontFamily: Arial
+  fontWeight: normal
+  fontStyle: normal
+  color: #000000
+  textAlign: left
+  opacity: 1
+Metadata:
+  namespace: p
+  isTextBox: true
+  originalFormat: normalized
+  paragraphCount: 8
+  hasMultipleRuns: true
+
+--- Component 2 (text) ---
+Content: HELLO THIS IS MAGICAL
+Position: (262, 287)
+Size: 594 × 68
+Style:
+  fontSize: 36
+  fontFamily: Arial
+  fontWeight: bold
+  fontStyle: normal
+  color: #E97132
+  textAlign: left
+  opacity: 1
+Metadata:
+  namespace: p
+  isTextBox: true
+  originalFormat: normalized
+  paragraphCount: 1
+
+--- Component 3 (text) ---
+Content: TEXT
+Position: (51, 50)
+Size: 288 × 139
+Style:
+  fontSize: 80
+  fontFamily: Arial
+  fontWeight: normal
+  fontStyle: normal
+  color: #4EA72E
+  textAlign: left
+  opacity: 1
+Metadata:
+  namespace: p
+  isTextBox: true
+  originalFormat: normalized
+  paragraphCount: 1
+
+--- Component 4 (text) ---
+Content: WOW
+Position: (869, 43)
+Size: 374 × 139
+Style:
+  fontSize: 80
+  fontFamily: Arial
+  fontWeight: normal
+  fontStyle: normal
+  color: #0B769F
+  textAlign: left
+  opacity: 1
+Metadata:
+  namespace: p
+  isTextBox: true
+  originalFormat: normalized
+  paragraphCount: 1
+
+--- Component 5 (shape) ---
+Content: rectangle shape
+Position: (581, 71)
+Size: 150 × 97
+Style:
+  backgroundColor: #ED7D31
+  opacity: 1
+  effects: 
+Metadata:
+  namespace: p
+  geometry: [object Object]
+  originalFormat: normalized
+  shapeType: rectangle
+  hasFill: true
+
+--- Component 6 (shape) ---
+Content: 5-point star shape
+Position: (874, 364)
+Size: 114 × 92
+Style:
+  backgroundColor: #44546A
+  borderColor: #4472C4
+  borderWidth: 1
+  borderStyle: solid
+  opacity: 1
+  effects: 
+Metadata:
+  namespace: p
+  geometry: [object Object]
+  originalFormat: normalized
+  shapeType: 5-point star
+  hasFill: true
+  hasBorder: true
+
+--- Component 7 (shape) ---
+Content: up arrow shape
+Position: (457, 435)
+Size: 124 × 176
+Style:
+  backgroundColor: #70AD47
+  borderColor: #E7686B
+  borderWidth: 1
+  borderStyle: solid
+  opacity: 1
+  effects: 
+Metadata:
+  namespace: p
+  geometry: [object Object]
+  originalFormat: normalized
+  shapeType: up arrow
+  hasFill: true
+  hasBorder: true
+
+--- Component 8 (shape) ---
+Content: up down arrow shape
+Position: (982, 173)
+Size: 113 × 462
+Style:
+  backgroundColor: #4472C4
+  opacity: 1
+  effects: 
+Metadata:
+  namespace: p
+  geometry: [object Object]
+  originalFormat: normalized
+  shapeType: up down arrow
+  hasFill: true
+
+--- Component 9 (image) ---
+Content: A screenshot of a graph&#xA;&#xA;AI-generated content may be incorrect.
+Position: (627, 562)
+Size: 424 × 137
+Style:
+  opacity: 1
+Metadata:
+  namespace: p
+  name: Picture 2
+  description: A screenshot of a graph&#xA;&#xA;AI-generated content may be incorrect.
+  relationshipId: rId2
+  imageType: unknown
+  originalFormat: normalized
+
+🔧 Full JSON Output:
+[
+  {
+    "id": "TextBox 72",
+    "type": "text",
+    "content": "Not sureaboutthis\n\nTEXT\n\nBullets\n\nBullets\n\nIndented",
+    "x": 75,
+    "y": 410,
+    "width": 288,
+    "height": 242,
+    "rotation": 0,
+    "slideIndex": 0,
+    "style": {
+      "fontSize": 12,
+      "fontFamily": "Arial",
+      "fontWeight": "normal",
+      "fontStyle": "normal",
+      "textDecoration": "none",
+      "color": "#000000",
+      "backgroundColor": "transparent",
+      "textAlign": "left",
+      "opacity": 1
+    },
+    "richText": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "Not sure"
+            },
+            {
+              "type": "text",
+              "text": "about",
+              "marks": [
+                {
+                  "type": "bold"
+                },
+                {
+                  "type": "italic"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "this"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "TEXT",
+              "marks": [
+                {
+                  "type": "bold"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "Bullets",
+              "marks": [
+                {
+                  "type": "bold"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "Bullets"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "Indented"
+            }
+          ]
+        }
+      ]
+    },
+    "metadata": {
+      "namespace": "p",
+      "isTextBox": true,
+      "originalFormat": "normalized",
+      "paragraphCount": 8,
+      "hasMultipleRuns": true
+    }
+  },
+  {
+    "id": "TextBox 1",
+    "type": "text",
+    "content": "HELLO THIS IS MAGICAL",
+    "x": 262,
+    "y": 287,
+    "width": 594,
+    "height": 68,
+    "rotation": -36,
+    "slideIndex": 0,
+    "style": {
+      "fontSize": 36,
+      "fontFamily": "Arial",
+      "fontWeight": "bold",
+      "fontStyle": "normal",
+      "textDecoration": "none",
+      "color": "#E97132",
+      "backgroundColor": "transparent",
+      "textAlign": "left",
+      "opacity": 1
+    },
+    "richText": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "HELLO THIS IS MAGICAL",
+              "marks": [
+                {
+                  "type": "bold"
+                }
+              ],
+              "attrs": {
+                "fontSize": 36
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "metadata": {
+      "namespace": "p",
+      "isTextBox": true,
+      "originalFormat": "normalized",
+      "paragraphCount": 1,
+      "hasMultipleRuns": false
+    }
+  },
+  {
+    "id": "TextBox 4",
+    "type": "text",
+    "content": "TEXT",
+    "x": 51,
+    "y": 50,
+    "width": 288,
+    "height": 139,
+    "rotation": 0,
+    "slideIndex": 0,
+    "style": {
+      "fontSize": 80,
+      "fontFamily": "Arial",
+      "fontWeight": "normal",
+      "fontStyle": "normal",
+      "textDecoration": "none",
+      "color": "#4EA72E",
+      "backgroundColor": "transparent",
+      "textAlign": "left",
+      "opacity": 1
+    },
+    "richText": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "TEXT",
+              "attrs": {
+                "fontSize": 80
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "metadata": {
+      "namespace": "p",
+      "isTextBox": true,
+      "originalFormat": "normalized",
+      "paragraphCount": 1,
+      "hasMultipleRuns": false
+    }
+  },
+  {
+    "id": "TextBox 8",
+    "type": "text",
+    "content": "WOW",
+    "x": 869,
+    "y": 43,
+    "width": 374,
+    "height": 139,
+    "rotation": 0,
+    "slideIndex": 0,
+    "style": {
+      "fontSize": 80,
+      "fontFamily": "Arial",
+      "fontWeight": "normal",
+      "fontStyle": "normal",
+      "textDecoration": "none",
+      "color": "#0B769F",
+      "backgroundColor": "transparent",
+      "textAlign": "left",
+      "opacity": 1
+    },
+    "richText": {
+      "type": "doc",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "WOW",
+              "attrs": {
+                "fontSize": 80
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "metadata": {
+      "namespace": "p",
+      "isTextBox": true,
+      "originalFormat": "normalized",
+      "paragraphCount": 1,
+      "hasMultipleRuns": false
+    }
+  },
+  {
+    "id": "Rectangle 10",
+    "type": "shape",
+    "content": "rectangle shape",
+    "x": 581,
+    "y": 71,
+    "width": 150,
+    "height": 97,
+    "rotation": 0,
+    "slideIndex": 0,
+    "style": {
+      "backgroundColor": "#ED7D31",
+      "borderColor": "transparent",
+      "borderWidth": 0,
+      "borderStyle": "none",
+      "opacity": 1,
+      "effects": []
+    },
+    "metadata": {
+      "namespace": "p",
+      "geometry": {
+        "type": "rectangle",
+        "preset": "rect",
+        "isCustom": false
+      },
+      "originalFormat": "normalized",
+      "shapeType": "rectangle",
+      "hasEffects": false,
+      "hasFill": true,
+      "hasBorder": false
+    }
+  },
+  {
+    "id": "Star: 5 Points 11",
+    "type": "shape",
+    "content": "5-point star shape",
+    "x": 874,
+    "y": 364,
+    "width": 114,
+    "height": 92,
+    "rotation": 0,
+    "slideIndex": 0,
+    "style": {
+      "backgroundColor": "#44546A",
+      "borderColor": "#4472C4",
+      "borderWidth": 1,
+      "borderStyle": "solid",
+      "opacity": 1,
+      "effects": []
+    },
+    "metadata": {
+      "namespace": "p",
+      "geometry": {
+        "type": "5-point star",
+        "preset": "star5",
+        "isCustom": false
+      },
+      "originalFormat": "normalized",
+      "shapeType": "5-point star",
+      "hasEffects": false,
+      "hasFill": true,
+      "hasBorder": true
+    }
+  },
+  {
+    "id": "Arrow: Up 12",
+    "type": "shape",
+    "content": "up arrow shape",
+    "x": 457,
+    "y": 435,
+    "width": 124,
+    "height": 176,
+    "rotation": 0,
+    "slideIndex": 0,
+    "style": {
+      "backgroundColor": "#70AD47",
+      "borderColor": "#E7686B",
+      "borderWidth": 1,
+      "borderStyle": "solid",
+      "opacity": 1,
+      "effects": []
+    },
+    "metadata": {
+      "namespace": "p",
+      "geometry": {
+        "type": "up arrow",
+        "preset": "upArrow",
+        "isCustom": false
+      },
+      "originalFormat": "normalized",
+      "shapeType": "up arrow",
+      "hasEffects": false,
+      "hasFill": true,
+      "hasBorder": true
+    }
+  },
+  {
+    "id": "Arrow: Up-Down 6",
+    "type": "shape",
+    "content": "up down arrow shape",
+    "x": 982,
+    "y": 173,
+    "width": 113,
+    "height": 462,
+    "rotation": -43,
+    "slideIndex": 0,
+    "style": {
+      "backgroundColor": "#4472C4",
+      "borderColor": "transparent",
+      "borderWidth": 0,
+      "borderStyle": "none",
+      "opacity": 1,
+      "effects": []
+    },
+    "metadata": {
+      "namespace": "p",
+      "geometry": {
+        "type": "up down arrow",
+        "preset": "upDownArrow",
+        "isCustom": false
+      },
+      "originalFormat": "normalized",
+      "shapeType": "up down arrow",
+      "hasEffects": false,
+      "hasFill": true,
+      "hasBorder": false
+    }
+  },
+  {
+    "id": "Picture 2",
+    "type": "image",
+    "content": "A screenshot of a graph&#xA;&#xA;AI-generated content may be incorrect.",
+    "x": 627,
+    "y": 562,
+    "width": 424,
+    "height": 137,
+    "rotation": 0,
+    "slideIndex": 0,
+    "style": {
+      "opacity": 1,
+      "effects": null
+    },
+    "metadata": {
+      "namespace": "p",
+      "name": "Picture 2",
+      "description": "A screenshot of a graph&#xA;&#xA;AI-generated content may be incorrect.",
+      "relationshipId": "rId2",
+      "imageUrl": null,
+      "imageType": "unknown",
+      "imageSize": 0,
+      "originalFormat": "normalized",
+      "hasEffects": false
+    }
+  }
+]

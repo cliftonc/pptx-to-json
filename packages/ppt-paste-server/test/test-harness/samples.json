@@ -43,5 +43,15 @@
 		"bin": "fixtures/basic-table.bin",
 		"description": "A single text element with green text 'TEXT' (misnamed - no actual table)",		
 		"validated": true
+	},
+	"text-multiple-images": {
+		"bin": "fixtures/text-multiple-images.bin",
+		"description": "A header at the top, a large text box taking the left half of the screen - it must wrap and not be underneath the images, two images to the right one on top, one below.",
+		"validated": true
+	},
+	"failing-to-parse": {
+		"bin": "fixtures/failing-to-parse.bin",
+		"description": "Header at the top, large image to left, text with bullets to taking up half of page to right.",
+		"validated": true
 	}
 }

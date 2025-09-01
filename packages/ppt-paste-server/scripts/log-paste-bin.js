@@ -18,19 +18,50 @@ import { PowerPointClipboardProcessor } from '../src/processors/PowerPointClipbo
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
+function truncateForLogging(components) {
+  return components.map(component => {
+    const truncated = { ...component }
+    
+    // Truncate content field if it's longer than 100 characters
+    if (truncated.content && truncated.content.length > 100) {
+      truncated.content = truncated.content.substring(0, 100) + '...'
+    }
+    
+    // Truncate imageUrl in metadata if present
+    if (truncated.metadata && truncated.metadata.imageUrl && truncated.metadata.imageUrl.length > 100) {
+      truncated.metadata = { ...truncated.metadata }
+      truncated.metadata.imageUrl = truncated.metadata.imageUrl.substring(0, 100) + '...'
+    }
+    
+    // Truncate dataUrl in metadata if present (common for images)
+    if (truncated.metadata && truncated.metadata.dataUrl && truncated.metadata.dataUrl.length > 100) {
+      truncated.metadata = { ...truncated.metadata }
+      truncated.metadata.dataUrl = truncated.metadata.dataUrl.substring(0, 100) + '...'
+    }
+    
+    return truncated
+  })
+}
+
 async function logPasteBinary() {
   // Parse command line arguments
   const args = process.argv.slice(2)
   
   if (args.length < 1) {
-    console.log('❌ Usage: node scripts/log-paste-bin.js <binary-file-path> [--debug]')
-    console.log('📝 Example: node scripts/log-paste-bin.js test-harness/fixtures/orange-rectangle.bin')
-    console.log('📝 Debug:   node scripts/log-paste-bin.js test-harness/fixtures/orange-rectangle.bin --debug')
+    console.log('❌ Usage: node scripts/log-paste-bin.js <filename> [--debug]')
+    console.log('📝 Example: node scripts/log-paste-bin.js orange-rectangle.bin')
+    console.log('📝 Debug:   node scripts/log-paste-bin.js orange-rectangle.bin --debug')
+    console.log('📝 Note:    Files are automatically looked up in test/test-harness/fixtures/')
     process.exit(1)
   }
 
-  const [filePath] = args
+  const [filename] = args
   const debugMode = args.includes('--debug')
+  
+  // Auto-prepend fixtures path if just filename is provided
+  const filePath = filename.includes('/') 
+    ? filename  // Full path provided
+    : `test/test-harness/fixtures/${filename}`  // Just filename, prepend fixtures path
   
   // Resolve path relative to script location
   const resolvedPath = path.isAbsolute(filePath) 
@@ -62,7 +93,7 @@ async function logPasteBinary() {
     // Debug: Output full parsed JSON immediately if debug mode is enabled
     if (debugMode) {
       console.log('\n🐛 DEBUG: Full parsed JSON output:')
-      console.log(JSON.stringify(components, null, 2))
+      console.log(JSON.stringify(truncateForLogging(components), null, 2))
     }
 
     if (components.length === 0) {
@@ -105,7 +136,7 @@ async function logPasteBinary() {
     })
 
     console.log('\n🔧 Full JSON Output:')
-    console.log(JSON.stringify(components, null, 2))
+    console.log(JSON.stringify(truncateForLogging(components), null, 2))
 
   } catch (error) {
     console.error('\n❌ Error processing binary file:', error.message)

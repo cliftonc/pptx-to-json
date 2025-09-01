@@ -11,21 +11,27 @@ function App() {
 
   const handleStructuredParsed = (data: ParsedContent) => {
     console.log('📋 Clipboard data received:', data);
-    console.log('📋 Component types:', data.components?.map(c => ({ type: c.type, id: c.id })));
+    console.log('📋 Slides received:', data.slides?.length || 0);
     
-    if (data.components && data.components.length > 0) {
-      // We have parsed PowerPoint components from the server!
-      console.log('🎨 Using server-parsed PowerPoint components:', data.components.length);
-      
-      const componentsByType = data.components.reduce((acc, comp) => {
-        acc[comp.type] = (acc[comp.type] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
+    // Calculate total components and types from all slides
+    let totalComponents = 0;
+    const componentsByType: Record<string, number> = {};
+    
+    data.slides?.forEach(slide => {
+      totalComponents += slide.components.length;
+      slide.components.forEach(comp => {
+        componentsByType[comp.type] = (componentsByType[comp.type] || 0) + 1;
+      });
+    });
+    
+    if (data.slides && data.slides.length > 0 && totalComponents > 0) {
+      // We have parsed PowerPoint slides from the server!
+      console.log('🎨 Using server-parsed PowerPoint slides:', data.slides.length, 'slides with', totalComponents, 'total components');
       
       setStructuredData({
-        totalComponents: data.components.length,
+        totalComponents,
         componentsByType,
-        components: data.components,
+        slides: data.slides,
         isPowerPoint: data.isPowerPoint,
         availableFormats: data.formats.map(f => f.type)
       });
@@ -391,18 +397,53 @@ function App() {
                   borderRadius: '4px'
                 }}>
                   <div><strong>Total:</strong> {structuredData.totalComponents}</div>
+                  {structuredData.slides && structuredData.slides.length > 0 && (
+                    <div><strong>📄 Slides:</strong> {structuredData.slides.length}</div>
+                  )}
                   {Object.entries(structuredData.componentsByType).map(([type, count]) => (
                     <div key={type}>
                       <strong>{getTypeIcon(type) as string} {type}:</strong> {count as number}
                     </div>
                   ))}
                 </div>
+                
+                {/* Slides Information */}
+                {structuredData.slides && structuredData.slides.length > 0 && (
+                  <div style={{ marginBottom: '20px' }}>
+                    <h4>📄 Slides Structure:</h4>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                      {structuredData.slides.map((slide: any, index: number) => (
+                        <div key={`slide-${slide.slideNumber || slide.slideIndex || index}`} style={{
+                          padding: '10px',
+                          backgroundColor: '#e3f2fd',
+                          border: '1px solid #2196f3',
+                          borderRadius: '6px',
+                          minWidth: '120px',
+                          textAlign: 'center'
+                        }}>
+                          <div style={{ fontWeight: 'bold', fontSize: '14px' }}>
+                            {slide.metadata?.name || `Slide ${slide.slideNumber}`}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                            {slide.components.length} components
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Individual Components */}
                 <h4>📝 Component Details:</h4>
                 <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
-                  {structuredData.components.map((component: any, index: number) => (
-                    <div key={component.id} style={{
+                  {structuredData.slides?.flatMap((slide: any, slideIndex: number) => 
+                    slide.components.map((component: any, componentIndex: number) => ({
+                      ...component,
+                      slideIndex,
+                      componentIndex
+                    }))
+                  ).map((component: any, index: number) => (
+                    <div key={`${component.slideIndex}-${component.id}-${component.componentIndex}`} style={{
                       border: '1px solid #ddd',
                       padding: '15px',
                       marginBottom: '10px',
@@ -613,7 +654,8 @@ function App() {
       {/* Right Column - Tldraw Canvas */}
       <div style={{ width: '60%', height: '100%' }}>
         <TldrawCanvas 
-          components={structuredData?.components || []} 
+          components={[]} // No longer used, components are in slides
+          slides={structuredData?.slides || []} 
         />
       </div>
     </div>

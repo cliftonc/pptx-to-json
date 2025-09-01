@@ -7,7 +7,8 @@
     "dev": "pnpm --filter worker dev & pnpm --filter demo dev",
     "build:lib": "pnpm --filter ppt-paste-parser build",
     "build": "pnpm build:lib && pnpm --filter demo build",
-    "preview": "pnpm --filter demo preview"
+    "preview": "pnpm --filter demo preview",
+    "log-bin": "cd packages/ppt-paste-server && node scripts/log-paste-bin.js"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
