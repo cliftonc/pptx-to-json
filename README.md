@@ -22,7 +22,8 @@ The system extracts:
 ## Architecture
 
 - **Client Library** (`packages/ppt-paste-parser/`): React component that detects PowerPoint data and calls the proxy server
-- **Proxy Server** (`apps/proxy-server/`): Express.js server that bypasses CORS, calls Microsoft APIs, and parses XML
+- **Server Library** (`packages/ppt-paste-server/`): Code that parses the OfficeXML and returns structured data.
+- **Proxy Server** (`apps/worker/`): Hono cloudflare worker that provides backend.
 - **Demo Application** (`apps/demo/`): UI for testing and displaying parsed components
 
 ## Quick Start
