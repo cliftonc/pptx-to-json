@@ -156,29 +156,125 @@ function App() {
         overflowY: 'auto',
         borderRight: '1px solid #ddd'
       }}>
-        <header style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <h1 style={{ fontSize: '24px', margin: '0 0 10px 0' }}>PowerPoint Parser</h1>
-          <p style={{ color: '#666', fontSize: '16px', margin: '0 0 5px 0' }}>
-            Upload PPTX files or paste PowerPoint content from web based Powerpoint
-          </p>
-          <p style={{ color: '#999', fontSize: '12px', margin: '0' }}>
-            Components will appear on canvas →
-          </p>
-          <div style={{ marginTop: '10px' }}>
+        <header style={{ 
+          textAlign: 'center', 
+          marginBottom: '50px', 
+          position: 'relative',
+          paddingTop: '60px',
+          paddingBottom: '20px'
+        }}>
+          {/* Top navigation bar */}
+          <div style={{
+            position: 'absolute',
+            top: '0',
+            left: '0',
+            right: '0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '30px'
+          }}>
+            <a 
+              href="https://github.com/cliftonc/ppt-paste" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 16px',
+                backgroundColor: '#24292f',
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = '#32383f';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = '#24292f';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+              }}
+            >
+              <svg
+                width="16"
+                height="16"
+                fill="currentColor"
+                viewBox="0 0 16 16"
+              >
+                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+              </svg>
+              GitHub
+            </a>
+            
             <button 
               onClick={() => setCurrentPage('raw')}
               style={{
-                padding: '6px 12px',
+                padding: '10px 16px',
                 backgroundColor: '#6c757d',
                 color: 'white',
                 border: 'none',
-                borderRadius: '4px',
+                borderRadius: '8px',
                 cursor: 'pointer',
-                fontSize: '12px'
+                fontSize: '14px',
+                fontWeight: '500',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = '#5a6268';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = '#6c757d';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
               }}
             >
-              Raw Data Extractor
+              Extractor
             </button>
+          </div>
+
+          {/* Main header content */}
+          <div style={{ marginTop: '20px' }}>
+            <h1 style={{ 
+              fontSize: '32px', 
+              margin: '0 0 16px 0',
+              fontWeight: '700',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text'
+            }}>
+              PowerPoint Parser
+            </h1>
+            <p style={{ 
+              color: '#4a5568', 
+              fontSize: '18px', 
+              margin: '0 0 8px 0',
+              lineHeight: '1.5',
+              maxWidth: '400px',
+              marginLeft: 'auto',
+              marginRight: 'auto'
+            }}>
+              Upload PPTX files or paste PowerPoint content from web based PowerPoint and load them directly into <a href="https://www.tldraw.com/">TLDraw</a>
+            </p>
+            <p style={{ 
+              color: '#718096', 
+              fontSize: '14px', 
+              margin: '0',
+              fontStyle: 'italic'
+            }}>
+              Components will appear on canvas →
+            </p>
           </div>
         </header>
 
@@ -195,6 +291,72 @@ function App() {
             onParse={handleStructuredParsed}
             placeholder="Paste PowerPoint shapes, text, or images here..."
           />
+          
+          {/* Component Support Information */}
+          <div style={{ marginTop: '20px', fontSize: '14px', textAlign: 'left' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              {/* Supported Components */}
+              <div style={{
+                padding: '16px',
+                backgroundColor: '#d1edff',
+                borderRadius: '6px',
+                border: '1px solid #bee5eb'
+              }}>
+                <h4 style={{ margin: '0 0 12px 0', color: '#0c5460', fontSize: '16px' }}>
+                  ✅ Supported Components
+                </h4>
+                <ul style={{ 
+                  margin: '0', 
+                  paddingLeft: '20px', 
+                  lineHeight: '1.8', 
+                  color: '#0c5460' 
+                }}>
+                  <li><strong>📝 Text:</strong> Rich text with fonts, colors, sizes, bold/italic</li>
+                  <li><strong>🖼️ Images:</strong> PNG, JPG with positioning & scaling</li>
+                  <li><strong>🔸 Shapes:</strong> Rectangles, circles, lines with fills & borders</li>
+                  <li><strong>🎨 Styling:</strong> Colors, gradients, transparency, shadows</li>
+                  <li><strong>📐 Layout:</strong> Precise positioning, rotation, grouping</li>
+                </ul>
+              </div>
+
+              {/* Unsupported Components */}
+              <div style={{
+                padding: '16px',
+                backgroundColor: '#f8d7da',
+                borderRadius: '6px',
+                border: '1px solid #f5c6cb'
+              }}>
+                <h4 style={{ margin: '0 0 12px 0', color: '#721c24', fontSize: '16px' }}>
+                  ❌ Not Yet Supported
+                </h4>
+                <ul style={{ 
+                  margin: '0', 
+                  paddingLeft: '20px', 
+                  lineHeight: '1.8', 
+                  color: '#721c24' 
+                }}>
+                  <li><strong>📊 Tables:</strong> Coming soon - handled client-side</li>
+                  <li><strong>📈 Charts:</strong> Graphs, pie charts, data visualizations</li>
+                  <li><strong>🎬 Media:</strong> Videos, audio files, embedded content</li>
+                  <li><strong>🔗 SmartArt:</strong> Diagrams, org charts, process flows</li>
+                  <li><strong>📎 Embedded:</strong> Excel sheets, Word docs, other files</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Additional Info */}
+            <div style={{
+              marginTop: '16px',
+              padding: '12px',
+              backgroundColor: '#fff3cd',
+              borderRadius: '6px',
+              border: '1px solid #ffeaa7',
+              color: '#856404'
+            }}>
+              <strong>💡 Pro Tip:</strong> Works best with <strong>web-based PowerPoint</strong> (powerpoint.office.com). 
+              Desktop PowerPoint may have limited clipboard format support.
+            </div>
+          </div>
         </div>
 
         {structuredData && (

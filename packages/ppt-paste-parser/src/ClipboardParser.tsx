@@ -409,58 +409,83 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
 
   return (
     <div className={`clipboard-parser ${className}`}>
-      {/* File Upload Section */}
-      <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <input
-          type="file"
-          accept=".pptx"
-          onChange={handleFileUpload}
-          disabled={isProcessing}
-          style={{ display: 'none' }}
-          id="pptx-file-input"
-        />
-        <label
-          htmlFor="pptx-file-input"
+      <div style={{ display: 'flex', alignItems: 'stretch', gap: '15px' }}>
+        {/* File Upload Button */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+          <input
+            type="file"
+            accept=".pptx"
+            onChange={handleFileUpload}
+            disabled={isProcessing}
+            style={{ display: 'none' }}
+            id="pptx-file-input"
+          />
+          <label
+            htmlFor="pptx-file-input"
+            style={{
+              padding: '12px 20px',
+              backgroundColor: isProcessing ? '#ccc' : '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: isProcessing ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              fontWeight: '500',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              minHeight: '50px',
+              justifyContent: 'center',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}
+          >
+            📤 Upload PPTX File
+          </label>
+        </div>
+
+        {/* OR separator */}
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          color: '#666', 
+          fontSize: '14px',
+          fontWeight: '500'
+        }}>
+          or
+        </div>
+
+        {/* Paste Area - smaller and aligned right */}
+        <div
+          onPaste={handlePaste}
+          contentEditable
+          suppressContentEditableWarning
           style={{
-            padding: '8px 16px',
-            backgroundColor: isProcessing ? '#ccc' : '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: isProcessing ? 'not-allowed' : 'pointer',
+            flex: '1',
+            minHeight: '50px',
+            padding: '12px',
+            border: '2px dashed #ccc',
+            borderRadius: '6px',
+            outline: 'none',
+            backgroundColor: isProcessing ? '#f0f8ff' : 'white',
+            cursor: isProcessing ? 'wait' : 'text',
+            opacity: isProcessing ? 0.7 : 1,
+            display: 'flex',
+            alignItems: 'center',
             fontSize: '14px',
+            transition: 'all 0.2s ease'
           }}
         >
-          📤 Upload PPTX File
-        </label>
-        <span style={{ color: '#666', fontSize: '14px' }}>or</span>
-      </div>
-
-      {/* Paste Area */}
-      <div
-        onPaste={handlePaste}
-        contentEditable
-        suppressContentEditableWarning
-        style={{
-          minHeight: '100px',
-          padding: '10px',
-          border: '2px dashed #ccc',
-          borderRadius: '4px',
-          outline: 'none',
-          backgroundColor: isProcessing ? '#f0f8ff' : 'white',
-          cursor: isProcessing ? 'wait' : 'text',
-          opacity: isProcessing ? 0.7 : 1,
-        }}
-      >
-        {isProcessing ? (
-          <span style={{ color: '#666', fontStyle: 'italic' }}>
-            {uploadProgress || 'Processing PowerPoint data...'}
-          </span>
-        ) : (
-          <span style={{ color: '#999' }}>
-            {placeholder}
-          </span>
-        )}
+          {isProcessing ? (
+            <span style={{ color: '#666', fontStyle: 'italic' }}>
+              {uploadProgress || 'Processing PowerPoint data...'}
+            </span>
+          ) : (
+            <span style={{ color: '#999' }}>
+              {placeholder}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
