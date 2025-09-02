@@ -38,6 +38,7 @@ export interface ParsedContent {
   formats: ClipboardData[];
   isPowerPoint: boolean;
   slides: PowerPointSlide[]; // Always use slides array now
+  slideDimensions?: { width: number; height: number };
 }
 
 export interface EnhancedPowerPointComponent extends PowerPointComponent {
@@ -170,7 +171,7 @@ const parseHtmlTableData = (html: string): PowerPointComponent[] => {
 };
 
 // Call the proxy server to get parsed PowerPoint data as slides
-const fetchParsedPowerPointData = async (clipboardBytesUrl: string): Promise<{ slides: PowerPointSlide[] }> => {
+const fetchParsedPowerPointData = async (clipboardBytesUrl: string): Promise<{ slides: PowerPointSlide[]; slideDimensions?: { width: number; height: number } }> => {
   try {
     console.log('🔗 Fetching PowerPoint data via proxy:', clipboardBytesUrl.substring(0, 100) + '...');
     
@@ -222,7 +223,8 @@ const fetchParsedPowerPointData = async (clipboardBytesUrl: string): Promise<{ s
       console.log(`🎨 Total components across all slides: ${totalComponents}`);
       
       return {
-        slides: data.slides
+        slides: data.slides,
+        slideDimensions: data.slideDimensions
       };
     }
     
@@ -250,6 +252,7 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
       const clipboardData = event.clipboardData;
       const formats: ClipboardData[] = [];
       let slides: PowerPointSlide[] = [];
+      let slideDimensions: { width: number; height: number } | undefined;
       
       // Get all available formats
       const types = Array.from(clipboardData.types);
@@ -291,6 +294,7 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
           // Fetch parsed slides from proxy server
           const result = await fetchParsedPowerPointData(clipboardBytesUrl);
           slides = result.slides;
+          slideDimensions = result.slideDimensions;
           
           if (slides.length > 0) {
             const totalComponents = slides.reduce((sum, slide) => sum + slide.components.length, 0);
@@ -379,7 +383,8 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
         onParse({
           formats,
           isPowerPoint,
-          slides
+          slides,
+          slideDimensions
         });
       }
 
@@ -429,7 +434,11 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
       setUploadProgress('Processing file...');
 
       // Process the uploaded file (server always returns slides now)
-      const processResponse = await fetch(uploadResult.processUrl + (debugMode ? '?debug=true' : ''));
+      const queryParams = new URLSearchParams();
+      if (debugMode) {
+        queryParams.set('debug', 'true');
+      }
+      const processResponse = await fetch(uploadResult.processUrl + '?' + queryParams.toString());
       
       if (!processResponse.ok) {
         const error = await processResponse.json();
@@ -443,7 +452,8 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
         onParse({
           formats: [{ type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', data: file.name }],
           isPowerPoint: processResult.isPowerPoint,
-          slides: processResult.slides || []
+          slides: processResult.slides || [],
+          slideDimensions: processResult.slideDimensions
         });
       }
 

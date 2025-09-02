@@ -9,10 +9,8 @@ function App() {
   const [currentPage, setCurrentPage] = useState<'main' | 'raw'>('main')
   const [structuredData, setStructuredData] = useState<any>(null)
 
+
   const handleStructuredParsed = (data: ParsedContent) => {
-    console.log('📋 Clipboard data received:', data);
-    console.log('📋 Slides received:', data.slides?.length || 0);
-    
     // Calculate total components and types from all slides
     let totalComponents = 0;
     const componentsByType: Record<string, number> = {};
@@ -26,12 +24,11 @@ function App() {
     
     if (data.slides && data.slides.length > 0 && totalComponents > 0) {
       // We have parsed PowerPoint slides from the server!
-      console.log('🎨 Using server-parsed PowerPoint slides:', data.slides.length, 'slides with', totalComponents, 'total components');
-      
       setStructuredData({
         totalComponents,
         componentsByType,
         slides: data.slides,
+        slideDimensions: data.slideDimensions,
         isPowerPoint: data.isPowerPoint,
         availableFormats: data.formats.map(f => f.type)
       });
@@ -230,33 +227,66 @@ function App() {
               GitHub
             </a>
             
-            <button 
-              onClick={() => setCurrentPage('raw')}
-              style={{
-                padding: '10px 16px',
-                backgroundColor: '#6c757d',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500',
-                transition: 'all 0.2s ease',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.backgroundColor = '#5a6268';
-                e.currentTarget.style.transform = 'translateY(-1px)';
-                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.backgroundColor = '#6c757d';
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-              }}
-            >
-              Extractor
-            </button>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <a
+                href="/presentation4.pptx"
+                download
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 16px',
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  textDecoration: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.backgroundColor = '#218838';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.backgroundColor = '#28a745';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                }}
+              >
+                📄 Sample PPTX
+              </a>
+
+              <button 
+                onClick={() => setCurrentPage('raw')}
+                style={{
+                  padding: '10px 16px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.backgroundColor = '#5a6268';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.backgroundColor = '#6c757d';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                }}
+              >
+                Extractor
+              </button>
+            </div>
           </div>
 
           {/* Main header content */}
@@ -303,6 +333,9 @@ function App() {
           marginBottom: '20px'
         }}>
           <h3>📋 Upload or Paste PowerPoint Content:</h3>
+          
+          
+          {/* Clipboard Parser */}
           <ClipboardParser 
             onParse={handleStructuredParsed}
             placeholder="Paste PowerPoint shapes, text, or images here..."
@@ -665,7 +698,8 @@ function App() {
       <div style={{ width: '60%', height: '100%' }}>
         <TldrawCanvas 
           components={[]} // No longer used, components are in slides
-          slides={structuredData?.slides || []} 
+          slides={structuredData?.slides || []}
+          slideDimensions={structuredData?.slideDimensions} 
         />
       </div>
     </div>

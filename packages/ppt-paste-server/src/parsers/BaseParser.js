@@ -2,6 +2,8 @@
  * Base parser utilities for PowerPoint component parsing
  */
 
+import { emuToPixels, emuToPoints, validatePixelRange } from '../utils/constants.js';
+
 // Worker-compatible utility functions
 export function isBufferLike(obj) {
   return obj && (obj instanceof Uint8Array || obj instanceof ArrayBuffer || 
@@ -17,25 +19,23 @@ export function bufferFrom(data) {
 
 export class BaseParser {
   /**
-   * Convert EMU (English Metric Units) to pixels
-   * 1 EMU = 1/914400 inch, assuming 96 DPI
+   * Convert EMU (English Metric Units) to pixels using centralized utility
    * @param {number} emu - EMU value
    * @returns {number} pixels
+   * @deprecated Use emuToPixels from constants.js directly
    */
   static emuToPixels(emu) {
-    if (!emu || typeof emu !== 'number') return 0;
-    return Math.round((emu / 914400) * 96);
+    return emuToPixels(emu);
   }
 
   /**
-   * Convert EMU to points (for font sizes)
-   * 1 point = 1/72 inch
+   * Convert EMU to points using centralized utility
    * @param {number} emu - EMU value
    * @returns {number} points
+   * @deprecated Use emuToPoints from constants.js directly
    */
   static emuToPoints(emu) {
-    if (!emu || typeof emu !== 'number') return 0;
-    return Math.round((emu / 914400) * 72);
+    return emuToPoints(emu);
   }
 
   /**
@@ -134,6 +134,12 @@ export class BaseParser {
     if (xfrm.$rot) {
       result.rotation = parseInt(xfrm.$rot) / 60000;
     }
+
+    // Validate that we're returning pixel values, not EMU
+    validatePixelRange(result.x, 'transform x');
+    validatePixelRange(result.y, 'transform y');
+    validatePixelRange(result.width, 'transform width');
+    validatePixelRange(result.height, 'transform height');
 
     return result;
   }

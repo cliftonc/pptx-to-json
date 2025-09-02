@@ -13,9 +13,10 @@ import { drawSlides, drawComponents } from './tldraw/utils/drawingManager'
 interface TldrawCanvasProps {
   components: PowerPointComponent[]
   slides?: PowerPointSlide[]
+  slideDimensions?: { width: number; height: number }
 }
 
-export default function TldrawCanvas({ components, slides }: TldrawCanvasProps) {
+export default function TldrawCanvas({ components, slides, slideDimensions }: TldrawCanvasProps) {
   const editorRef = useRef<Editor | null>(null)
   
   // Slideshow management
@@ -54,7 +55,7 @@ export default function TldrawCanvas({ components, slides }: TldrawCanvasProps) 
   const handleMount = (editor: Editor) => {
     editorRef.current = editor
     if (slides && slides.length > 0) {
-      drawSlides(slides, editor)
+      drawSlides(slides, editor, slideDimensions)
     } else if (components && components.length > 0) {
       // Legacy fallback
       drawComponents(components, editor)
@@ -65,13 +66,13 @@ export default function TldrawCanvas({ components, slides }: TldrawCanvasProps) 
   useEffect(() => {
     if (editorRef.current) {
       if (slides && slides.length > 0) {
-        drawSlides(slides, editorRef.current)
+        drawSlides(slides, editorRef.current, slideDimensions)
       } else if (components && components.length > 0) {
         // Legacy fallback for components-only data
         drawComponents(components, editorRef.current)
       }
     }
-  }, [slides, components])
+  }, [slides, components, slideDimensions])
 
   // Create UI components with current slideshow state
   const uiComponents = createUIComponents(

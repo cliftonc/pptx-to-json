@@ -223,6 +223,43 @@ export class ImageParser extends BaseParser {
         }
       }
       
+      // If not found in slide's relationships, also check slide masters and layouts
+      // This is important for background images that come from masters
+      const masterAndLayoutRelFiles = Object.keys(relationships).filter(key => 
+        key.includes('_rels') && 
+        (key.includes('slideMaster') || key.includes('slideLayout'))
+      );
+      
+      for (const relFile of masterAndLayoutRelFiles) {
+        if (relationships[relFile]) {
+          const relsData = BaseParser.safeGet(relationships[relFile], 'Relationships.Relationship', []);
+          const rels = Array.isArray(relsData) ? relsData : [relsData];
+          const rel = rels.find(r => r && r.$Id === rId);
+          
+          if (rel) {
+            const target = rel.$Target;
+            let mediaPath;
+            
+            if (target.startsWith('../')) {
+              // PPTX format: ../media/image1.png -> ppt/media/image1.png
+              mediaPath = `ppt/${target.slice(3)}`;
+            } else {
+              mediaPath = target.startsWith('media/') ? `ppt/${target}` : target;
+            }
+            
+            // Look for the media file
+            const mediaFile = mediaFiles[mediaPath];
+            if (mediaFile) {
+              return {
+                url: ImageParser.createDataUrl(mediaFile, target),
+                type: ImageParser.getImageType(target),
+                size: mediaFile.length || 0,
+                dimensions: ImageParser.getImageDimensions(mediaFile)
+              };
+            }
+          }
+        }
+      }
       
       // For PPTX with slideIndex, if not found anywhere, return null
       return {

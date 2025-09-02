@@ -69,7 +69,6 @@ app.get('/api/process-pptx/:fileId', async (c) => {
   try {
     const fileId = c.req.param('fileId');
     const debug = c.req.query('debug') === 'true';
-    const returnSlides = c.req.query('returnSlides') === 'true';
     
     if (!fileId) {
       return c.json({ error: 'File ID is required' }, 400);
@@ -91,13 +90,13 @@ app.get('/api/process-pptx/:fileId', async (c) => {
     if (debug) {
       console.log('📦 Processing uploaded PPTX file:', fileName);
       console.log('📦 File size:', buffer.byteLength, 'bytes');
-      console.log('📦 Return slides:', returnSlides);
     }
     
-    // Always use slides structure now
-    const result = await clipboardProcessor.parseClipboardBuffer(uint8Array, { debug, returnSlides: true });
+    // Parse using slides structure
+    const result = await clipboardProcessor.parseClipboardBuffer(uint8Array, { debug });
     
     const slides = result.slides;
+    const slideDimensions = result.slideDimensions;
     let totalComponents = 0;
     let componentTypes = {};
     
@@ -123,6 +122,7 @@ app.get('/api/process-pptx/:fileId', async (c) => {
       metadata,
       slides: slides,
       slideCount: slides.length,
+      slideDimensions: slideDimensions,
       isPowerPoint: totalComponents > 0,
       debug: {
         componentCount: totalComponents,
@@ -148,18 +148,17 @@ app.get('/api/proxy-powerpoint-clipboard', async (c) => {
   try {
     const url = c.req.query('url');
     const debug = c.req.query('debug') === 'true';
-    const returnSlides = c.req.query('returnSlides') === 'true';
     
     if (!url) {
       return c.json({ error: 'URL parameter is required' }, 400);
     }
     
     if (debug) {
-      console.log('🔗 Proxying PowerPoint clipboard URL with returnSlides:', returnSlides);
+      console.log('🔗 Proxying PowerPoint clipboard URL');
     }
     
-    // Always use slides structure now
-    const result = await clipboardProcessor.processClipboardUrl(url, { debug, returnSlides: true });
+    // Process clipboard URL using slides structure
+    const result = await clipboardProcessor.processClipboardUrl(url, { debug });
     
     return c.json(result);
     

@@ -19,8 +19,6 @@ export function useSlideshowManager(slides: PowerPointSlide[] | undefined, edito
     const editor = editorRef.current
     if (!editor || !slides?.length) return
 
-    console.log('🎬 Entering slideshow mode with', slides.length, 'slides')
-
     // Store current camera state
     setPreviousCameraState(editor.getCamera())
     
@@ -29,7 +27,6 @@ export function useSlideshowManager(slides: PowerPointSlide[] | undefined, edito
     for (let i = 0; i < slides.length; i++) {
       frameIds.push(`slide-frame-${i}`)
     }
-    console.log('🎬 Frame IDs:', frameIds)
     setSlideFrameIds(frameIds)
     
     // Enter slideshow mode and focus on first slide
@@ -44,7 +41,7 @@ export function useSlideshowManager(slides: PowerPointSlide[] | undefined, edito
     
     // Add a small delay to ensure shapes are rendered
     setTimeout(() => {
-      focusOnSlide(0, frameIds, editor)
+      focusOnSlide(0, editor)
     }, 100)
   }, [slides])
 
@@ -74,11 +71,9 @@ export function useSlideshowManager(slides: PowerPointSlide[] | undefined, edito
   const navigateToSlide = useCallback((slideIndex: number) => {
     const editor = editorRef.current
     if (!editor || slideIndex < 0 || slideIndex >= slideFrameIds.length) {
-      console.warn('⚠️ Cannot navigate: editor=', !!editor, 'slideIndex=', slideIndex, 'frameIds.length=', slideFrameIds.length)
       return
     }
     
-    console.log('🎯 Navigating to slide', slideIndex)
     setCurrentSlideIndex(slideIndex)
     
     // Temporarily disable readonly to change visibility
@@ -88,7 +83,7 @@ export function useSlideshowManager(slides: PowerPointSlide[] | undefined, edito
     }
     
     hideOtherFrames(slideIndex, editor)
-    focusOnSlide(slideIndex, slideFrameIds, editor)
+    focusOnSlide(slideIndex, editor)
     
     // Restore readonly state
     if (wasReadonly) {
@@ -158,33 +153,20 @@ function showAllFrames(editor: Editor) {
   editor.updateShapes(shapesToShow)
 }
 
-function focusOnSlide(slideIndex: number, frameIds: string[], editor: Editor) {
-  const frameIdString = frameIds[slideIndex]
-  console.log('🎯 Focusing on slide', slideIndex, 'with frame ID:', frameIdString)
-  
+function focusOnSlide(slideIndex: number, editor: Editor) {
   // First, let's see all available shapes
   const allShapes = editor.getCurrentPageShapes()
   const frameShapes = allShapes.filter(s => s.type === 'frame')
-  console.log('🔍 Available frame shapes:', frameShapes.map(f => ({ id: f.id, type: f.type })))
   
   // Try to find the frame by ID pattern instead of exact match
   let frame = allShapes.find(s => s.type === 'frame' && s.id.includes(`slide-frame-${slideIndex}`))
   
   if (!frame) {
-    console.warn('❌ Frame not found for slide', slideIndex, 'ID:', frameIdString)
     // Try alternative: get frame by index
     frame = frameShapes[slideIndex]
-    if (frame) {
-      console.log('✅ Found frame by index:', frame.id)
-    }
-  } else {
-    console.log('✅ Found frame:', frame.id)
   }
   
   if (frame && frame.type === 'frame') {
-    console.log('📐 Frame position:', frame.x, frame.y)
-    console.log('📐 Frame props:', frame.props)
-    
     // Show the current slide and its children
     const shapesToShow = [frame.id]
     const children = allShapes.filter(s => s.parentId === frame.id)
@@ -207,10 +189,7 @@ function focusOnSlide(slideIndex: number, frameIds: string[], editor: Editor) {
       h: frameProps.h + 40
     }
     
-    console.log('🎯 Zooming to bounds:', bounds)
     // Zoom to the frame bounds with closer fit
     editor.zoomToBounds(bounds, { animation: { duration: 800 } })
-  } else {
-    console.error('❌ No valid frame found for slide', slideIndex)
   }
 }

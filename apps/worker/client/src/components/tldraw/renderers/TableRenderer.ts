@@ -12,27 +12,14 @@ export async function renderTableComponent(
   slideIndex: number,
   frameId: string | null
 ) {
-  console.log(`\n--- Table ${index} ---`)
-  console.log('Component:', {
-    content: component.content,
-    position: `(${component.x}, ${component.y})`,
-    size: `${component.width}x${component.height}`,
-    tableData: component.metadata?.tableData,
-    rows: component.metadata?.rows,
-    cols: component.metadata?.cols
-  })
-  
   // Get table data from metadata
   const tableData = component.metadata?.tableData || []
   const rows = component.metadata?.rows || tableData.length
   const cols = component.metadata?.cols || (tableData[0]?.length || 0)
   
   if (tableData.length === 0) {
-    console.log(`❌ No table data found for table ${index}`)
     return
   }
-  
-  console.log(`✓ Processing table with ${rows} rows × ${cols} columns`)
   
   // Calculate cell dimensions
   const tableWidth = component.width || 300
@@ -91,8 +78,6 @@ export async function renderTableComponent(
       }
     })
   })
-  
-  console.log(`✓ Created table with ${rows * cols} cells at (${tableX}, ${tableY})`)
 }
 
 function createCellBackground(

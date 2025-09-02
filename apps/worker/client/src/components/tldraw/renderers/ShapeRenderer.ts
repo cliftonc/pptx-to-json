@@ -13,13 +13,6 @@ export async function renderShapeComponent(
   slideIndex: number,
   frameId: string | null
 ) {
-  console.log(`\n--- Shape ${index} ---`)
-  console.log('Component:', {
-    backgroundColor: component.style?.backgroundColor,
-    borderColor: component.style?.borderColor,
-    shapeType: component.style?.shapeType || component.metadata?.shapeType
-  })
-  
   const shapeId = createShapeId(createComponentShapeId('shape', slideIndex, component.id || index))
   
   const scale = 1
@@ -36,17 +29,9 @@ export async function renderShapeComponent(
   const width = (component.width || 100) * scale
   const height = (component.height || 100) * scale
   
-  // Debug: log original position for shapes
-  if (component.rotation && component.rotation !== 0) {
-    console.log(`Shape rotation: ${component.rotation}° at PowerPoint position (${x}, ${y}) size ${width}x${height}`)
-  }
-  
   // Map colors
   const fillColor = mapBackgroundColor(component.style?.backgroundColor)
   const strokeColor = mapBorderColor(component.style?.borderColor)
-  
-  console.log(`✓ Background: ${component.style?.backgroundColor} → ${fillColor}`)
-  console.log(`✓ Border: ${component.style?.borderColor} → ${strokeColor}`)
   
   // Determine the best tldraw shape type based on PowerPoint shape type
   const shapeType = component.style?.shapeType || component.metadata?.shapeType || component.metadata?.preset || 'rectangle'
@@ -55,14 +40,6 @@ export async function renderShapeComponent(
   // Create geometric shape using the tldraw v3 API
   const finalColor = fillColor === 'grey' ? strokeColor : fillColor
   const finalFill = determineFillType(component.style?.backgroundColor)
-  
-  console.log(`Creating tldraw shape:`, {
-    geo: geoType,
-    color: finalColor,
-    fill: finalFill,
-    fillColor: fillColor,
-    strokeColor: strokeColor
-  })
   
   // Create the shape with parent frame, position, and rotation all at once
   const geoShapeProps: any = {
@@ -86,5 +63,4 @@ export async function renderShapeComponent(
   }
   
   editor.createShape(geoShapeProps)
-  console.log(`Positioned rotated shape at (${x}, ${y})`)
 }

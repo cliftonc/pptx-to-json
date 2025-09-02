@@ -10,43 +10,59 @@ export async function renderImageComponent(
   frameY: number,
   editor: Editor,
   slideIndex: number,
-  frameId: string | null
+  frameId: string | null,
+  frameDimensions?: { width: number; height: number }
 ) {
-  console.log(`\n--- Image ${index} ---`)
-  console.log('Component:', {
-    content: component.content,
-    hasImageUrl: !!(component.metadata?.imageUrl),
-    imageType: component.metadata?.imageType,
-    size: component.metadata?.imageSize
-  })
-  
   const imageId = createShapeId(createComponentShapeId('image', slideIndex, component.id || index))
   
-  console.log(`Image dimensions from parser: ${component.width} x ${component.height}`)
+  // Detect if this is a background image
+  const isBackgroundImage = component.x === 0 && component.y === 0 && 
+                           component.content === "Background Image" &&
+                           frameDimensions;
   
   const scale = 1
+  let imageX = component.x || 0
+  let imageY = component.y || 0
+  
+  let width = component.width || 200
+  let height = component.height || 150
+  
+  if (isBackgroundImage && frameDimensions) {
+    // For background images, scale to fill the entire frame
+    // Calculate scale to cover the entire frame (like CSS object-fit: cover)
+    const scaleX = frameDimensions.width / width
+    const scaleY = frameDimensions.height / height
+    const imageScale = Math.max(scaleX, scaleY) // Use larger scale to ensure full coverage
+    
+    width = Math.round(width * imageScale)
+    height = Math.round(height * imageScale)
+  }
+  
+  // For background images that are scaled larger than the frame, center them
+  if (isBackgroundImage && frameDimensions) {
+    // If scaled image is larger than frame, center it
+    if (width > frameDimensions.width) {
+      imageX = -(width - frameDimensions.width) / 2
+    }
+    if (height > frameDimensions.height) {
+      imageY = -(height - frameDimensions.height) / 2
+    }
+  }
+  
   const { x, y } = calculateFrameRelativePosition(
-    component.x || 0,
-    component.y || 0,
+    imageX,
+    imageY,
     frameX,
     frameY,
     scale,
     !!frameId
   )
   
-  // Use exact PowerPoint dimensions
-  const width = component.width || 200
-  const height = component.height || 150
-  console.log(`Using exact PowerPoint dimensions: ${width}x${height}`)
-  
   // Check if we have a data URL for the image
   if (component.metadata?.imageUrl && component.metadata.imageUrl.startsWith('data:')) {
-    console.log(`✓ Creating image shape with data URL (${component.metadata.imageSize} bytes)`)
-    
     const dataUrl = component.metadata.imageUrl
     
     try {
-      console.log(`Attempting to create image with dimensions: ${width}x${height}`)
       
       // Convert data URL to blob
       const response = await fetch(dataUrl)
@@ -90,15 +106,12 @@ export async function renderImageComponent(
       }
       
       editor.createShape(imageShapeProps)
-      console.log(`✓ Image created successfully using asset`)
       
     } catch (error) {
-      console.warn(`❌ Failed to create image asset:`, error)
       // Fallback: create a placeholder rectangle
       createPlaceholderShape(editor, slideIndex, component, index, x, y, width, height, frameId)
     }
   } else {
-    console.log(`❌ No valid image data URL found, creating placeholder`)
     // Create a placeholder rectangle for images without data
     createPlaceholderShape(editor, slideIndex, component, index, x, y, width, height, frameId)
   }

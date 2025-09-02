@@ -29,32 +29,24 @@ export async function renderTextComponent(
   
   // Adjust position for rotation - PowerPoint gives us top-left of unrotated shape
   if (component.rotation && component.rotation !== 0) {
-    console.log(`Text rotation: ${component.rotation}° at original position (${x}, ${y})`)
-    
     const width = component.width || 0
     const height = component.height || 0
     
     const adjusted = adjustPositionForRotation(x, y, width, height, component.rotation)
     x = adjusted.x
     y = adjusted.y
-    console.log(`Text adjusted position for TLDraw: (${x}, ${y})`)
   }
   
   // Check if richText contains fontSize in textStyle marks
   const richTextData = (component as any).richText
   const hasRichTextFontSize = richTextData && checkForFontSize(richTextData.content)
-  console.log('🎯 hasRichTextFontSize:', hasRichTextFontSize)
   
   // Convert PowerPoint font size (pt) to TLDraw size categories as fallback
   let tldrawSize = undefined
   if (!hasRichTextFontSize && component.style?.fontSize) {
     tldrawSize = mapFontSize(component.style.fontSize)
-    console.log(`Font size ${component.style.fontSize}pt mapped to TLDraw size '${tldrawSize}' (fallback)`)
-  } else if (hasRichTextFontSize) {
-    console.log('Using fontSize from richText textStyle marks, skipping TLDraw size mapping')
-  } else {
+  } else if (!hasRichTextFontSize) {
     tldrawSize = 'm'
-    console.log('No fontSize found, using default TLDraw size: m')
   }
 
   // Map colors and fonts

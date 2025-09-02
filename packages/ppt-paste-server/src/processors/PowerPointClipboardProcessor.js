@@ -139,14 +139,13 @@ export class PowerPointClipboardProcessor {
   }
 
   /**
-   * Parse PowerPoint clipboard buffer into components or slides
+   * Parse PowerPoint clipboard buffer into slides structure
    * @param {Buffer} buffer - PowerPoint clipboard buffer
    * @param {Object} options - Parsing options
    * @param {boolean} options.debug - Enable debug logging
-   * @param {boolean} options.returnSlides - Return slides structure instead of flat components
-   * @returns {Promise<Array|Object>} - Array of parsed components or slides structure
+   * @returns {Promise<Object>} - Slides structure with components
    */
-  async parseClipboardBuffer(buffer, { debug = false, returnSlides = false } = {}) {
+  async parseClipboardBuffer(buffer, { debug = false } = {}) {
     if (!(buffer instanceof Uint8Array) && !(buffer instanceof ArrayBuffer)) {
       throw new Error('Input must be a Uint8Array or ArrayBuffer');
     }
@@ -159,7 +158,7 @@ export class PowerPointClipboardProcessor {
     
     if (!isZip) {
       if (debug) console.warn('⚠️ Buffer does not appear to be a ZIP file');
-      return returnSlides ? { slides: [], totalComponents: 0, format: 'unknown' } : [];
+      return { slides: [], totalComponents: 0, format: 'unknown' };
     }
 
     if (debug) console.log('📦 Detected ZIP file (Office Open XML)! Parsing...');
@@ -181,16 +180,11 @@ export class PowerPointClipboardProcessor {
         }
       }
       
-      // Parse using the PowerPoint parser with slides option
-      const result = await this.powerPointParser.parseJson(json, { debug, returnSlides });
+      // Parse using the PowerPoint parser
+      const result = await this.powerPointParser.parseJson(json, { debug });
       
-      if (returnSlides) {
-        if (debug) console.log('✅ PowerPoint parsing complete:', result.totalComponents, 'components in', result.slides.length, 'slides');
-        return result;
-      } else {
-        if (debug) console.log('✅ PowerPoint parsing complete:', result.length, 'components found');
-        return result;
-      }
+      if (debug) console.log('✅ PowerPoint parsing complete:', result.totalComponents, 'components in', result.slides.length, 'slides');
+      return result;
     } catch (error) {
       console.error('❌ PowerPoint parsing failed:', error);
       throw new Error(`Failed to parse PowerPoint data: ${error.message}`);
@@ -202,52 +196,28 @@ export class PowerPointClipboardProcessor {
    * @param {string} url - Microsoft API URL
    * @param {Object} options - Processing options
    * @param {boolean} options.debug - Enable debug logging
-   * @param {boolean} options.returnSlides - Return slides structure
-   * @returns {Promise<Object>} - Processing result with components/slides and metadata
+   * @returns {Promise<Object>} - Processing result with slides structure and metadata
    */
-  async processClipboardUrl(url, { debug = false, returnSlides = false } = {}) {
+  async processClipboardUrl(url, { debug = false } = {}) {
     try {
       // Fetch the data
       const fetchResult = await this.fetchClipboardData(url, { debug });
       
       // Parse the buffer
-      const result = await this.parseClipboardBuffer(fetchResult.buffer, { debug, returnSlides });
+      const result = await this.parseClipboardBuffer(fetchResult.buffer, { debug });
       
-      let slides, componentTypes, totalComponents = 0;
+      const slides = result.slides;
+      const slideDimensions = result.slideDimensions;
       
-      if (returnSlides) {
-        slides = result.slides;
-        
-        // Calculate component type statistics from all slides
-        componentTypes = {};
-        slides.forEach(slide => {
-          totalComponents += slide.components.length;
-          slide.components.forEach(comp => {
-            componentTypes[comp.type] = (componentTypes[comp.type] || 0) + 1;
-          });
+      // Calculate component type statistics from all slides
+      const componentTypes = {};
+      let totalComponents = 0;
+      slides.forEach(slide => {
+        totalComponents += slide.components.length;
+        slide.components.forEach(comp => {
+          componentTypes[comp.type] = (componentTypes[comp.type] || 0) + 1;
         });
-      } else {
-        // Legacy mode - convert to single slide for backward compatibility
-        const components = result;
-        totalComponents = components.length;
-        
-        // Calculate component type statistics
-        componentTypes = components.reduce((acc, comp) => {
-          acc[comp.type] = (acc[comp.type] || 0) + 1;
-          return acc;
-        }, {});
-        
-        // Wrap in a single slide
-        slides = [{
-          slideIndex: 0,
-          slideNumber: 1,
-          components: components,
-          metadata: {
-            name: 'Clipboard Paste',
-            componentCount: components.length
-          }
-        }];
-      }
+      });
 
       const response = {
         type: 'powerpoint',
@@ -255,6 +225,7 @@ export class PowerPointClipboardProcessor {
         size: fetchResult.size,
         slides: slides,
         slideCount: slides.length,
+        slideDimensions: slideDimensions,
         isPowerPoint: totalComponents > 0,
         debug: {
           ...fetchResult.metadata,

@@ -5,6 +5,9 @@
  * eliminating the need for if-statements throughout the parsing logic.
  */
 
+import { PPTXParser } from '../processors/PPTXParser.js';
+import { DEFAULT_SLIDE_WIDTH_PX, DEFAULT_SLIDE_HEIGHT_PX } from '../utils/constants.js';
+
 export class PowerPointNormalizer {
   
   /**
@@ -59,6 +62,15 @@ export class PowerPointNormalizer {
     const slides = [];
     const files = Object.keys(json);
     
+    // Create PPTXParser instance for layout extraction
+    const pptxParser = new PPTXParser();
+    
+    // Get slide-to-layout relationships
+    const slideLayoutRelationships = pptxParser.getSlideLayoutRelationships(json);
+    
+    // Extract slide dimensions from presentation.xml
+    const slideDimensions = pptxParser.getSlideDimensions(json);
+    
     // Find slide files (no sorting needed - we'll extract slide numbers)
     const slideFiles = files.filter(f => 
       f.startsWith('ppt/slides/slide') && f.endsWith('.xml')
@@ -79,6 +91,46 @@ export class PowerPointNormalizer {
       
       if (!spTree) continue;
       
+      // Extract slide elements
+      const slideElements = this.extractOrderedElements(spTree);
+      
+      // Get layout elements for this slide
+      const layoutFile = slideLayoutRelationships[slideFile];
+      let layoutElements = [];
+      let masterElements = [];
+      let masterFile = null;
+      
+      if (layoutFile) {
+        // Get layout elements
+        layoutElements = pptxParser.getSlideLayoutElements(json, layoutFile);
+        
+        // Convert layout elements to the same structure as slide elements
+        layoutElements = layoutElements.map(layoutEl => {
+          const convertedElement = this.convertLayoutElementToSlideFormat(layoutEl, spTree);
+          return convertedElement;
+        }).filter(el => el !== null);
+        
+        // Get master elements for this layout
+        const layoutMasterRelationships = pptxParser.getLayoutMasterRelationships(json);
+        masterFile = layoutMasterRelationships[layoutFile];
+        
+        if (masterFile) {
+          masterElements = pptxParser.getSlideMasterElements(json, masterFile);
+          
+          // Convert master elements to the same structure as slide elements
+          masterElements = masterElements.map(masterEl => {
+            const convertedElement = this.convertMasterElementToSlideFormat(masterEl, spTree);
+            return convertedElement;
+          }).filter(el => el !== null);
+        }
+      }
+      
+      // Merge elements in proper z-order hierarchy:
+      // 1. Master elements (deepest background, z-index -2000 to -1999)
+      // 2. Layout elements (middle background, z-index -1000 to -999) 
+      // 3. Slide elements (foreground, z-index 0+)
+      const allElements = [...masterElements, ...layoutElements, ...slideElements];
+      
       const normalizedSlide = {
         slideFile,
         slideNumber, // Add extracted slide number
@@ -86,7 +138,11 @@ export class PowerPointNormalizer {
         shapes: this.extractPPTXShapes(spTree),
         images: this.extractPPTXImages(spTree),
         text: this.extractPPTXText(spTree),
-        elements: this.extractOrderedElements(spTree), // Add ordered elements
+        elements: allElements, // Combined master, layout and slide elements
+        layoutFile, // Keep track of which layout this slide uses
+        masterFile: masterFile || null, // Keep track of which master this slide uses
+        layoutElementCount: layoutElements.length,
+        masterElementCount: masterElements.length,
         rawSpTree: spTree // Keep for relationship lookups
       };
       
@@ -96,8 +152,10 @@ export class PowerPointNormalizer {
     return {
       format: 'pptx',
       slides,
+      slideDimensions,
       mediaFiles: this.extractMediaFiles(json),
-      relationships: this.extractRelationships(json)
+      relationships: this.extractRelationships(json),
+      slideLayoutRelationships // Include relationships for reference
     };
   }
   
@@ -144,6 +202,7 @@ export class PowerPointNormalizer {
     return {
       format: 'clipboard',
       slides,
+      slideDimensions: { width: DEFAULT_SLIDE_WIDTH_PX, height: DEFAULT_SLIDE_HEIGHT_PX }, // Default for clipboard format
       mediaFiles: this.extractMediaFiles(json),
       relationships: this.extractRelationships(json)
     };
@@ -590,5 +649,171 @@ export class PowerPointNormalizer {
 
     // Primitive values (string, number, boolean) pass through unchanged
     return obj;
+  }
+
+  /**
+   * Convert layout element to slide format for consistent processing
+   * @param {Object} layoutElement - Layout element from PPTXParser
+   * @param {Object} slideSpTree - Slide spTree for context
+   * @returns {Object|null} - Converted element or null if not supported
+   */
+  convertLayoutElementToSlideFormat(layoutElement, slideSpTree) {
+    if (!layoutElement || !layoutElement.type || !layoutElement.data) {
+      return null;
+    }
+
+    try {
+      const { type, data, zIndex, isLayoutElement, isBackgroundElement } = layoutElement;
+
+      if (type === 'shape') {
+        // Only convert shapes that have required properties for parsing
+        if (!data['spPr']) {
+          console.warn('Layout shape missing spPr, skipping');
+          return null;
+        }
+        
+        // Convert shape to normalized format
+        return {
+          type: 'shape',
+          zIndex: zIndex,
+          namespace: 'p',
+          element: 'sp',
+          data: data,
+          spPr: data['spPr'],
+          nvSpPr: data['nvSpPr'],
+          style: data['style'],
+          isLayoutElement: true,
+          isBackgroundElement: isBackgroundElement || false
+        };
+      } else if (type === 'image') {
+        // Only convert images that have required properties
+        if (!data['spPr'] && !data['nvPicPr']) {
+          console.warn('Layout image missing required properties, skipping');
+          return null;
+        }
+        
+        // Convert image to normalized format
+        return {
+          type: 'image',
+          zIndex: zIndex,
+          namespace: 'p',
+          element: 'pic',
+          data: data,
+          nvPicPr: data['nvPicPr'],
+          blipFill: data['blipFill'],
+          spPr: data['spPr'],
+          isLayoutElement: true,
+          isBackgroundElement: isBackgroundElement || false,
+          relationshipId: data.relationshipId
+        };
+      } else if (type === 'text') {
+        // Only convert text that has required properties
+        if (!data['spPr']) {
+          console.warn('Layout text missing spPr, skipping');
+          return null;
+        }
+        
+        // Convert text to normalized format
+        return {
+          type: 'text',
+          zIndex: zIndex,
+          namespace: 'p',
+          element: 'sp',
+          data: data,
+          spPr: data['spPr'],
+          nvSpPr: data['nvSpPr'],
+          txBody: data['txBody'],
+          isLayoutElement: true
+        };
+      }
+
+      return null;
+    } catch (error) {
+      console.warn('Error converting layout element:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Convert master element to slide format for consistent processing
+   * @param {Object} masterElement - Master element from PPTXParser
+   * @param {Object} slideSpTree - Slide spTree for context
+   * @returns {Object|null} - Converted element or null if not supported
+   */
+  convertMasterElementToSlideFormat(masterElement, slideSpTree) {
+    if (!masterElement || !masterElement.type || !masterElement.data) {
+      return null;
+    }
+
+    try {
+      const { type, data, zIndex, isMasterElement, isBackgroundElement } = masterElement;
+
+      if (type === 'shape') {
+        // Only convert shapes that have required properties for parsing
+        if (!data['spPr']) {
+          console.warn('Master shape missing spPr, skipping');
+          return null;
+        }
+        
+        // Convert shape to normalized format
+        return {
+          type: 'shape',
+          zIndex: zIndex,
+          namespace: 'p',
+          element: 'sp',
+          data: data,
+          spPr: data['spPr'],
+          nvSpPr: data['nvSpPr'],
+          style: data['style'],
+          isMasterElement: true,
+          isBackgroundElement: isBackgroundElement || false
+        };
+      } else if (type === 'image') {
+        // Only convert images that have required properties
+        if (!data['spPr'] && !data['nvPicPr']) {
+          console.warn('Master image missing required properties, skipping');
+          return null;
+        }
+        
+        // Convert image to normalized format
+        return {
+          type: 'image',
+          zIndex: zIndex,
+          namespace: 'p',
+          element: 'pic',
+          data: data,
+          nvPicPr: data['nvPicPr'],
+          blipFill: data['blipFill'],
+          spPr: data['spPr'],
+          isMasterElement: true,
+          isBackgroundElement: isBackgroundElement || false,
+          relationshipId: data.relationshipId
+        };
+      } else if (type === 'text') {
+        // Only convert text that has required properties
+        if (!data['spPr']) {
+          console.warn('Master text missing spPr, skipping');
+          return null;
+        }
+        
+        // Convert text to normalized format
+        return {
+          type: 'text',
+          zIndex: zIndex,
+          namespace: 'p',
+          element: 'sp',
+          data: data,
+          spPr: data['spPr'],
+          nvSpPr: data['nvSpPr'],
+          txBody: data['txBody'],
+          isMasterElement: true
+        };
+      }
+
+      return null;
+    } catch (error) {
+      console.warn('Error converting master element:', error);
+      return null;
+    }
   }
 }

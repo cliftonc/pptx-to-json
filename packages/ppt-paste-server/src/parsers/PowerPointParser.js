@@ -15,14 +15,13 @@ export class PowerPointParser extends BaseParser {
   }
 
   /**
-   * Parse PowerPoint JSON data into structured components using the normalizer
+   * Parse PowerPoint JSON data into structured slides
    * @param {Object} json - Parsed PowerPoint JSON data
    * @param {Object} options - Parsing options
    * @param {boolean} options.debug - Enable debug logging
-   * @param {boolean} options.returnSlides - Return slides structure instead of flat components
-   * @returns {Promise<Array|Object>} array of parsed components or slides structure
+   * @returns {Promise<Object>} slides structure with components
    */
-  async parseJson(json, { debug = false, returnSlides = false } = {}) {
+  async parseJson(json, { debug = false } = {}) {
     try {
       if (debug) console.log('🎨 Processing PowerPoint JSON data...');
       
@@ -87,6 +86,18 @@ export class PowerPointParser extends BaseParser {
               // Fix the slideIndex to show the actual slide number (not the relationship index)
               component.slideIndex = slideNumber;
               component.zIndex = element.zIndex; // Add z-index information
+              
+              // Validate component coordinates are in pixel range
+              if (component.x > 50000 || component.y > 50000 || component.width > 50000 || component.height > 50000) {
+                console.warn('🚨 Component coordinates may be in EMU, not pixels:', {
+                  type: component.type,
+                  x: component.x,
+                  y: component.y,
+                  width: component.width,
+                  height: component.height
+                });
+              }
+              
               slideComponents.push(component);
               components.push(component);
               localComponentIndex++;
@@ -161,7 +172,11 @@ export class PowerPointParser extends BaseParser {
             name: `Slide ${slideNumber}`,
             componentCount: slideComponents.length,
             format: normalized.format,
-            slideFile: slide.slideFile || null
+            slideFile: slide.slideFile || null,
+            layoutFile: slide.layoutFile || null,
+            masterFile: slide.masterFile || null,
+            layoutElementCount: slide.layoutElementCount || 0,
+            masterElementCount: slide.masterElementCount || 0
           }
         };
         
@@ -176,16 +191,22 @@ export class PowerPointParser extends BaseParser {
         console.log('✅ Unified parsing complete:', components.length, 'total components in', slides.length, 'slides');
       }
       
-      // Return slides structure or flat components for backward compatibility
-      if (returnSlides) {
-        return {
-          slides,
-          totalComponents: components.length,
-          format: normalized.format
-        };
-      } else {
-        return components;
+      // Validate slide dimensions are in pixel range before returning to client
+      if (normalized.slideDimensions) {
+        const { width, height } = normalized.slideDimensions;
+        if (width > 50000 || height > 50000) {
+          console.warn('🚨 Slide dimensions appear to be in EMU, not pixels:', { width, height });
+        } else {
+          console.log('✅ Slide dimensions validated as pixels:', { width, height });
+        }
       }
+
+      return {
+        slides,
+        totalComponents: components.length,
+        format: normalized.format,
+        slideDimensions: normalized.slideDimensions
+      };
 
     } catch (error) {
       console.error('❌ Error processing PowerPoint JSON:', error);
