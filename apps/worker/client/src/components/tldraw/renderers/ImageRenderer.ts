@@ -58,18 +58,31 @@ export async function renderImageComponent(
     !!frameId
   )
   
-  // Check if we have a data URL for the image
-  if (component.metadata?.imageUrl && component.metadata.imageUrl.startsWith('data:')) {
-    const dataUrl = component.metadata.imageUrl
+  // Check if we have an image URL (either data URL or regular URL)
+  if (component.metadata?.imageUrl) {
+    const imageUrl = component.metadata.imageUrl
     
     try {
-      
-      // Convert data URL to blob
-      const response = await fetch(dataUrl)
-      const blob = await response.blob()
-      
       // Create asset ID using the correct tldraw v3 API
       const assetId = AssetRecordType.createId()
+      
+      let mimeType = 'image/jpeg' // default
+      
+      // For data URLs, extract the MIME type
+      if (imageUrl.startsWith('data:')) {
+        const mimeMatch = imageUrl.match(/data:([^;]+);/)
+        if (mimeMatch) {
+          mimeType = mimeMatch[1]
+        }
+      } else {
+        // For regular URLs, try to determine MIME type from extension
+        const urlLower = imageUrl.toLowerCase()
+        if (urlLower.includes('.png')) mimeType = 'image/png'
+        else if (urlLower.includes('.jpg') || urlLower.includes('.jpeg')) mimeType = 'image/jpeg'
+        else if (urlLower.includes('.gif')) mimeType = 'image/gif'
+        else if (urlLower.includes('.webp')) mimeType = 'image/webp'
+        else if (urlLower.includes('.svg')) mimeType = 'image/svg+xml'
+      }
       
       // Create the asset using the correct API
       editor.createAssets([{
@@ -78,10 +91,10 @@ export async function renderImageComponent(
         typeName: 'asset',
         props: {
           name: component.metadata?.name || 'image',
-          src: dataUrl,
+          src: imageUrl,
           w: width,
           h: height,
-          mimeType: blob.type,
+          mimeType: mimeType,
           isAnimated: false
         },
         meta: {}

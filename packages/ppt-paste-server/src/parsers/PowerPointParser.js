@@ -21,7 +21,7 @@ export class PowerPointParser extends BaseParser {
    * @param {boolean} options.debug - Enable debug logging
    * @returns {Promise<Object>} slides structure with components
    */
-  async parseJson(json, { debug = false } = {}) {
+  async parseJson(json, { debug = false, r2Storage = null } = {}) {
     try {
       if (debug) console.log('🎨 Processing PowerPoint JSON data...');
       
@@ -78,7 +78,7 @@ export class PowerPointParser extends BaseParser {
                 normalized.mediaFiles,
                 globalComponentIndex++,
                 slideNumber - 1, // Use 0-based index for relationships
-                { debug }
+                { debug, r2Storage }
               );
             }
             
@@ -151,7 +151,7 @@ export class PowerPointParser extends BaseParser {
               normalized.mediaFiles,
               globalComponentIndex++,
               slideNumber - 1, // Use 0-based index for relationships
-              { debug }
+              { debug, r2Storage }
             );
             if (component) {
               // Fix the slideIndex to show the actual slide number (not the relationship index)
@@ -259,9 +259,9 @@ export class PowerPointParser extends BaseParser {
    * @param {number} slideIndex - Slide index
    * @returns {Promise<Object|null>} - Parsed component or null
    */
-  async parseUnifiedImageComponent(imageComponent, relationships, mediaFiles, componentIndex, slideIndex, { debug = false } = {}) {
+  async parseUnifiedImageComponent(imageComponent, relationships, mediaFiles, componentIndex, slideIndex, { debug = false, r2Storage = null } = {}) {
     try {
-      return await ImageParser.parseFromNormalized(imageComponent, relationships, mediaFiles, componentIndex, slideIndex);
+      return await ImageParser.parseFromNormalized(imageComponent, relationships, mediaFiles, componentIndex, slideIndex, r2Storage);
     } catch (error) {
       if (debug) console.warn(`⚠️ Failed to parse image component:`, error);
       return null;

@@ -15,7 +15,7 @@ export class ImageParser extends BaseParser {
    * @param {number} slideIndex - Slide index
    * @returns {Promise<Object>} - Parsed image component
    */
-  static async parseFromNormalized(imageComponent, relationships, mediaFiles, componentIndex, slideIndex) {
+  static async parseFromNormalized(imageComponent, relationships, mediaFiles, componentIndex, slideIndex, r2Storage = null) {
     const { data, spPr, nvPicPr, blipFill, namespace } = imageComponent;
     
     if (!spPr || !blipFill) {
@@ -42,7 +42,7 @@ export class ImageParser extends BaseParser {
 
     if (relationshipId && relationships && mediaFiles) {
       // Use the more complete getImageInfo method with slide context
-      const imageInfo = ImageParser.getImageInfo(relationshipId, relationships, mediaFiles, slideIndex);
+      const imageInfo = await ImageParser.getImageInfo(relationshipId, relationships, mediaFiles, slideIndex, r2Storage);
       if (imageInfo.url) {
         imageDataUrl = imageInfo.url;
         imageFormat = imageInfo.type;
@@ -175,7 +175,7 @@ export class ImageParser extends BaseParser {
    * @param {number} slideIndex - Slide index for slide-scoped search
    * @returns {Object} image information
    */
-  static getImageInfo(rId, relationships, mediaFiles, slideIndex = null) {
+  static async getImageInfo(rId, relationships, mediaFiles, slideIndex = null, r2Storage = null) {
     if (!rId) {
       return {
         url: null,
@@ -214,7 +214,7 @@ export class ImageParser extends BaseParser {
           const mediaFile = mediaFiles[mediaPath];
           if (mediaFile) {
             return {
-              url: ImageParser.createDataUrl(mediaFile, target),
+              url: await ImageParser.createImageUrl(mediaFile, target, r2Storage),
               type: ImageParser.getImageType(target),
               size: mediaFile.length || 0,
               dimensions: ImageParser.getImageDimensions(mediaFile)
@@ -251,7 +251,7 @@ export class ImageParser extends BaseParser {
             const mediaFile = mediaFiles[mediaPath];
             if (mediaFile) {
               return {
-                url: ImageParser.createDataUrl(mediaFile, target),
+                url: await ImageParser.createImageUrl(mediaFile, target, r2Storage),
                 type: ImageParser.getImageType(target),
                 size: mediaFile.length || 0,
                 dimensions: ImageParser.getImageDimensions(mediaFile)
@@ -301,7 +301,7 @@ export class ImageParser extends BaseParser {
           const mediaFile = mediaFiles[mediaPath];
           if (mediaFile) {
             return {
-              url: ImageParser.createDataUrl(mediaFile, target),
+              url: await ImageParser.createImageUrl(mediaFile, target, r2Storage),
               type: ImageParser.getImageType(target),
               size: mediaFile.length || 0,
               dimensions: ImageParser.getImageDimensions(mediaFile)
@@ -320,7 +320,62 @@ export class ImageParser extends BaseParser {
   }
 
   /**
-   * Create data URL from media file buffer
+   * Create R2 URL from media file buffer (async version)
+   * @param {Buffer|Uint8Array} mediaFile - Image file buffer
+   * @param {string} filename - Original filename
+   * @param {Object} r2Storage - R2 storage binding (optional, falls back to base64)
+   * @returns {Promise<string>} R2 URL, data URL, or placeholder
+   */
+  static async createImageUrl(mediaFile, filename, r2Storage = null) {
+    if (!mediaFile || !(mediaFile instanceof Uint8Array)) {
+      console.log(`⚠️ Image data not available, using placeholder SVG for ${filename}`);
+      return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2RkZCIvPjx0ZXh0IHg9IjUwIiB5PSI1NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5JbWFnZTwvdGV4dD48L3N2Zz4=';
+    }
+
+    // If R2 storage is available, use it
+    if (r2Storage) {
+      try {
+        // Generate hash for deduplication
+        const hash = await ImageParser.generateImageHash(mediaFile);
+        const type = ImageParser.getImageType(filename);
+        const imagePath = `images/${hash}.${type}`;
+        
+        // Check if image already exists in R2
+        const existing = await r2Storage.get(imagePath);
+        if (existing) {
+          return `/api/images/${hash}.${type}`;
+        }
+
+        // Upload to R2
+        const mimeType = ImageParser.getMimeType(type);
+        await r2Storage.put(imagePath, mediaFile, {
+          httpMetadata: {
+            contentType: mimeType,
+            cacheControl: 'public, max-age=31536000' // 1 year cache
+          },
+          customMetadata: {
+            originalName: filename,
+            uploadedAt: new Date().toISOString(),
+            size: mediaFile.byteLength.toString(),
+            hash: hash
+          }
+        });
+        
+        console.log(`✅ Uploaded image to R2: ${imagePath}`);
+        return `/api/images/${hash}.${type}`;
+        
+      } catch (error) {
+        console.error(`❌ R2 upload failed for ${filename}:`, error);
+        // Fall back to base64
+      }
+    }
+    
+    // Fallback to base64 data URL
+    return ImageParser.createDataUrl(mediaFile, filename);
+  }
+
+  /**
+   * Create data URL from media file buffer (legacy method)
    * @param {Buffer|Uint8Array} mediaFile - Image file buffer
    * @param {string} filename - Original filename
    * @returns {string} data URL or placeholder
@@ -336,6 +391,19 @@ export class ImageParser extends BaseParser {
     const base64 = ImageParser.uint8ArrayToBase64(mediaFile);
     
     return `data:${mimeType};base64,${base64}`;
+  }
+
+  /**
+   * Generate SHA-256 hash of image data for deduplication
+   * @param {Uint8Array} uint8Array - Binary image data
+   * @returns {Promise<string>} SHA-256 hash as hex string
+   */
+  static async generateImageHash(uint8Array) {
+    const hashBuffer = await crypto.subtle.digest('SHA-256', uint8Array);
+    const hashArray = new Uint8Array(hashBuffer);
+    return Array.from(hashArray)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
   }
 
   /**

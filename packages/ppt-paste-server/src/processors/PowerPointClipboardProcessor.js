@@ -9,10 +9,11 @@ import { PowerPointParser } from '../parsers/PowerPointParser.js';
 import { PPTXParser } from './PPTXParser.js';
 
 export class PowerPointClipboardProcessor {
-  constructor(fetchFunction = null) {
+  constructor(fetchFunction = null, r2Storage = null) {
     this.powerPointParser = new PowerPointParser();
     this.pptxParser = new PPTXParser();
     this.fetchFn = fetchFunction || this._getDefaultFetch();
+    this.r2Storage = r2Storage;
   }
 
   /**
@@ -181,7 +182,7 @@ export class PowerPointClipboardProcessor {
       }
       
       // Parse using the PowerPoint parser
-      const result = await this.powerPointParser.parseJson(json, { debug });
+      const result = await this.powerPointParser.parseJson(json, { debug, r2Storage: this.r2Storage });
       
       if (debug) console.log('✅ PowerPoint parsing complete:', result.totalComponents, 'components in', result.slides.length, 'slides');
       return result;
