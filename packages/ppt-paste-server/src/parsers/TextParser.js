@@ -359,7 +359,6 @@ export class TextParser extends BaseParser {
     
     if (rPr) {
       const marks = [];
-      const attrs = {};
       
       // Bold formatting
       if (this.safeGet(rPr, '$b') === 1 || this.safeGet(rPr, '$b') === '1') {
@@ -371,20 +370,21 @@ export class TextParser extends BaseParser {
         marks.push({ type: 'italic' });
       }
       
-      // Font size
+      // Font size using TipTap textStyle format
       const fontSize = this.safeGet(rPr, '$sz');
       if (fontSize) {
-        attrs.fontSize = this.fontSizeToPoints(fontSize);
+        const fontSizeInPt = this.fontSizeToPoints(fontSize);
+        marks.push({
+          type: 'textStyle',
+          attrs: {
+            fontSize: `${fontSizeInPt}pt`
+          }
+        });
       }
       
       // Add marks if any
       if (marks.length > 0) {
         textNode.marks = marks;
-      }
-      
-      // Add attributes if any
-      if (Object.keys(attrs).length > 0) {
-        textNode.attrs = attrs;
       }
     }
     

@@ -20,6 +20,16 @@ import {
 import FontFamily from '@tiptap/extension-font-family'
 import { TextStyle } from '@tiptap/extension-text-style'
 
+// Extend TipTap's command interface to include our custom commands
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    fontSize: {
+      setFontSize: (fontSize: string) => ReturnType
+      unsetFontSize: () => ReturnType
+    }
+  }
+}
+
 // FontSize extension for TipTap v2.26.1
 const FontSize = Extension.create({
   name: 'fontSize',
@@ -37,8 +47,8 @@ const FontSize = Extension.create({
         attributes: {
           fontSize: {
             default: null,
-            parseHTML: element => element.style.fontSize,
-            renderHTML: attributes => {
+            parseHTML: (element: HTMLElement) => element.style.fontSize,
+            renderHTML: (attributes: any) => {
               if (!attributes.fontSize) {
                 return {}
               }
@@ -54,12 +64,12 @@ const FontSize = Extension.create({
 
   addCommands() {
     return {
-      setFontSize: fontSize => ({ chain }) => {
+      setFontSize: (fontSize: string) => ({ chain }: any) => {
         return chain()
           .setMark('textStyle', { fontSize })
           .run()
       },
-      unsetFontSize: () => ({ chain }) => {
+      unsetFontSize: () => ({ chain }: any) => {
         return chain()
           .setMark('textStyle', { fontSize: null })
           .removeEmptyTextStyle()
