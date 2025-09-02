@@ -74,6 +74,10 @@ export interface ClipboardParserProps {
   className?: string;
   placeholder?: string;
   debugMode?: boolean;
+  onLoadingStart?: (message: string, progress?: string) => void;
+  onLoadingProgress?: (progress: string) => void;
+  onUploadStart?: () => void;
+  onPasteStart?: () => void;
 }
 
 // Simple function to check if clipboard data has PowerPoint cloud service metadata
@@ -239,13 +243,18 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
   onParse,
   className = '',
   placeholder = 'Paste content here...',
-  debugMode = false
+  debugMode = false,
+  onLoadingStart,
+  onLoadingProgress,
+  onUploadStart,
+  onPasteStart
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
 
   const handlePaste = async (event: React.ClipboardEvent) => {
     event.preventDefault();
+    onPasteStart?.(); // Show loading immediately
     setIsProcessing(true);
 
     try {
@@ -278,6 +287,7 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
       if (htmlFormat && hasPowerPointCloudServiceData(htmlFormat.data)) {
         console.log('🎨 PowerPoint cloud service data detected!');
         isPowerPoint = true;
+        onLoadingProgress?.('PowerPoint content detected, fetching binary data...');
         
         // Parse HTML table data directly from clipboard (if any)
         const htmlTableComponents = parseHtmlTableData(htmlFormat.data);
@@ -290,6 +300,7 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
         
         if (clipboardBytesUrl) {
           console.log('🔗 Found clipboard bytes URL, fetching binary data:', clipboardBytesUrl.substring(0, 100) + '...');
+          onLoadingProgress?.('Downloading PowerPoint data from Microsoft servers...');
           
           // Fetch parsed slides from proxy server
           const result = await fetchParsedPowerPointData(clipboardBytesUrl);
@@ -298,9 +309,11 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
           
           if (slides.length > 0) {
             const totalComponents = slides.reduce((sum, slide) => sum + slide.components.length, 0);
+            onLoadingProgress?.(`Successfully parsed ${totalComponents} components from ${slides.length} slide(s)!`);
             console.log(`✅ Successfully parsed ${totalComponents} PowerPoint components from binary data!`);
             console.log(`📄 Organized into ${slides.length} slides`);
           } else {
+            onLoadingProgress?.('No components found in PowerPoint data');
             console.warn('❌ No slides returned from proxy server');
           }
         } else {
@@ -412,11 +425,13 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
       return;
     }
 
+    onUploadStart?.(); // Show loading immediately
     setIsProcessing(true);
     setUploadProgress('Uploading file...');
 
     try {
       // Upload the file
+      onLoadingProgress?.(`Uploading "${file.name}" to server...`);
       const formData = new FormData();
       formData.append('file', file);
 
@@ -432,6 +447,7 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
 
       const uploadResult = await uploadResponse.json();
       setUploadProgress('Processing file...');
+      onLoadingProgress?.('File uploaded successfully, parsing PowerPoint structure...');
 
       // Process the uploaded file (server always returns slides now)
       const queryParams = new URLSearchParams();
@@ -446,6 +462,9 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
       }
 
       const processResult = await processResponse.json();
+      
+      const totalComponents = processResult.slides?.reduce((sum: number, slide: any) => sum + (slide.components?.length || 0), 0) || 0;
+      onLoadingProgress?.(`Successfully processed ${totalComponents} components from ${processResult.slides?.length || 0} slide(s)!`);
       
       // Server now always returns slides structure
       if (onParse) {

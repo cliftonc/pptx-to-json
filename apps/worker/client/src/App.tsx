@@ -2,15 +2,23 @@ import { useState } from 'react'
 import { ClipboardParser, type ParsedContent } from 'ppt-paste-parser'
 import TldrawCanvas from './components/TldrawCanvas'
 import RawDataPage from './RawDataPage'
+import LoadingScreen from './components/LoadingScreen'
 
 import './App.css'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'main' | 'raw'>('main')
   const [structuredData, setStructuredData] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [loadingMessage, setLoadingMessage] = useState('')
+  const [loadingProgress, setLoadingProgress] = useState('')
 
 
   const handleStructuredParsed = (data: ParsedContent) => {
+    setIsLoading(false);
+    setLoadingMessage('');
+    setLoadingProgress('');
+    
     // Calculate total components and types from all slides
     let totalComponents = 0;
     const componentsByType: Record<string, number> = {};
@@ -48,6 +56,16 @@ function App() {
       });
     }
   }
+
+  const handleLoadingStart = (message: string, progress?: string) => {
+    setIsLoading(true);
+    setLoadingMessage(message);
+    setLoadingProgress(progress || '');
+  };
+
+  const handleLoadingProgress = (progress: string) => {
+    setLoadingProgress(progress);
+  };
 
   const getTypeColor = (type: string) => {
     switch (type) {
@@ -339,6 +357,10 @@ function App() {
           <ClipboardParser 
             onParse={handleStructuredParsed}
             placeholder="Paste PowerPoint shapes, text, or images here..."
+            onLoadingStart={handleLoadingStart}
+            onLoadingProgress={handleLoadingProgress}
+            onUploadStart={() => handleLoadingStart('Uploading PowerPoint File', 'Preparing file upload...')}
+            onPasteStart={() => handleLoadingStart('Processing PowerPoint Content', 'Analyzing clipboard data...')}
           />
           
           {/* Component Support Information */}
@@ -702,6 +724,13 @@ function App() {
           slideDimensions={structuredData?.slideDimensions} 
         />
       </div>
+
+      {/* Full-screen loading overlay */}
+      <LoadingScreen 
+        show={isLoading}
+        message={loadingMessage}
+        progress={loadingProgress}
+      />
     </div>
   )
 }
