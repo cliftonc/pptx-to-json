@@ -185,8 +185,12 @@ export class ImageParser extends BaseParser {
       };
     }
 
-    // For PPTX files with slideIndex, search current slide first, then slide layouts/masters
-    if (slideIndex !== null) {
+
+    // Detect if this is clipboard format vs PPTX format by checking relationship paths
+    const isClipboardFormat = Object.keys(relationships || {}).some(key => key.includes('clipboard/'));
+    
+    // For PPTX files (not clipboard), search current slide first, then slide layouts/masters
+    if (slideIndex !== null && !isClipboardFormat) {
       const currentSlideRelFile = `ppt/slides/_rels/slide${slideIndex + 1}.xml.rels`;
       
       // First try the current slide's relationship file
