@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@tiptap/core": "2.26.1",
     "@tiptap/extension-font-family": "2.26.1",
     "@tiptap/extension-table": "2.26.1",
@@ -19,6 +20,7 @@
     "@tiptap/extension-text-style": "2.26.1",
     "@tiptap/pm": "2.26.1",
     "@tldraw/tldraw": "^3.15.4",
+    "lucide-react": "^0.542.0",
     "ppt-paste-parser": "workspace:*",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"

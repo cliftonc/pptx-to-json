@@ -73,7 +73,6 @@ export const customToolbarStyles = `
     overflow: visible !important;
     table-layout: auto !important;
     width: auto !important;
-    max-width: 500px !important;
     display: table !important;
     border: 1px solid #333 !important;
 }

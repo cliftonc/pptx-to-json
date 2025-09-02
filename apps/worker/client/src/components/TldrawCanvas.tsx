@@ -10,6 +10,9 @@ import { createUIComponents } from './tldraw/utils/uiComponents'
 import { textOptions } from './tldraw/utils/textOptions'
 import { drawSlides, drawComponents } from './tldraw/utils/drawingManager'
 import { ExportButton } from './tldraw/ExportButton'
+import { FloatingTableToolbar } from './tldraw/toolbars/FloatingTableToolbar'
+import { TableTool } from './tldraw/tools/TableTool'
+import { uiOverrides } from './tldraw/utils/uiOverrides'
 
 interface TldrawCanvasProps {
   components: PowerPointComponent[]
@@ -153,8 +156,11 @@ export default function TldrawCanvas({ components, slides, slideDimensions }: Tl
         onMount={handleMount} 
         textOptions={textOptions}
         components={uiComponents}
+        tools={[TableTool]}
+        overrides={uiOverrides}
       >
         <ExportButton />
+        <FloatingTableToolbar />
       </Tldraw>
     </div>
   )
