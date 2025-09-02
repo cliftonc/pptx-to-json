@@ -3,17 +3,62 @@
  */
 
 import { BaseParser } from './BaseParser.js';
+import { TextComponent, XMLNode, ProcessingContext } from '../types/index.js';
+
+// Rich text node types for TLDraw compatibility
+interface TextNode {
+  type: 'text';
+  text: string;
+  marks?: Mark[];
+}
+
+interface Mark {
+  type: string;
+  attrs?: Record<string, any>;
+}
+
+interface ListItem {
+  type: 'listItem';
+  content: Array<{ type: 'paragraph'; content: TextNode[] }>;
+}
+
+interface BulletList {
+  type: 'bulletList';
+  content: ListItem[];
+}
+
+interface Paragraph {
+  type: 'paragraph';
+  content: TextNode[];
+}
+
+interface RichTextDoc {
+  type: 'doc';
+  content: Array<Paragraph | BulletList>;
+}
+
+// Normalized text component structure
+interface NormalizedTextComponent {
+  textBody: XMLNode;
+  spPr: XMLNode;
+  nvSpPr: XMLNode;
+  namespace?: string;
+}
 
 export class TextParser extends BaseParser {
 
   /**
    * Parse text component from normalized data (works for both PPTX and clipboard)
-   * @param {Object} textComponent - Normalized text component
-   * @param {number} componentIndex - Component index
-   * @param {number} slideIndex - Slide index
-   * @returns {Promise<Object>} - Parsed text component
+   * @param textComponent - Normalized text component
+   * @param componentIndex - Component index
+   * @param slideIndex - Slide index
+   * @returns Parsed text component
    */
-  static async parseFromNormalized(textComponent, componentIndex, slideIndex) {
+  static async parseFromNormalized(
+    textComponent: NormalizedTextComponent, 
+    componentIndex: number, 
+    slideIndex: number
+  ): Promise<TextComponent | null> {
     const { textBody, spPr, nvSpPr, namespace } = textComponent;
     
     if (!textBody) {
@@ -39,7 +84,7 @@ export class TextParser extends BaseParser {
     // Extract dominant font styling using existing method
     const paragraphs = this.safeGet(textBody, 'p', []);
     const paragraphsArray = Array.isArray(paragraphs) ? paragraphs : [paragraphs];
-    let dominantFont = { family: 'Arial', size: 18, weight: 'normal', style: 'normal', color: '#000000' };
+    let dominantFont = { family: 'Arial', size: 18, weight: 'normal', style: 'normal', color: '#000000', decoration: 'none' };
     
     // Find first non-empty run with formatting
     for (const paragraph of paragraphsArray) {
@@ -78,9 +123,10 @@ export class TextParser extends BaseParser {
         color: dominantFont.color,
         backgroundColor: 'transparent', // Text components don't have background by default
         textAlign: 'left',
-        opacity: 1
+        opacity: 1,
+        rotation: transform.rotation || 0
       },
-      richText: richTextContent,
+      textRuns: richTextContent,
       metadata: {
         namespace,
         isTextBox,
@@ -93,15 +139,15 @@ export class TextParser extends BaseParser {
 
   /**
    * Extract plain text content from textBody
-   * @param {Object} textBody - PowerPoint textBody element
-   * @returns {string} - Extracted text content
+   * @param textBody - PowerPoint textBody element
+   * @returns Extracted text content
    */
-  static extractTextContent(textBody) {
+  static extractTextContent(textBody: XMLNode): string {
     // Namespaces are already stripped
     const paragraphs = this.safeGet(textBody, 'p', []);
     const paragraphsArray = Array.isArray(paragraphs) ? paragraphs : [paragraphs];
     
-    let allText = [];
+    const allText: string[] = [];
     
     for (const paragraph of paragraphsArray) {
       let paragraphText = '';
@@ -136,10 +182,10 @@ export class TextParser extends BaseParser {
 
   /**
    * Extract rich text content with bullet formatting
-   * @param {Object} textBody - PowerPoint textBody element
-   * @returns {Object} - Rich text structure compatible with TLDraw
+   * @param textBody - PowerPoint textBody element
+   * @returns Rich text structure compatible with TLDraw
    */
-  static extractRichTextContent(textBody) {
+  static extractRichTextContent(textBody: XMLNode): RichTextDoc {
     // Namespaces are already stripped
     const paragraphs = this.safeGet(textBody, 'p', []);
     const paragraphsArray = Array.isArray(paragraphs) ? paragraphs : [paragraphs];
@@ -151,13 +197,13 @@ export class TextParser extends BaseParser {
 
   /**
    * Create paragraph structure with nested bulletList elements
-   * @param {Array} paragraphsArray - Array of paragraphs
-   * @param {Object} lstStyle - PowerPoint list style
-   * @returns {Object} - Rich text structure with paragraphs containing bulletLists
+   * @param paragraphsArray - Array of paragraphs
+   * @param lstStyle - PowerPoint list style
+   * @returns Rich text structure with paragraphs containing bulletLists
    */
-  static createParagraphStructure(paragraphsArray, lstStyle) {
-    const content = [];
-    let currentBulletItems = [];
+  static createParagraphStructure(paragraphsArray: XMLNode[], lstStyle: XMLNode): RichTextDoc {
+    const content: Array<Paragraph | BulletList> = [];
+    let currentBulletItems: ListItem[] = [];
     let hasPendingBullets = false;
     
     const flushBullets = () => {
@@ -174,7 +220,7 @@ export class TextParser extends BaseParser {
     
     for (let paragraphIndex = 0; paragraphIndex < paragraphsArray.length; paragraphIndex++) {
       const paragraph = paragraphsArray[paragraphIndex];
-      const paragraphContent = [];
+      const paragraphContent: TextNode[] = [];
       
       // Extract text content from runs (namespaces already stripped)
       const runs = paragraph?.['r'];
@@ -240,16 +286,20 @@ export class TextParser extends BaseParser {
 
   /**
    * Check if a specific paragraph has bullet formatting
-   * @param {Object} paragraph - Individual paragraph
-   * @param {Object} lstStyle - PowerPoint list style
-   * @param {number} paragraphIndex - Index of this paragraph in the text element
-   * @param {number} totalParagraphs - Total number of paragraphs in the text element
-   * @returns {boolean} - True if this paragraph has bullets
+   * @param paragraph - Individual paragraph
+   * @param lstStyle - PowerPoint list style
+   * @param paragraphIndex - Index of this paragraph in the text element
+   * @param totalParagraphs - Total number of paragraphs in the text element
+   * @returns True if this paragraph has bullets
    */
-  static paragraphHasBullets(paragraph, lstStyle, paragraphIndex = 0, totalParagraphs = 1) {
+  static paragraphHasBullets(
+    paragraph: XMLNode, 
+    lstStyle: XMLNode, 
+    paragraphIndex: number = 0, 
+    totalParagraphs: number = 1
+  ): boolean {
     // Namespaces already stripped
     const pPr = this.safeGet(paragraph, 'pPr');
-    
     
     // Method 1: Check if paragraph explicitly disables bullets
     if (pPr) {
@@ -283,7 +333,7 @@ export class TextParser extends BaseParser {
     }
     
     // Method 3: Inherit from lstStyle if paragraph has no explicit bullet configuration
-    if (lstStyle && lstStyle !== '') {
+    if (lstStyle && typeof lstStyle === 'object') {
       // Only inherit bullets if:
       // 1. Paragraph has no pPr at all, OR
       // 2. Paragraph has pPr but no bullet-related properties
@@ -318,7 +368,7 @@ export class TextParser extends BaseParser {
     // Method 4: PPTX format contextual bullet detection
     // In PPTX files, when lstStyle is empty/missing and pPr is null,
     // we need to infer bullets from position and content patterns
-    if ((!lstStyle || lstStyle === '') && !pPr) {
+    if ((!lstStyle || typeof lstStyle !== 'object') && !pPr) {
       // In single-paragraph text elements, that paragraph is likely a title
       if (totalParagraphs === 1) {
         return false;
@@ -337,14 +387,13 @@ export class TextParser extends BaseParser {
     return false;
   }
 
-
   /**
    * Create a text node with formatting
-   * @param {string} text - Text content
-   * @param {Object} rPr - Run properties
-   * @returns {Object} - Text node with marks and attributes
+   * @param text - Text content
+   * @param rPr - Run properties
+   * @returns Text node with marks and attributes
    */
-  static createTextNode(text, rPr) {
+  static createTextNode(text: string, rPr: XMLNode | null): TextNode {
     const textString = String(text);
     
     // Ensure we never create empty text nodes (but allow spaces)
@@ -352,13 +401,13 @@ export class TextParser extends BaseParser {
       throw new Error('Cannot create empty text node - TLDraw does not allow empty text nodes');
     }
     
-    const textNode = {
+    const textNode: TextNode = {
       type: 'text',
       text: textString
     };
     
     if (rPr) {
-      const marks = [];
+      const marks: Mark[] = [];
       
       // Bold formatting
       if (this.safeGet(rPr, '$b') === 1 || this.safeGet(rPr, '$b') === '1') {

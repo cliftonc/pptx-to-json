@@ -7,9 +7,45 @@ import { TextParser } from './TextParser.js';
 import { ShapeParser } from './ShapeParser.js';
 import { ImageParser } from './ImageParser.js';
 import { TableParser } from './TableParser.js';
-import { BaseParser, isBufferLike, bufferFrom } from './BaseParser.js';
+import { BaseParser } from './BaseParser.js';
+import type { PowerPointComponent } from '../types/index.js';
+
+interface ParseOptions {
+  debug?: boolean;
+  r2Storage?: any;
+}
+
+interface SlideMetadata {
+  name: string;
+  componentCount: number;
+  format: string;
+  slideFile: string | null;
+  layoutFile: string | null;
+  masterFile: string | null;
+  layoutElementCount: number;
+  masterElementCount: number;
+}
+
+interface ParsedSlide {
+  slideIndex: number;
+  slideNumber: number;
+  components: PowerPointComponent[];
+  metadata: SlideMetadata;
+}
+
+interface ParsedResult {
+  slides: ParsedSlide[];
+  totalComponents: number;
+  format: string;
+  slideDimensions?: {
+    width: number;
+    height: number;
+  };
+}
 
 export class PowerPointParser extends BaseParser {
+  private normalizer: PowerPointNormalizer;
+
   constructor() {
     super();
     this.normalizer = new PowerPointNormalizer();
@@ -17,12 +53,10 @@ export class PowerPointParser extends BaseParser {
 
   /**
    * Parse PowerPoint JSON data into structured slides
-   * @param {Object} json - Parsed PowerPoint JSON data
-   * @param {Object} options - Parsing options
-   * @param {boolean} options.debug - Enable debug logging
-   * @returns {Promise<Object>} slides structure with components
    */
-  async parseJson(json, { debug = false, r2Storage = null } = {}) {
+  async parseJson(json: any, options: ParseOptions = {}): Promise<ParsedResult> {
+    const { debug = false, r2Storage = null } = options;
+    
     try {
       if (debug) console.log('🎨 Processing PowerPoint JSON data...');
       
@@ -33,8 +67,8 @@ export class PowerPointParser extends BaseParser {
       }
       
       // Step 2: Process all slides using unified structure
-      const slides = [];
-      const components = []; // Keep flat array for backward compatibility
+      const slides: ParsedSlide[] = [];
+      const components: PowerPointComponent[] = []; // Keep flat array for backward compatibility
       let globalComponentIndex = 0;
       
       for (let arrayIndex = 0; arrayIndex < normalized.slides.length; arrayIndex++) {
@@ -45,14 +79,14 @@ export class PowerPointParser extends BaseParser {
           console.log(`📄 Processing slide ${slideNumber}: ${slide.shapes.length} shapes, ${slide.text.length} text, ${slide.images.length} images`);
         }
         
-        const slideComponents = [];
+        const slideComponents: PowerPointComponent[] = [];
         let localComponentIndex = 0;
         
         // Process components in their original z-order if available
         if (slide.elements && slide.elements.length > 0) {
           // Use ordered elements to preserve z-index
           for (const element of slide.elements) {
-            let component = null;
+            let component: PowerPointComponent | null = null;
             
             if (element.type === 'text') {
               component = await this.parseUnifiedTextComponent(
@@ -94,17 +128,18 @@ export class PowerPointParser extends BaseParser {
             
             if (component) {
               // Fix the slideIndex to show the actual slide number (not the relationship index)
-              component.slideIndex = slideNumber;
-              component.zIndex = element.zIndex; // Add z-index information
+              (component as any).slideIndex = slideNumber;
+              (component as any).zIndex = element.zIndex; // Add z-index information
               
               // Validate component coordinates are in pixel range
-              if (component.x > 50000 || component.y > 50000 || component.width > 50000 || component.height > 50000) {
+              const coords = component as any; // All components have these properties
+              if (coords.x > 50000 || coords.y > 50000 || coords.width > 50000 || coords.height > 50000) {
                 console.warn('🚨 Component coordinates may be in EMU, not pixels:', {
                   type: component.type,
-                  x: component.x,
-                  y: component.y,
-                  width: component.width,
-                  height: component.height
+                  x: coords.x,
+                  y: coords.y,
+                  width: coords.width,
+                  height: coords.height
                 });
               }
               
@@ -127,7 +162,7 @@ export class PowerPointParser extends BaseParser {
             );
             if (component) {
               // Fix the slideIndex to show the actual slide number (not the relationship index)
-              component.slideIndex = slideNumber;
+              (component as any).slideIndex = slideNumber;
               slideComponents.push(component);
               components.push(component);
               localComponentIndex++;
@@ -146,7 +181,7 @@ export class PowerPointParser extends BaseParser {
             );
             if (component) {
               // Fix the slideIndex to show the actual slide number (not the relationship index)
-              component.slideIndex = slideNumber;
+              (component as any).slideIndex = slideNumber;
               slideComponents.push(component);
               components.push(component);
               localComponentIndex++;
@@ -165,7 +200,7 @@ export class PowerPointParser extends BaseParser {
             );
             if (component) {
               // Fix the slideIndex to show the actual slide number (not the relationship index)
-              component.slideIndex = slideNumber;
+              (component as any).slideIndex = slideNumber;
               slideComponents.push(component);
               components.push(component);
               localComponentIndex++;
@@ -174,7 +209,7 @@ export class PowerPointParser extends BaseParser {
         }
         
         // Create slide object
-        const slideObject = {
+        const slideObject: ParsedSlide = {
           slideIndex: slideNumber - 1, // For compatibility, keep 0-based index
           slideNumber: slideNumber,    // Actual slide number from filename
           components: slideComponents,
@@ -226,14 +261,16 @@ export class PowerPointParser extends BaseParser {
 
   /**
    * Parse unified text component from normalized data
-   * @param {Object} textComponent - Normalized text component
-   * @param {Object} relationships - Relationship data
-   * @param {Object} mediaFiles - Media files
-   * @param {number} componentIndex - Component index
-   * @param {number} slideIndex - Slide index
-   * @returns {Promise<Object|null>} - Parsed component or null
    */
-  async parseUnifiedTextComponent(textComponent, relationships, mediaFiles, componentIndex, slideIndex, { debug = false } = {}) {
+  private async parseUnifiedTextComponent(
+    textComponent: any, 
+    relationships: any, 
+    mediaFiles: any, 
+    componentIndex: number, 
+    slideIndex: number, 
+    options: { debug?: boolean } = {}
+  ): Promise<PowerPointComponent | null> {
+    const { debug = false } = options;
     try {
       return await TextParser.parseFromNormalized(textComponent, componentIndex, slideIndex);
     } catch (error) {
@@ -244,14 +281,16 @@ export class PowerPointParser extends BaseParser {
   
   /**
    * Parse unified shape component from normalized data
-   * @param {Object} shapeComponent - Normalized shape component
-   * @param {Object} relationships - Relationship data
-   * @param {Object} mediaFiles - Media files
-   * @param {number} componentIndex - Component index
-   * @param {number} slideIndex - Slide index
-   * @returns {Promise<Object|null>} - Parsed component or null
    */
-  async parseUnifiedShapeComponent(shapeComponent, relationships, mediaFiles, componentIndex, slideIndex, { debug = false } = {}) {
+  private async parseUnifiedShapeComponent(
+    shapeComponent: any, 
+    relationships: any, 
+    mediaFiles: any, 
+    componentIndex: number, 
+    slideIndex: number, 
+    options: { debug?: boolean } = {}
+  ): Promise<PowerPointComponent | null> {
+    const { debug = false } = options;
     try {
       return await ShapeParser.parseFromNormalized(shapeComponent, componentIndex, slideIndex);
     } catch (error) {
@@ -262,14 +301,16 @@ export class PowerPointParser extends BaseParser {
   
   /**
    * Parse unified image component from normalized data
-   * @param {Object} imageComponent - Normalized image component
-   * @param {Object} relationships - Relationship data
-   * @param {Object} mediaFiles - Media files
-   * @param {number} componentIndex - Component index
-   * @param {number} slideIndex - Slide index
-   * @returns {Promise<Object|null>} - Parsed component or null
    */
-  async parseUnifiedImageComponent(imageComponent, relationships, mediaFiles, componentIndex, slideIndex, { debug = false, r2Storage = null } = {}) {
+  private async parseUnifiedImageComponent(
+    imageComponent: any, 
+    relationships: any, 
+    mediaFiles: any, 
+    componentIndex: number, 
+    slideIndex: number, 
+    options: { debug?: boolean; r2Storage?: any } = {}
+  ): Promise<PowerPointComponent | null> {
+    const { debug = false, r2Storage = null } = options;
     try {
       return await ImageParser.parseFromNormalized(imageComponent, relationships, mediaFiles, componentIndex, slideIndex, r2Storage);
     } catch (error) {
@@ -280,14 +321,16 @@ export class PowerPointParser extends BaseParser {
   
   /**
    * Parse unified table component from normalized data
-   * @param {Object} tableComponent - Normalized table component
-   * @param {Object} relationships - Relationship data
-   * @param {Object} mediaFiles - Media files
-   * @param {number} componentIndex - Component index
-   * @param {number} slideIndex - Slide index
-   * @returns {Promise<Object|null>} - Parsed component or null
    */
-  async parseUnifiedTableComponent(tableComponent, relationships, mediaFiles, componentIndex, slideIndex, { debug = false } = {}) {
+  private async parseUnifiedTableComponent(
+    tableComponent: any, 
+    relationships: any, 
+    mediaFiles: any, 
+    componentIndex: number, 
+    slideIndex: number, 
+    options: { debug?: boolean } = {}
+  ): Promise<PowerPointComponent | null> {
+    const { debug = false } = options;
     try {
       return await TableParser.parseFromNormalized(tableComponent, componentIndex, slideIndex);
     } catch (error) {
@@ -295,5 +338,4 @@ export class PowerPointParser extends BaseParser {
       return null;
     }
   }
-
 }

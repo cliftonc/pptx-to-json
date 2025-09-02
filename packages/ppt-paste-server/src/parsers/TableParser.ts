@@ -3,17 +3,32 @@
  */
 
 import { BaseParser } from './BaseParser.js';
+import {
+  XMLNode,
+  TableComponent,
+  NormalizedTableComponent,
+  TableDimensions,
+  TipTapDocumentNode,
+  TipTapTableCellNode,
+  TipTapTableRowNode,
+  TipTapTableNode,
+  TipTapParagraphNode
+} from '../types/index.js';
 
 export class TableParser extends BaseParser {
 
   /**
    * Parse table component from normalized data
-   * @param {Object} tableComponent - Normalized table component
-   * @param {number} componentIndex - Component index
-   * @param {number} slideIndex - Slide index
-   * @returns {Promise<Object>} - Parsed table component
+   * @param tableComponent - Normalized table component
+   * @param componentIndex - Component index
+   * @param slideIndex - Slide index
+   * @returns Parsed table component
    */
-  static async parseFromNormalized(tableComponent, componentIndex, slideIndex) {
+  static async parseFromNormalized(
+    tableComponent: NormalizedTableComponent,
+    componentIndex: number,
+    slideIndex: number
+  ): Promise<TableComponent | null> {
     const { graphicData, spPr, nvGraphicFramePr, namespace } = tableComponent;
     
     if (!graphicData) {
@@ -47,29 +62,36 @@ export class TableParser extends BaseParser {
       y: transform.y,
       width: transform.width,
       height: transform.height,
-      rotation: transform.rotation,
-      richText: richText, // Add richText property for TLDraw compatibility
       style: {
+        rotation: transform.rotation,
         borderColor: '#ffffff',
-        backgroundColor: 'transparent'
+        fillColor: 'transparent'
       },
+      rows: tableData.map((rowData) => ({
+        cells: rowData.map((cellContent) => ({
+          content: cellContent || '',
+          style: {}
+        }))
+      })),
+      columns: cols,
       metadata: {
         tableData: tableData,
         rows: rows,
         cols: cols,
         hasHeader: true,
         source: 'server-parsed',
-        format: namespace || 'unknown'
+        format: namespace || 'unknown',
+        richText: richText // Add richText property for TLDraw compatibility
       }
     };
   }
 
   /**
    * Extract table data from graphicData
-   * @param {Object} graphicData - PowerPoint table graphic data
-   * @returns {Array<Array<string>>} - 2D array of table cell text
+   * @param graphicData - PowerPoint table graphic data
+   * @returns 2D array of table cell text
    */
-  static extractTableData(graphicData) {
+  static extractTableData(graphicData: XMLNode): string[][] {
     try {
       // The table structure is: graphicData -> tbl (namespace stripped already)
       const table = this.safeGet(graphicData, 'tbl');
@@ -86,7 +108,7 @@ export class TableParser extends BaseParser {
       }
 
       const rowsArray = Array.isArray(rows) ? rows : [rows];
-      const tableData = [];
+      const tableData: string[][] = [];
 
       for (const row of rowsArray) {
         // Get table cells - should be 'tc' (namespace stripped)
@@ -94,7 +116,7 @@ export class TableParser extends BaseParser {
         if (!cells) continue;
 
         const cellsArray = Array.isArray(cells) ? cells : [cells];
-        const rowData = [];
+        const rowData: string[] = [];
 
         for (const cell of cellsArray) {
           // Extract text from cell - look for txBody (namespace stripped)
@@ -117,10 +139,10 @@ export class TableParser extends BaseParser {
 
   /**
    * Extract text content from a table cell
-   * @param {Object} txBody - Text body element
-   * @returns {string} - Cell text content
+   * @param txBody - Text body element
+   * @returns Cell text content
    */
-  static extractCellText(txBody) {
+  static extractCellText(txBody: XMLNode | null | undefined): string {
     if (!txBody) return '';
 
     try {
@@ -129,7 +151,7 @@ export class TableParser extends BaseParser {
       if (!paragraphs) return '';
 
       const paragraphsArray = Array.isArray(paragraphs) ? paragraphs : [paragraphs];
-      const textParts = [];
+      const textParts: string[] = [];
 
       for (const paragraph of paragraphsArray) {
         // Get runs (namespace stripped, so just 'r')
@@ -160,11 +182,11 @@ export class TableParser extends BaseParser {
 
   /**
    * Create TipTap richText table structure matching client-side implementation
-   * @param {Array<Array<string>>} tableData - 2D array of table cell text
-   * @param {boolean} hasHeader - Whether first row is header
-   * @returns {Object} - TipTap richText structure
+   * @param tableData - 2D array of table cell text
+   * @param hasHeader - Whether first row is header
+   * @returns TipTap richText structure
    */
-  static createTableRichText(tableData, hasHeader = true) {
+  static createTableRichText(tableData: string[][], hasHeader: boolean = true): TipTapDocumentNode {
     if (!tableData || tableData.length === 0) {
       return {
         type: 'doc',
@@ -177,11 +199,11 @@ export class TableParser extends BaseParser {
       };
     }
 
-    const tableRows = tableData.map((rowData, rowIndex) => {
+    const tableRows: TipTapTableRowNode[] = tableData.map((rowData, rowIndex) => {
       const isHeaderRow = hasHeader && rowIndex === 0;
-      const cellType = isHeaderRow ? 'tableHeader' : 'tableCell';
+      const cellType: 'tableHeader' | 'tableCell' = isHeaderRow ? 'tableHeader' : 'tableCell';
       
-      const cells = rowData.map((cellContent) => {
+      const cells: TipTapTableCellNode[] = rowData.map((cellContent) => {
         const textContent = cellContent && cellContent.trim() ? cellContent : ' ';
         return {
           type: cellType,
@@ -213,23 +235,23 @@ export class TableParser extends BaseParser {
       };
     });
 
+    const tableNode: TipTapTableNode = {
+      type: 'table',
+      content: tableRows
+    };
+
     return {
       type: 'doc',
-      content: [
-        {
-          type: 'table',
-          content: tableRows
-        }
-      ]
+      content: [tableNode]
     };
   }
 
   /**
    * Get table dimensions
-   * @param {Array<Array<string>>} tableData - Table data
-   * @returns {Object} - {rows, cols}
+   * @param tableData - Table data
+   * @returns {rows, cols}
    */
-  static getTableDimensions(tableData) {
+  static getTableDimensions(tableData: string[][]): TableDimensions {
     if (!tableData || tableData.length === 0) {
       return { rows: 0, cols: 0 };
     }
@@ -237,5 +259,46 @@ export class TableParser extends BaseParser {
       rows: tableData.length,
       cols: tableData[0]?.length || 0
     };
+  }
+
+  /**
+   * Safely get a nested property from an object
+   * @param obj - Object to query
+   * @param path - Dot-separated path to property
+   * @returns the property value or null
+   */
+  static safeGet(obj: any, path: string): any {
+    if (!obj) return null;
+
+    const parts = path.split('.');
+    let current = obj;
+
+    for (const part of parts) {
+      if (current == null || typeof current !== 'object') {
+        return null;
+      }
+
+      // Handle array access or object property
+      if (part.includes('[') && part.includes(']')) {
+        // Array access like 'items[0]'
+        const [prop, indexStr] = part.split('[');
+        const index = parseInt(indexStr.replace(']', ''));
+        current = current[prop];
+        
+        if (Array.isArray(current) && index >= 0 && index < current.length) {
+          current = current[index];
+        } else {
+          return null;
+        }
+      } else if (part.startsWith('$')) {
+        // Attribute access
+        current = current[part];
+      } else {
+        // Regular property access
+        current = current[part];
+      }
+    }
+
+    return current;
   }
 }

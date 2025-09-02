@@ -9,14 +9,61 @@ import { PPTXParser } from '../processors/PPTXParser.js';
 import { DEFAULT_SLIDE_WIDTH_PX, DEFAULT_SLIDE_HEIGHT_PX } from '../utils/constants.js';
 import { BaseParser } from './BaseParser.js';
 
+interface NormalizedElement {
+  type: 'text' | 'shape' | 'image' | 'table';
+  zIndex: number;
+  namespace: 'p' | 'a';
+  element: string;
+  data: any;
+  spPr?: any;
+  nvSpPr?: any;
+  nvPicPr?: any;
+  blipFill?: any;
+  style?: any;
+  textBody?: any;
+  graphicData?: any;
+  nvGraphicFramePr?: any;
+  isLayoutElement?: boolean;
+  isMasterElement?: boolean;
+  isBackgroundElement?: boolean;
+  relationshipId?: string;
+  txBody?: any;
+}
+
+interface NormalizedSlide {
+  slideFile: string;
+  slideNumber?: number;
+  format: string;
+  shapes: any[];
+  images: any[];
+  text: any[];
+  elements: NormalizedElement[];
+  layoutFile?: string;
+  masterFile?: string | null;
+  layoutElementCount?: number;
+  masterElementCount?: number;
+  rawSpTree?: any;
+  rawCanvas?: any;
+}
+
+interface NormalizedResult {
+  format: string;
+  slides: NormalizedSlide[];
+  slideDimensions?: {
+    width: number;
+    height: number;
+  };
+  mediaFiles: Record<string, any>;
+  relationships: Record<string, any>;
+  slideLayoutRelationships?: Record<string, string>;
+}
+
 export class PowerPointNormalizer {
   
   /**
    * Normalize PowerPoint JSON data to a unified structure
-   * @param {Object} json - Parsed PowerPoint JSON from PPTXParser
-   * @returns {Object} - Normalized structure
    */
-  normalize(json) {
+  normalize(json: any): NormalizedResult {
     const formatType = this.detectFormat(json);
     
     // Strip all namespaces from the entire JSON structure at the very start
@@ -34,10 +81,8 @@ export class PowerPointNormalizer {
   
   /**
    * Detect the format type based on file structure
-   * @param {Object} json - Parsed JSON data
-   * @returns {string} - 'pptx' or 'clipboard'
    */
-  detectFormat(json) {
+  detectFormat(json: any): string {
     const files = Object.keys(json);
     
     // Check for PPTX structure
@@ -55,12 +100,9 @@ export class PowerPointNormalizer {
   
   /**
    * Normalize PPTX file structure
-   * @param {Object} json - PPTX JSON data (already namespace-stripped)
-   * @param {string} formatType - Format type for reference
-   * @returns {Object} - Normalized structure
    */
-  normalizePPTX(json, formatType) {
-    const slides = [];
+  normalizePPTX(json: any, formatType: string): NormalizedResult {
+    const slides: NormalizedSlide[] = [];
     const files = Object.keys(json);
     
     // Create PPTXParser instance for layout extraction
@@ -97,32 +139,32 @@ export class PowerPointNormalizer {
       
       // Get layout elements for this slide
       const layoutFile = slideLayoutRelationships[slideFile];
-      let layoutElements = [];
-      let masterElements = [];
-      let masterFile = null;
+      let layoutElements: NormalizedElement[] = [];
+      let masterElements: NormalizedElement[] = [];
+      let masterFile: string | null = null;
       
       if (layoutFile) {
         // Get layout elements
-        layoutElements = pptxParser.getSlideLayoutElements(json, layoutFile);
+        const rawLayoutElements = pptxParser.getSlideLayoutElements(json, layoutFile);
         
         // Convert layout elements to the same structure as slide elements
-        layoutElements = layoutElements.map(layoutEl => {
+        layoutElements = rawLayoutElements.map(layoutEl => {
           const convertedElement = this.convertLayoutElementToSlideFormat(layoutEl, spTree);
           return convertedElement;
-        }).filter(el => el !== null);
+        }).filter(el => el !== null) as NormalizedElement[];
         
         // Get master elements for this layout
         const layoutMasterRelationships = pptxParser.getLayoutMasterRelationships(json);
         masterFile = layoutMasterRelationships[layoutFile];
         
         if (masterFile) {
-          masterElements = pptxParser.getSlideMasterElements(json, masterFile);
+          const rawMasterElements = pptxParser.getSlideMasterElements(json, masterFile);
           
           // Convert master elements to the same structure as slide elements
-          masterElements = masterElements.map(masterEl => {
+          masterElements = rawMasterElements.map(masterEl => {
             const convertedElement = this.convertMasterElementToSlideFormat(masterEl, spTree);
             return convertedElement;
-          }).filter(el => el !== null);
+          }).filter(el => el !== null) as NormalizedElement[];
         }
       }
       
@@ -132,7 +174,7 @@ export class PowerPointNormalizer {
       // 3. Slide elements (foreground, z-index 0+)
       const allElements = [...masterElements, ...layoutElements, ...slideElements];
       
-      const normalizedSlide = {
+      const normalizedSlide: NormalizedSlide = {
         slideFile,
         slideNumber, // Add extracted slide number
         format: 'pptx',
@@ -162,12 +204,9 @@ export class PowerPointNormalizer {
   
   /**
    * Normalize clipboard structure
-   * @param {Object} json - Clipboard JSON data (already namespace-stripped)
-   * @param {string} formatType - Format type for reference
-   * @returns {Object} - Normalized structure
    */
-  normalizeClipboard(json, formatType) {
-    const slides = [];
+  normalizeClipboard(json: any, formatType: string): NormalizedResult {
+    const slides: NormalizedSlide[] = [];
     const files = Object.keys(json);
     
     // Find drawing files
@@ -187,7 +226,7 @@ export class PowerPointNormalizer {
       const lockedCanvas = graphicData['lockedCanvas'];
       if (!lockedCanvas) continue;
       
-      const normalizedSlide = {
+      const normalizedSlide: NormalizedSlide = {
         slideFile: drawingFile,
         format: 'clipboard',
         shapes: this.extractClipboardShapes(lockedCanvas),
@@ -214,10 +253,8 @@ export class PowerPointNormalizer {
   
   /**
    * Extract shapes from PPTX spTree
-   * @param {Object} spTree - PPTX shape tree
-   * @returns {Array} - Normalized shape objects
    */
-  extractPPTXShapes(spTree) {
+  extractPPTXShapes(spTree: any): any[] {
     const shapes = [];
     const spArray = this.ensureArray(spTree['sp']);
     
@@ -245,10 +282,8 @@ export class PowerPointNormalizer {
   
   /**
    * Extract shapes from clipboard lockedCanvas
-   * @param {Object} lockedCanvas - Clipboard locked canvas
-   * @returns {Array} - Normalized shape objects  
    */
-  extractClipboardShapes(lockedCanvas) {
+  extractClipboardShapes(lockedCanvas: any): any[] {
     const shapes = [];
     const spData = lockedCanvas['sp'];
     
@@ -281,10 +316,8 @@ export class PowerPointNormalizer {
   
   /**
    * Extract images from PPTX spTree
-   * @param {Object} spTree - PPTX shape tree
-   * @returns {Array} - Normalized image objects
    */
-  extractPPTXImages(spTree) {
+  extractPPTXImages(spTree: any): any[] {
     const images = [];
     const picArray = this.ensureArray(spTree['pic']);
     
@@ -305,10 +338,8 @@ export class PowerPointNormalizer {
   
   /**
    * Extract images from clipboard lockedCanvas
-   * @param {Object} lockedCanvas - Clipboard locked canvas
-   * @returns {Array} - Normalized image objects
    */
-  extractClipboardImages(lockedCanvas) {
+  extractClipboardImages(lockedCanvas: any): any[] {
     const images = [];
     const picData = lockedCanvas['pic'];
     
@@ -333,10 +364,8 @@ export class PowerPointNormalizer {
   
   /**
    * Extract text from PPTX spTree
-   * @param {Object} spTree - PPTX shape tree
-   * @returns {Array} - Normalized text objects
    */
-  extractPPTXText(spTree) {
+  extractPPTXText(spTree: any): any[] {
     const textComponents = [];
     const spArray = this.ensureArray(spTree['sp']);
     
@@ -361,10 +390,8 @@ export class PowerPointNormalizer {
   
   /**
    * Extract text from clipboard lockedCanvas
-   * @param {Object} lockedCanvas - Clipboard locked canvas
-   * @returns {Array} - Normalized text objects
    */
-  extractClipboardText(lockedCanvas) {
+  extractClipboardText(lockedCanvas: any): any[] {
     const textComponents = [];
     const spData = lockedCanvas['sp'];
     
@@ -396,11 +423,9 @@ export class PowerPointNormalizer {
   
   /**
    * Extract media files from JSON
-   * @param {Object} json - PowerPoint JSON
-   * @returns {Object} - Media files by path
    */
-  extractMediaFiles(json) {
-    const mediaFiles = {};
+  extractMediaFiles(json: any): Record<string, any> {
+    const mediaFiles: Record<string, any> = {};
     const files = Object.keys(json);
     
     for (const file of files) {
@@ -414,11 +439,9 @@ export class PowerPointNormalizer {
   
   /**
    * Extract relationship files from JSON
-   * @param {Object} json - PowerPoint JSON
-   * @returns {Object} - Relationships by file
    */
-  extractRelationships(json) {
-    const relationships = {};
+  extractRelationships(json: any): Record<string, any> {
+    const relationships: Record<string, any> = {};
     const files = Object.keys(json);
     
     for (const file of files) {
@@ -432,10 +455,8 @@ export class PowerPointNormalizer {
   
   /**
    * Ensure value is an object (handle both array and object cases)
-   * @param {*} value - Value to check
-   * @returns {Object|null} - Object or null
    */
-  ensureObject(value) {
+  ensureObject(value: any): any | null {
     if (Array.isArray(value)) {
       return value[0] || null;
     }
@@ -444,20 +465,16 @@ export class PowerPointNormalizer {
   
   /**
    * Ensure value is an array
-   * @param {*} value - Value to check  
-   * @returns {Array} - Array (empty if value is null/undefined)
    */
-  ensureArray(value) {
+  ensureArray(value: any): any[] {
     if (!value) return [];
     return Array.isArray(value) ? value : [value];
   }
 
   /**
    * Check if a textBody contains actual text content
-   * @param {Object} textBody - Text body to check
-   * @returns {boolean} - True if has text content, false otherwise
    */
-  hasTextContent(textBody) {
+  hasTextContent(textBody: any): boolean {
     if (!textBody) return false;
     
     // Get paragraphs
@@ -486,11 +503,9 @@ export class PowerPointNormalizer {
   /**
    * Extract elements in their original z-order from spTree
    * This preserves the layering order that elements appear in PowerPoint
-   * @param {Object} spTree - PPTX shape tree
-   * @returns {Array} - Ordered elements with z-index information
    */
-  extractOrderedElements(spTree) {
-    const elements = [];
+  extractOrderedElements(spTree: any): NormalizedElement[] {
+    const elements: NormalizedElement[] = [];
     let zIndex = 0;
 
     // Process all child elements in their original order
@@ -577,11 +592,9 @@ export class PowerPointNormalizer {
   /**
    * Extract elements in their original z-order from clipboard lockedCanvas
    * This preserves the layering order that elements appear in PowerPoint clipboard
-   * @param {Object} lockedCanvas - Clipboard locked canvas
-   * @returns {Array} - Ordered elements with z-index information
    */
-  extractOrderedClipboardElements(lockedCanvas) {
-    const elements = [];
+  extractOrderedClipboardElements(lockedCanvas: any): NormalizedElement[] {
+    const elements: NormalizedElement[] = [];
     let zIndex = 0;
 
     // Process all child elements in their original order
@@ -665,10 +678,8 @@ export class PowerPointNormalizer {
   /**
    * Recursively strip namespace prefixes from all object keys
    * Converts 'p:spPr' -> 'spPr', 'a:xfrm' -> 'xfrm', etc.
-   * @param {*} obj - Object to strip namespaces from
-   * @returns {*} - Object with namespace prefixes removed
    */
-  stripNamespaces(obj) {
+  stripNamespaces(obj: any): any {
     if (obj === null || obj === undefined) {
       return obj;
     }
@@ -684,7 +695,7 @@ export class PowerPointNormalizer {
     }
 
     if (typeof obj === 'object') {
-      const stripped = {};
+      const stripped: any = {};
       
       for (const [key, value] of Object.entries(obj)) {
         // Strip namespace prefix (everything before and including the colon)
@@ -701,11 +712,8 @@ export class PowerPointNormalizer {
 
   /**
    * Convert layout element to slide format for consistent processing
-   * @param {Object} layoutElement - Layout element from PPTXParser
-   * @param {Object} slideSpTree - Slide spTree for context
-   * @returns {Object|null} - Converted element or null if not supported
    */
-  convertLayoutElementToSlideFormat(layoutElement, slideSpTree) {
+  convertLayoutElementToSlideFormat(layoutElement: any, slideSpTree: any): NormalizedElement | null {
     if (!layoutElement || !layoutElement.type || !layoutElement.data) {
       return null;
     }
@@ -784,11 +792,8 @@ export class PowerPointNormalizer {
 
   /**
    * Convert master element to slide format for consistent processing
-   * @param {Object} masterElement - Master element from PPTXParser
-   * @param {Object} slideSpTree - Slide spTree for context
-   * @returns {Object|null} - Converted element or null if not supported
    */
-  convertMasterElementToSlideFormat(masterElement, slideSpTree) {
+  convertMasterElementToSlideFormat(masterElement: any, slideSpTree: any): NormalizedElement | null {
     if (!masterElement || !masterElement.type || !masterElement.data) {
       return null;
     }
@@ -867,10 +872,8 @@ export class PowerPointNormalizer {
 
   /**
    * Calculate content bounds to determine appropriate slide dimensions
-   * @param {Array} slides - Array of normalized slide objects
-   * @returns {Object} - Dimensions object with width and height
    */
-  calculateContentBounds(slides) {
+  calculateContentBounds(slides: NormalizedSlide[]): { width: number; height: number } {
     let minX = Infinity;
     let minY = Infinity;
     let maxX = -Infinity;

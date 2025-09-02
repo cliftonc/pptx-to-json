@@ -17,7 +17,8 @@
   ],
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "type-check": "tsc --noEmit"
   },
   "peerDependencies": {
     "react": ">=18.0.0"

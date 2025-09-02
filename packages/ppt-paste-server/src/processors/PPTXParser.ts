@@ -17,9 +17,71 @@ import {
   validatePixelRange 
 } from '../utils/constants.js';
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
+import type { XMLNode } from '../types/index.js';
+
+// Parser and builder option types
+interface XMLParserOptions {
+  ignoreAttributes?: boolean;
+  attributeNamePrefix?: string;
+  textNodeName?: string;
+  parseAttributeValue?: boolean;
+  parseTagValue?: boolean;
+  trimValues?: boolean;
+  [key: string]: any;
+}
+
+interface XMLBuilderOptions {
+  ignoreAttributes?: boolean;
+  attributeNamePrefix?: string;
+  textNodeName?: string;
+  format?: boolean;
+  suppressEmptyNode?: boolean;
+  [key: string]: any;
+}
+
+// Constructor options type
+interface PPTXParserOptions {
+  parserOptions?: XMLParserOptions;
+  builderOptions?: XMLBuilderOptions;
+  jszipBinary?: 'uint8array' | 'arraybuffer' | 'string' | 'base64';
+  jszipGenerateType?: 'uint8array' | 'arraybuffer' | 'string' | 'base64' | 'blob' | 'nodebuffer';
+}
+
+// JSON representation type
+interface PPTXJson {
+  [filePath: string]: XMLNode | Uint8Array | string;
+}
+
+// Slide dimensions type
+interface SlideDimensions {
+  width: number;
+  height: number;
+}
+
+// Max slide IDs type
+interface MaxSlideIds {
+  id: number;
+  rid: number;
+}
+
+// Layout element type
+interface LayoutElement {
+  type: 'shape' | 'image';
+  data: XMLNode;
+  zIndex: number;
+  isLayoutElement?: boolean;
+  isMasterElement?: boolean;
+  isBackgroundElement?: boolean;
+}
 
 export class PPTXParser {
-  constructor(options = {}) {
+  private options: PPTXParserOptions;
+  private parserOptions: XMLParserOptions;
+  private builderOptions: XMLBuilderOptions;
+  private parser: XMLParser;
+  private builder: XMLBuilder;
+
+  constructor(options: PPTXParserOptions = {}) {
     this.options = options;
     
     // Configure fast-xml-parser with clean, simple options
@@ -48,11 +110,9 @@ export class PPTXParser {
 
   /**
    * Convert JSZip instance to JSON object with parsed XML files
-   * @param {JSZip} jszip - JSZip instance
-   * @returns {Promise<Object>} - JSON representation of PPTX
    */
-  async jszip2json(jszip) {
-    const json = {};
+  async jszip2json(jszip: JSZip): Promise<PPTXJson> {
+    const json: PPTXJson = {};
     
     const promises = Object.keys(jszip.files).map(async relativePath => {
       const file = jszip.file(relativePath);
@@ -63,21 +123,26 @@ export class PPTXParser {
       
       const ext = this.getFileExtension(relativePath);
       
-      let content;
+      let content: XMLNode | Uint8Array | string;
       if (ext === '.xml' || ext === '.rels') {
         // Parse XML files
         const xml = await file.async("string");
         try {
-          content = this.parser.parse(xml);
+          content = this.parser.parse(xml) as XMLNode;
         } catch (error) {
           console.warn(`Failed to parse XML file ${relativePath}:`, error);
           content = xml; // fallback to raw XML
         }
       } else {
         // Binary files (images, audio, etc.)
-        const uint8Array = await file.async(this.options.jszipBinary || 'uint8array');
-        // Convert Uint8Array to Buffer for compatibility with ImageParser
-        content = new Uint8Array(uint8Array);
+        const binaryType = this.options.jszipBinary || 'uint8array';
+        if (binaryType === 'uint8array') {
+          const uint8Array = await file.async('uint8array');
+          content = new Uint8Array(uint8Array);
+        } else {
+          const result = await file.async(binaryType as any);
+          content = new Uint8Array(result as ArrayBuffer);
+        }
       }
       
       json[relativePath] = content;
@@ -89,24 +154,20 @@ export class PPTXParser {
 
   /**
    * Parse PowerPoint buffer to JSON
-   * @param {Buffer|Uint8Array|ArrayBuffer} buffer - PowerPoint file buffer
-   * @returns {Promise<Object>} - JSON representation of PPTX
    */
-  async buffer2json(buffer) {
+  async buffer2json(buffer: Buffer | Uint8Array | ArrayBuffer): Promise<PPTXJson> {
     try {
       const zip = await JSZip.loadAsync(buffer);
       return await this.jszip2json(zip);
     } catch (error) {
-      throw new Error(`Failed to parse PowerPoint buffer: ${error.message}`);
+      throw new Error(`Failed to parse PowerPoint buffer: ${(error as Error).message}`);
     }
   }
 
   /**
    * Convert JSON back to JSZip instance
-   * @param {Object} json - JSON representation of PPTX
-   * @returns {JSZip} - JSZip instance
    */
-  json2jszip(json) {
+  json2jszip(json: PPTXJson): JSZip {
     const zip = new JSZip();
     
     Object.keys(json).forEach(relativePath => {
@@ -120,11 +181,11 @@ export class PPTXParser {
         } catch (error) {
           console.warn(`Failed to build XML for ${relativePath}:`, error);
           // Fallback: assume it's already a string
-          zip.file(relativePath, json[relativePath]);
+          zip.file(relativePath, json[relativePath] as string);
         }
       } else {
         // Binary files
-        zip.file(relativePath, json[relativePath]);
+        zip.file(relativePath, json[relativePath] as Uint8Array);
       }
     });
     
@@ -133,45 +194,39 @@ export class PPTXParser {
 
   /**
    * Convert JSON to PowerPoint buffer
-   * @param {Object} json - JSON representation of PPTX
-   * @returns {Promise<Uint8Array>} - PowerPoint file buffer
    */
-  async toPPTX(json) {
+  async toPPTX(json: PPTXJson): Promise<Uint8Array> {
     const zip = this.json2jszip(json);
     
     const buffer = await zip.generateAsync({
       type: this.options.jszipGenerateType || 'uint8array'
     });
     
-    return buffer;
+    return buffer as Uint8Array;
   }
 
   /**
    * Get file extension from path
-   * @param {string} path - File path
-   * @returns {string} - File extension
    */
-  getFileExtension(path) {
+  private getFileExtension(path: string): string {
     const lastDot = path.lastIndexOf('.');
     return lastDot !== -1 ? path.substring(lastDot) : '';
   }
 
   /**
    * Get slide dimensions from presentation.xml
-   * @param {Object} json - JSON representation of PPTX
-   * @returns {Object} - {width: number, height: number} in pixels
    */
-  getSlideDimensions(json) {
+  getSlideDimensions(json: PPTXJson): SlideDimensions {
     const presentationXML = 'ppt/presentation.xml';
     
     // Default PowerPoint slide dimensions using centralized constants (in pixels)
-    const defaultDimensions = { width: DEFAULT_SLIDE_WIDTH_PX, height: DEFAULT_SLIDE_HEIGHT_PX };
+    const defaultDimensions: SlideDimensions = { width: DEFAULT_SLIDE_WIDTH_PX, height: DEFAULT_SLIDE_HEIGHT_PX };
     
     if (!(presentationXML in json)) {
       return defaultDimensions;
     }
     
-    const presentation = json[presentationXML];
+    const presentation = json[presentationXML] as XMLNode;
     
     try {
       // Navigate to slide size element (namespaces already stripped by normalizer)
@@ -202,18 +257,16 @@ export class PPTXParser {
 
   /**
    * Find max slide IDs in presentation.xml
-   * @param {Object} json - JSON representation of PPTX
-   * @returns {Object} - {id: number, rid: number}
    */
-  getMaxSlideIds(json) {
+  getMaxSlideIds(json: PPTXJson): MaxSlideIds {
     const presentationXML = 'ppt/presentation.xml';
-    let max = { id: -1, rid: -1 };
+    let max: MaxSlideIds = { id: -1, rid: -1 };
     
     if (!(presentationXML in json)) {
       return max;
     }
     
-    const presentation = json[presentationXML];
+    const presentation = json[presentationXML] as XMLNode;
     
     try {
       const slideIdList = presentation?.['p:presentation']?.['p:sldIdLst'];
@@ -232,7 +285,7 @@ export class PPTXParser {
         
         slideArray.forEach(slide => {
           if (slide.$) {
-            const id = parseInt(slide.$.id || 0);
+            const id = parseInt(slide.$.id || '0');
             const ridStr = slide.$['r:id'] || 'rId0';
             const rid = parseInt(ridStr.replace('rId', ''));
             
@@ -250,19 +303,17 @@ export class PPTXParser {
 
   /**
    * Get slide layout type hash
-   * @param {Object} json - JSON representation of PPTX
-   * @returns {Object} - Hash of layout types to file paths
    */
-  getSlideLayoutTypeHash(json) {
-    const table = {};
+  getSlideLayoutTypeHash(json: PPTXJson): Record<string, string> {
+    const table: Record<string, string> = {};
     
     const layoutKeys = Object.keys(json).filter(key => 
-      /^ppt\/slideLayouts\/[^_]+\.xml$/.test(key) && json[key]['p:sldLayout']
+      /^ppt\/slideLayouts\/[^_]+\.xml$/.test(key) && (json[key] as XMLNode)['p:sldLayout']
     );
     
     layoutKeys.forEach(layoutKey => {
       try {
-        const layout = json[layoutKey]['p:sldLayout'];
+        const layout = (json[layoutKey] as XMLNode)['p:sldLayout'];
         if (layout && layout.$ && layout.$.type) {
           table[layout.$.type] = layoutKey;
         }
@@ -276,11 +327,9 @@ export class PPTXParser {
 
   /**
    * Get slide-to-layout relationship mapping
-   * @param {Object} json - JSON representation of PPTX
-   * @returns {Object} - Hash mapping slide files to layout files
    */
-  getSlideLayoutRelationships(json) {
-    const relationships = {};
+  getSlideLayoutRelationships(json: PPTXJson): Record<string, string> {
+    const relationships: Record<string, string> = {};
     
     // Find all slide relationship files
     const slideRelFiles = Object.keys(json).filter(key => 
@@ -293,7 +342,7 @@ export class PPTXParser {
         if (!slideNumber) return;
         
         const slideFile = `ppt/slides/slide${slideNumber}.xml`;
-        const relData = json[relFile];
+        const relData = json[relFile] as XMLNode;
         
         // Look for slideLayout relationship
         const rels = relData?.Relationships?.Relationship;
@@ -319,17 +368,14 @@ export class PPTXParser {
 
   /**
    * Extract layout elements from a slide layout file
-   * @param {Object} json - JSON representation of PPTX
-   * @param {string} layoutFile - Layout file path (e.g., 'ppt/slideLayouts/slideLayout1.xml')
-   * @returns {Array} - Array of layout elements
    */
-  getSlideLayoutElements(json, layoutFile) {
+  getSlideLayoutElements(json: PPTXJson, layoutFile: string): LayoutElement[] {
     if (!json[layoutFile]) {
       return [];
     }
     
     try {
-      const layoutData = json[layoutFile];
+      const layoutData = json[layoutFile] as XMLNode;
       // Handle both namespaced and non-namespaced versions
       const layout = layoutData['p:sldLayout'] || layoutData['sldLayout'] || layoutData;
       if (!layout) return [];
@@ -337,7 +383,7 @@ export class PPTXParser {
       const cSld = layout['p:cSld'] || layout['cSld'];
       if (!cSld) return [];
       
-      const elements = [];
+      const elements: LayoutElement[] = [];
       let zIndex = -1000; // Start with very negative z-index for background
       
       // First, check for background elements (both namespaced and non-namespaced)
@@ -356,7 +402,7 @@ export class PPTXParser {
       }
       
       // Process different element types
-      const processElements = (elementArray, type) => {
+      const processElements = (elementArray: XMLNode | XMLNode[] | undefined, type: 'shape' | 'image') => {
         if (!elementArray) return;
         const arr = Array.isArray(elementArray) ? elementArray : [elementArray];
         
@@ -412,11 +458,9 @@ export class PPTXParser {
 
   /**
    * Get layout-to-master relationship mapping
-   * @param {Object} json - JSON representation of PPTX
-   * @returns {Object} - Hash mapping layout files to master files
    */
-  getLayoutMasterRelationships(json) {
-    const relationships = {};
+  getLayoutMasterRelationships(json: PPTXJson): Record<string, string> {
+    const relationships: Record<string, string> = {};
     
     // Find all layout relationship files
     const layoutRelFiles = Object.keys(json).filter(key => 
@@ -429,7 +473,7 @@ export class PPTXParser {
         if (!layoutNumber) return;
         
         const layoutFile = `ppt/slideLayouts/slideLayout${layoutNumber}.xml`;
-        const relData = json[relFile];
+        const relData = json[relFile] as XMLNode;
         
         // Look for slideMaster relationship
         const rels = relData?.Relationships?.Relationship;
@@ -455,17 +499,14 @@ export class PPTXParser {
 
   /**
    * Extract master elements from a slide master file
-   * @param {Object} json - JSON representation of PPTX
-   * @param {string} masterFile - Master file path (e.g., 'ppt/slideMasters/slideMaster1.xml')
-   * @returns {Array} - Array of master elements
    */
-  getSlideMasterElements(json, masterFile) {
+  getSlideMasterElements(json: PPTXJson, masterFile: string): LayoutElement[] {
     if (!json[masterFile]) {
       return [];
     }
     
     try {
-      const masterData = json[masterFile];
+      const masterData = json[masterFile] as XMLNode;
       // Handle both namespaced and non-namespaced versions
       const master = masterData['p:sldMaster'] || masterData['sldMaster'] || masterData;
       if (!master) return [];
@@ -477,7 +518,7 @@ export class PPTXParser {
       }
       
       
-      const elements = [];
+      const elements: LayoutElement[] = [];
       let zIndex = -2000; // Start with very negative z-index for deepest background
       
       // First, check for background elements (both namespaced and non-namespaced)
@@ -496,7 +537,7 @@ export class PPTXParser {
       }
       
       // Process different element types
-      const processElements = (elementArray, type) => {
+      const processElements = (elementArray: XMLNode | XMLNode[] | undefined, type: 'shape' | 'image') => {
         if (!elementArray) return;
         const arr = Array.isArray(elementArray) ? elementArray : [elementArray];
         
@@ -548,11 +589,8 @@ export class PPTXParser {
 
   /**
    * Extract background element from p:bg structure
-   * @param {Object} bg - Background element from XML
-   * @param {number} zIndex - Z-index for the background
-   * @returns {Object|null} - Background element or null
    */
-  extractBackgroundElement(bg, zIndex) {
+  private extractBackgroundElement(bg: XMLNode, zIndex: number): LayoutElement | null {
     try {
       // Check for background properties (already namespace-stripped)
       const bgPr = bg['bgPr'];
@@ -683,10 +721,8 @@ export class PPTXParser {
 
   /**
    * Strip namespaces from element data (similar to PowerPointNormalizer.stripNamespaces)
-   * @param {Object} obj - Object to strip namespaces from
-   * @returns {Object} - Object with namespaces stripped
    */
-  stripNamespacesFromElement(obj) {
+  private stripNamespacesFromElement(obj: any): any {
     if (!obj || typeof obj !== 'object') {
       return obj;
     }
@@ -695,7 +731,7 @@ export class PPTXParser {
       return obj.map(item => this.stripNamespacesFromElement(item));
     }
 
-    const stripped = {};
+    const stripped: any = {};
     
     for (const [key, value] of Object.entries(obj)) {
       // Strip namespace prefix (everything before and including the colon)
@@ -708,10 +744,8 @@ export class PPTXParser {
 
   /**
    * Check if a shape element contains only empty text content
-   * @param {Object} element - Shape element to check
-   * @returns {boolean} - True if element is empty text, false otherwise
    */
-  isEmptyTextElement(element) {
+  private isEmptyTextElement(element: XMLNode): boolean {
     if (!element) return true;
     
     // Check for text body content (both namespaced and non-namespaced)
@@ -724,10 +758,8 @@ export class PPTXParser {
 
   /**
    * Check if a shape element is empty (no meaningful visual content)
-   * @param {Object} element - Shape element to check
-   * @returns {boolean} - True if element is empty, false otherwise
    */
-  isEmptyShapeElement(element) {
+  private isEmptyShapeElement(element: XMLNode): boolean {
     if (!element) return true;
     
     // Get shape properties
@@ -766,10 +798,8 @@ export class PPTXParser {
 
   /**
    * Check if a textBody contains actual text content
-   * @param {Object} textBody - Text body to check
-   * @returns {boolean} - True if has text content, false otherwise
    */
-  hasTextContent(textBody) {
+  private hasTextContent(textBody: XMLNode): boolean {
     if (!textBody) return false;
     
     // Get paragraphs (both namespaced and non-namespaced)

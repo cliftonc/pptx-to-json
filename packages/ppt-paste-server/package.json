@@ -2,17 +2,23 @@
   "name": "ppt-paste-server",
   "version": "0.1.0",
   "type": "module",
-  "main": "./src/index.js",
-  "module": "./src/index.js",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./src/index.js"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
     }
   },
   "files": [
-    "src"
+    "dist"
   ],
   "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "type-check": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
     "test:watch": "vitest --watch",
@@ -30,7 +36,9 @@
     "node-fetch": "^3.3.2"
   },
   "devDependencies": {
+    "@types/node": "^20.0.0",
     "@vitest/coverage-v8": "^1.6.0",
+    "typescript": "^5.0.0",
     "vitest": "^1.6.0"
   }
 }

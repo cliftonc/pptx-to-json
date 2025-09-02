@@ -3,58 +3,84 @@
  */
 
 import { emuToPixels, emuToPoints, validatePixelRange } from '../utils/constants.js';
+import { ComponentStyle, XMLNode, TextRun } from '../types/index.js';
 
 // Worker-compatible utility functions
-export function isBufferLike(obj) {
+export function isBufferLike(obj: any): boolean {
   return obj && (obj instanceof Uint8Array || obj instanceof ArrayBuffer || 
     (typeof Buffer !== 'undefined' && Buffer.isBuffer && Buffer.isBuffer(obj)));
 }
 
-export function bufferFrom(data) {
+export function bufferFrom(data: any): Uint8Array | Buffer {
   if (typeof Buffer !== 'undefined' && Buffer.from) {
     return Buffer.from(data);
   }
   return new Uint8Array(data);
 }
 
+// Font information interface
+export interface FontInfo extends ComponentStyle {
+  family: string;
+  size: number;
+  weight: string;
+  style: string;
+  decoration: string;
+  color: string;
+  isBold: boolean;
+  isItalic: boolean;
+  isUnderline: boolean;
+  isSuperscript: boolean;
+  isSubscript: boolean;
+  isStrikethrough: boolean;
+}
+
+// Transform information interface
+export interface TransformInfo {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+}
+
 export class BaseParser {
   /**
    * Convert EMU (English Metric Units) to pixels using centralized utility
-   * @param {number} emu - EMU value
-   * @returns {number} pixels
+   * @param emu - EMU value
+   * @returns pixels
    * @deprecated Use emuToPixels from constants.js directly
    */
-  static emuToPixels(emu) {
+  static emuToPixels(emu: number): number {
     return emuToPixels(emu);
   }
 
   /**
    * Convert EMU to points using centralized utility
-   * @param {number} emu - EMU value
-   * @returns {number} points
+   * @param emu - EMU value
+   * @returns points
    * @deprecated Use emuToPoints from constants.js directly
    */
-  static emuToPoints(emu) {
+  static emuToPoints(emu: number): number {
     return emuToPoints(emu);
   }
 
   /**
    * Convert PowerPoint font size units to points
    * PowerPoint uses hundreds of a point (1 point = 100 units)
-   * @param {number} sz - PowerPoint font size
-   * @returns {number} points
+   * @param sz - PowerPoint font size
+   * @returns points
    */
-  static fontSizeToPoints(sz) {
+  static fontSizeToPoints(sz: number | null | undefined): number {
     if (!sz || typeof sz !== 'number') return 12; // Default font size
     return sz / 100;
   }
 
   /**
    * Parse color from PowerPoint color definition
-   * @param {Object} colorDef - Color definition from PowerPoint XML
-   * @returns {string} hex color (#rrggbb)
+   * @param colorDef - Color definition from PowerPoint XML
+   * @returns hex color (#rrggbb)
    */
-  static parseColor(colorDef) {
+  static parseColor(colorDef: XMLNode | null | undefined): string {
     if (!colorDef) return '#000000';
 
     // Direct RGB color
@@ -72,7 +98,7 @@ export class BaseParser {
     // Scheme color (theme colors) - map to reasonable defaults
     if (colorDef['schemeClr']) {
       const val = colorDef['schemeClr'].$val;
-      const schemeColors = {
+      const schemeColors: Record<string, string> = {
         'dk1': '#000000',    // Dark 1
         'lt1': '#FFFFFF',    // Light 1
         'dk2': '#44546A',    // Dark 2
@@ -98,11 +124,11 @@ export class BaseParser {
 
   /**
    * Extract transform information (position, size, rotation)
-   * @param {Object} xfrm - Transform object from PowerPoint
-   * @returns {Object} transform data
+   * @param xfrm - Transform object from PowerPoint
+   * @returns transform data
    */
-  static parseTransform(xfrm) {
-    const result = {
+  static parseTransform(xfrm: XMLNode | null | undefined): TransformInfo {
+    const result: TransformInfo = {
       x: 0,
       y: 0,
       width: 0,
@@ -145,16 +171,42 @@ export class BaseParser {
   }
 
   /**
-   * Extract text content from PowerPoint text elements
-   * @param {Object} textBody - Text body object from PowerPoint
-   * @returns {string} combined text content
+   * Check if paragraph properties indicate bullet formatting
+   * @param pPr - Paragraph properties from PowerPoint XML
+   * @returns true if paragraph has bullet formatting
    */
-  static extractTextContent(textBody) {
+  static hasBulletFormatting(pPr: XMLNode | null | undefined): boolean {
+    if (!pPr) return false;
+    
+    // Check for bullet number properties
+    if (pPr['buNum'] || pPr['buChar']) {
+      return true;
+    }
+    
+    // Check for list properties
+    if (pPr['lvl'] && pPr['lvl'] !== '0') {
+      return true;
+    }
+    
+    // Check for bullet fonts or autonum
+    if (pPr['buAutoNum'] || pPr['buFont']) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  /**
+   * Extract text content from PowerPoint text elements
+   * @param textBody - Text body object from PowerPoint
+   * @returns combined text content
+   */
+  static extractTextContent(textBody: XMLNode | null | undefined): string {
     if (!textBody || !textBody['p']) return '';
 
     // Handle both array and single paragraph formats
     const paragraphs = Array.isArray(textBody['p']) ? textBody['p'] : [textBody['p']];
-    const textParts = [];
+    const textParts: string[] = [];
 
     paragraphs.forEach((paragraph, pIndex) => {
       let paragraphText = '';
@@ -172,7 +224,7 @@ export class BaseParser {
             const text = run['t'];
             if (typeof text === 'string') {
               paragraphText += text;
-            } else if (text._) {
+            } else if (text._ && typeof text._ === 'string') {
               paragraphText += text._;
             }
           }
@@ -198,19 +250,12 @@ export class BaseParser {
   }
 
   /**
-   * Extract rich text content as tldraw-compatible structure
-   * @param {Object} textBody - Text body object from PowerPoint
-   * @returns {Object} tldraw rich text JSON structure
-   */
-
-
-  /**
    * Extract font information from text run properties
-   * @param {Object} rPr - Run properties from PowerPoint
-   * @returns {Object} font information
+   * @param rPr - Run properties from PowerPoint
+   * @returns font information
    */
-  static parseFont(rPr) {
-    const font = {
+  static parseFont(rPr: XMLNode | null | undefined): FontInfo {
+    const font: FontInfo = {
       family: 'Arial',
       size: 12,
       weight: 'normal',
@@ -281,23 +326,23 @@ export class BaseParser {
 
   /**
    * Generate unique component ID
-   * @param {string} type - Component type
-   * @param {number} index - Component index
-   * @returns {string} unique ID
+   * @param type - Component type
+   * @param index - Component index
+   * @returns unique ID
    */
-  static generateId(type, index) {
+  static generateId(type: string, index: number): string {
     return `${type}-${Date.now()}-${index}`;
   }
 
   /**
    * Fix spacing between text runs that may have been lost during PowerPoint parsing
-   * @param {Array} textRuns - Array of text run objects
-   * @returns {Array} Fixed text runs with proper spacing
+   * @param textRuns - Array of text run objects
+   * @returns Fixed text runs with proper spacing
    */
-  static fixSpacingInTextRuns(textRuns) {
+  static fixSpacingInTextRuns(textRuns: TextRun[]): TextRun[] {
     if (!textRuns || textRuns.length <= 1) return textRuns;
     
-    const fixedRuns = [];
+    const fixedRuns: TextRun[] = [];
     
     for (let i = 0; i < textRuns.length; i++) {
       const currentRun = textRuns[i];
@@ -309,7 +354,6 @@ export class BaseParser {
       if (nextRun && this.shouldAddSpaceBetweenRuns(currentRun, nextRun)) {
         // Add a space as a separate text run
         fixedRuns.push({
-          type: 'text',
           text: ' '
         });
       }
@@ -320,11 +364,11 @@ export class BaseParser {
   
   /**
    * Determine if a space should be added between two text runs
-   * @param {Object} run1 - First text run
-   * @param {Object} run2 - Second text run  
-   * @returns {boolean} true if space should be added
+   * @param run1 - First text run
+   * @param run2 - Second text run  
+   * @returns true if space should be added
    */
-  static shouldAddSpaceBetweenRuns(run1, run2) {
+  static shouldAddSpaceBetweenRuns(run1: TextRun, run2: TextRun): boolean {
     if (!run1?.text || !run2?.text) return false;
     
     const text1 = run1.text.trim();
@@ -345,12 +389,12 @@ export class BaseParser {
 
   /**
    * Safe attribute access
-   * @param {Object} obj - Object to access
-   * @param {string} path - Dot-notation path
-   * @param {*} defaultValue - Default value if path doesn't exist
-   * @returns {*} value or default
+   * @param obj - Object to access
+   * @param path - Dot-notation path
+   * @param defaultValue - Default value if path doesn't exist
+   * @returns value or default
    */
-  static safeGet(obj, path, defaultValue = null) {
+  static safeGet<T = any>(obj: any, path: string, defaultValue: T | null = null): T | null {
     try {
       return path.split('.').reduce((current, key) => current?.[key], obj) ?? defaultValue;
     } catch (error) {

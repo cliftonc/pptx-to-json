@@ -10,6 +10,7 @@
     "deploy": "pnpm build:lib && cd apps/worker && pnpm run deploy",
     "preview": "pnpm --filter worker start",
     "test": "pnpm -r test -- --run",
+    "type-check": "pnpm --filter ppt-paste-server type-check && pnpm --filter ppt-paste-parser type-check",
     "log-bin": "cd packages/ppt-paste-server && node scripts/log-paste-bin.js"
   },
   "devDependencies": {

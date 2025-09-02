@@ -3,19 +3,37 @@
  */
 
 import { BaseParser, isBufferLike, bufferFrom } from './BaseParser.js';
+import {
+  XMLNode,
+  ImageComponent,
+  NormalizedImageComponent,
+  ImageInfo,
+  ImageDimensions,
+  ImageEffectsInfo,
+  MediaFileInfo,
+  ImageCroppingInfo
+} from '../types/index.js';
 
 export class ImageParser extends BaseParser {
 
   /**
    * Parse image component from normalized data (works for both PPTX and clipboard)
-   * @param {Object} imageComponent - Normalized image component
-   * @param {Object} relationships - Relationship data
-   * @param {Object} mediaFiles - Media files
-   * @param {number} componentIndex - Component index
-   * @param {number} slideIndex - Slide index
-   * @returns {Promise<Object>} - Parsed image component
+   * @param imageComponent - Normalized image component
+   * @param relationships - Relationship data
+   * @param mediaFiles - Media files
+   * @param componentIndex - Component index
+   * @param slideIndex - Slide index
+   * @param r2Storage - Optional R2 storage for image hosting
+   * @returns Parsed image component
    */
-  static async parseFromNormalized(imageComponent, relationships, mediaFiles, componentIndex, slideIndex, r2Storage = null) {
+  static async parseFromNormalized(
+    imageComponent: NormalizedImageComponent,
+    relationships: Record<string, any>,
+    mediaFiles: Record<string, Uint8Array>,
+    componentIndex: number,
+    slideIndex: number,
+    r2Storage: any = null
+  ): Promise<ImageComponent | null> {
     const { data, spPr, nvPicPr, blipFill, namespace } = imageComponent;
     
     if (!spPr || !blipFill) {
@@ -23,20 +41,20 @@ export class ImageParser extends BaseParser {
     }
 
     // Extract positioning from spPr (namespaces already stripped)
-    const xfrm = BaseParser.safeGet(spPr, 'xfrm');
+    const xfrm = ImageParser.safeGet(spPr, 'xfrm');
     const transform = ImageParser.parseTransform(xfrm);
 
     // Extract component info from nvPicPr
-    const cNvPr = BaseParser.safeGet(nvPicPr, 'cNvPr');
-    const componentName = BaseParser.safeGet(cNvPr, '$name') || `image-${componentIndex}`;
-    const description = BaseParser.safeGet(cNvPr, '$descr') || '';
+    const cNvPr = ImageParser.safeGet(nvPicPr, 'cNvPr');
+    const componentName = ImageParser.safeGet(cNvPr, '$name') || `image-${componentIndex}`;
+    const description = ImageParser.safeGet(cNvPr, '$descr') || '';
 
     // Extract image reference from blipFill (namespaces already stripped)
-    const blip = BaseParser.safeGet(blipFill, 'blip');
-    const relationshipId = BaseParser.safeGet(blip, 'embed');
+    const blip = ImageParser.safeGet(blipFill, 'blip');
+    const relationshipId = ImageParser.safeGet(blip, 'embed');
 
     // Find the actual image file using relationships
-    let imageDataUrl = null;
+    let imageDataUrl: string | null = null;
     let imageFormat = 'unknown';
     let imageSize = 0;
 
@@ -61,22 +79,23 @@ export class ImageParser extends BaseParser {
       y: transform.y,
       width: transform.width,
       height: transform.height,
-      rotation: transform.rotation || 0,
-      slideIndex,
       style: {
-        opacity: 1,
-        effects: effects.length > 0 ? effects : null
+        rotation: transform.rotation || 0,
+        fillOpacity: effects.opacity,
+        ...effects
       },
+      src: imageDataUrl || '',
+      alt: description || componentName,
       metadata: {
         namespace,
         name: componentName,
         description,
         relationshipId,
-        imageUrl: imageDataUrl, // This is where the old implementation put it
+        imageUrl: imageDataUrl,
         imageType: imageFormat,
         imageSize: imageSize,
         originalFormat: 'normalized',
-        hasEffects: effects.length > 0
+        hasEffects: effects.effectsList.length > 0
       }
     };
   }
@@ -84,7 +103,11 @@ export class ImageParser extends BaseParser {
   /**
    * Find media file from relationships and mediaFiles
    */
-  static findMediaFile(relationshipId, relationships, mediaFiles) {
+  static findMediaFile(
+    relationshipId: string,
+    relationships: Record<string, any>,
+    mediaFiles: Record<string, Uint8Array>
+  ): MediaFileInfo | null {
     if (!relationshipId || !relationships || !mediaFiles) {
       return null;
     }
@@ -108,7 +131,7 @@ export class ImageParser extends BaseParser {
         ? rels.Relationships.Relationship 
         : [rels.Relationships.Relationship];
       
-      relationshipData = relationshipArray.find(rel => rel.$Id === relationshipId);
+      relationshipData = relationshipArray.find((rel: any) => rel.$Id === relationshipId);
     }
 
     if (!relationshipData) {
@@ -137,7 +160,7 @@ export class ImageParser extends BaseParser {
   /**
    * Get image type from file path
    */
-  static getImageTypeFromPath(path) {
+  static getImageTypeFromPath(path: string): string {
     const ext = path.toLowerCase().split('.').pop();
     switch (ext) {
       case 'png': return 'image/png';
@@ -152,8 +175,8 @@ export class ImageParser extends BaseParser {
   /**
    * Get file extension from MIME type
    */
-  static getExtensionFromMimeType(mimeType) {
-    const extensions = {
+  static getExtensionFromMimeType(mimeType: string): string {
+    const extensions: Record<string, string> = {
       'image/jpeg': 'jpg',
       'image/png': 'png',
       'image/gif': 'gif',
@@ -165,17 +188,22 @@ export class ImageParser extends BaseParser {
     return extensions[mimeType] || 'png';
   }
 
-
-
   /**
    * Get image information from relationship and media data
-   * @param {string} rId - Relationship ID
-   * @param {Object} relationships - Relationship data
-   * @param {Object} mediaFiles - Media files data
-   * @param {number} slideIndex - Slide index for slide-scoped search
-   * @returns {Object} image information
+   * @param rId - Relationship ID
+   * @param relationships - Relationship data
+   * @param mediaFiles - Media files data
+   * @param slideIndex - Slide index for slide-scoped search
+   * @param r2Storage - Optional R2 storage
+   * @returns image information
    */
-  static async getImageInfo(rId, relationships, mediaFiles, slideIndex = null, r2Storage = null) {
+  static async getImageInfo(
+    rId: string,
+    relationships: Record<string, any>,
+    mediaFiles: Record<string, Uint8Array>,
+    slideIndex: number | null = null,
+    r2Storage: any = null
+  ): Promise<ImageInfo> {
     if (!rId) {
       return {
         url: null,
@@ -184,7 +212,6 @@ export class ImageParser extends BaseParser {
         dimensions: null
       };
     }
-
 
     // Detect if this is clipboard format vs PPTX format by checking relationship paths
     const isClipboardFormat = Object.keys(relationships || {}).some(key => key.includes('clipboard/'));
@@ -195,13 +222,13 @@ export class ImageParser extends BaseParser {
       
       // First try the current slide's relationship file
       if (relationships[currentSlideRelFile]) {
-        const relsData = BaseParser.safeGet(relationships[currentSlideRelFile], 'Relationships.Relationship', []);
+        const relsData = ImageParser.safeGet(relationships[currentSlideRelFile], 'Relationships.Relationship') || [];
         const rels = Array.isArray(relsData) ? relsData : [relsData];
-        const rel = rels.find(r => r && r.$Id === rId);
+        const rel = rels.find((r: any) => r && r.$Id === rId);
         
         if (rel) {
           const target = rel.$Target;
-          let mediaPath;
+          let mediaPath: string;
           
           if (target.startsWith('../')) {
             // PPTX format: ../media/image1.png -> ppt/media/image1.png
@@ -232,13 +259,13 @@ export class ImageParser extends BaseParser {
       
       for (const relFile of masterAndLayoutRelFiles) {
         if (relationships[relFile]) {
-          const relsData = BaseParser.safeGet(relationships[relFile], 'Relationships.Relationship', []);
+          const relsData = ImageParser.safeGet(relationships[relFile], 'Relationships.Relationship') || [];
           const rels = Array.isArray(relsData) ? relsData : [relsData];
-          const rel = rels.find(r => r && r.$Id === rId);
+          const rel = rels.find((r: any) => r && r.$Id === rId);
           
           if (rel) {
             const target = rel.$Target;
-            let mediaPath;
+            let mediaPath: string;
             
             if (target.startsWith('../')) {
               // PPTX format: ../media/image1.png -> ppt/media/image1.png
@@ -277,13 +304,13 @@ export class ImageParser extends BaseParser {
     
     for (const relFile of relFiles) {
       if (relationships[relFile]) {
-        const relsData = BaseParser.safeGet(relationships[relFile], 'Relationships.Relationship', []);
+        const relsData = ImageParser.safeGet(relationships[relFile], 'Relationships.Relationship') || [];
         const rels = Array.isArray(relsData) ? relsData : [relsData];
-        const rel = rels.find(r => r && r.$Id === rId);
+        const rel = rels.find((r: any) => r && r.$Id === rId);
         
         if (rel) {
           const target = rel.$Target;
-          let mediaPath;
+          let mediaPath: string;
           
           if (target.startsWith('../')) {
             // Check if we're dealing with clipboard or PPTX format based on relationship file path
@@ -321,12 +348,16 @@ export class ImageParser extends BaseParser {
 
   /**
    * Create R2 URL from media file buffer (async version)
-   * @param {Buffer|Uint8Array} mediaFile - Image file buffer
-   * @param {string} filename - Original filename
-   * @param {Object} r2Storage - R2 storage binding (optional, falls back to base64)
-   * @returns {Promise<string>} R2 URL, data URL, or placeholder
+   * @param mediaFile - Image file buffer
+   * @param filename - Original filename
+   * @param r2Storage - R2 storage binding (optional, falls back to base64)
+   * @returns R2 URL, data URL, or placeholder
    */
-  static async createImageUrl(mediaFile, filename, r2Storage = null) {
+  static async createImageUrl(
+    mediaFile: Uint8Array,
+    filename: string,
+    r2Storage: any = null
+  ): Promise<string> {
     if (!mediaFile || !(mediaFile instanceof Uint8Array)) {
       console.log(`⚠️ Image data not available, using placeholder SVG for ${filename}`);
       return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2RkZCIvPjx0ZXh0IHg9IjUwIiB5PSI1NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5JbWFnZTwvdGV4dD48L3N2Zz4=';
@@ -376,11 +407,11 @@ export class ImageParser extends BaseParser {
 
   /**
    * Create data URL from media file buffer (legacy method)
-   * @param {Buffer|Uint8Array} mediaFile - Image file buffer
-   * @param {string} filename - Original filename
-   * @returns {string} data URL or placeholder
+   * @param mediaFile - Image file buffer
+   * @param filename - Original filename
+   * @returns data URL or placeholder
    */
-  static createDataUrl(mediaFile, filename) {
+  static createDataUrl(mediaFile: Uint8Array, filename: string): string {
     if (!mediaFile || !(mediaFile instanceof Uint8Array)) {
       console.log(`⚠️ Image data not available, using placeholder SVG for ${filename}`);
       return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2RkZCIvPjx0ZXh0IHg9IjUwIiB5PSI1NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5JbWFnZTwvdGV4dD48L3N2Zz4=';
@@ -395,10 +426,10 @@ export class ImageParser extends BaseParser {
 
   /**
    * Generate SHA-256 hash of image data for deduplication
-   * @param {Uint8Array} uint8Array - Binary image data
-   * @returns {Promise<string>} SHA-256 hash as hex string
+   * @param uint8Array - Binary image data
+   * @returns SHA-256 hash as hex string
    */
-  static async generateImageHash(uint8Array) {
+  static async generateImageHash(uint8Array: Uint8Array): Promise<string> {
     const hashBuffer = await crypto.subtle.digest('SHA-256', uint8Array);
     const hashArray = new Uint8Array(hashBuffer);
     return Array.from(hashArray)
@@ -408,10 +439,10 @@ export class ImageParser extends BaseParser {
 
   /**
    * Convert Uint8Array to base64 string (Cloudflare Workers compatible)
-   * @param {Uint8Array} uint8Array - Binary data
-   * @returns {string} base64 string
+   * @param uint8Array - Binary data
+   * @returns base64 string
    */
-  static uint8ArrayToBase64(uint8Array) {
+  static uint8ArrayToBase64(uint8Array: Uint8Array): string {
     let binary = '';
     for (let i = 0; i < uint8Array.byteLength; i++) {
       binary += String.fromCharCode(uint8Array[i]);
@@ -421,21 +452,21 @@ export class ImageParser extends BaseParser {
 
   /**
    * Get image type from filename
-   * @param {string} filename - Image filename
-   * @returns {string} image type
+   * @param filename - Image filename
+   * @returns image type
    */
-  static getImageType(filename) {
+  static getImageType(filename: string): string {
     const ext = filename.split('.').pop()?.toLowerCase();
     return ext || 'unknown';
   }
 
   /**
    * Get MIME type from image type
-   * @param {string} type - Image type
-   * @returns {string} MIME type
+   * @param type - Image type
+   * @returns MIME type
    */
-  static getMimeType(type) {
-    const mimeTypes = {
+  static getMimeType(type: string): string {
+    const mimeTypes: Record<string, string> = {
       'jpg': 'image/jpeg',
       'jpeg': 'image/jpeg',
       'png': 'image/png',
@@ -452,11 +483,11 @@ export class ImageParser extends BaseParser {
 
   /**
    * Parse image effects from blip fill
-   * @param {Object} blipFill - Blip fill properties
-   * @returns {Object} effects information
+   * @param blipFill - Blip fill properties
+   * @returns effects information
    */
-  static parseImageEffects(blipFill) {
-    const effects = {
+  static parseImageEffects(blipFill: XMLNode | null | undefined): ImageEffectsInfo {
+    const effects: ImageEffectsInfo = {
       opacity: 1,
       filter: null,
       borderRadius: 0,
@@ -493,10 +524,10 @@ export class ImageParser extends BaseParser {
 
   /**
    * Parse image cropping information
-   * @param {Object} blipFill - Blip fill properties
-   * @returns {Object} cropping information
+   * @param blipFill - Blip fill properties
+   * @returns cropping information
    */
-  static parseCropping(blipFill) {
+  static parseCropping(blipFill: XMLNode | null | undefined): ImageCroppingInfo {
     const srcRect = this.safeGet(blipFill, 'srcRect.$');
     if (!srcRect) {
       return {
@@ -520,14 +551,53 @@ export class ImageParser extends BaseParser {
 
   /**
    * Get basic image dimensions (simplified - would need proper image parsing)
-   * @param {Buffer} imageBuffer - Image file buffer
-   * @returns {Object|null} dimensions
+   * @param imageBuffer - Image file buffer
+   * @returns dimensions
    */
-  static getImageDimensions(imageBuffer) {
+  static getImageDimensions(imageBuffer: Uint8Array | Buffer): ImageDimensions | null {
     // This is a placeholder - in a real implementation, you'd use
     // an image parsing library like sharp or image-size
     return null;
   }
 
+  /**
+   * Safely get a nested property from an object
+   * @param obj - Object to query
+   * @param path - Dot-separated path to property
+   * @returns the property value or null
+   */
+  static safeGet(obj: any, path: string): any {
+    if (!obj) return null;
 
+    const parts = path.split('.');
+    let current = obj;
+
+    for (const part of parts) {
+      if (current == null || typeof current !== 'object') {
+        return null;
+      }
+
+      // Handle array access or object property
+      if (part.includes('[') && part.includes(']')) {
+        // Array access like 'items[0]'
+        const [prop, indexStr] = part.split('[');
+        const index = parseInt(indexStr.replace(']', ''));
+        current = current[prop];
+        
+        if (Array.isArray(current) && index >= 0 && index < current.length) {
+          current = current[index];
+        } else {
+          return null;
+        }
+      } else if (part.startsWith('$')) {
+        // Attribute access
+        current = current[part];
+      } else {
+        // Regular property access
+        current = current[part];
+      }
+    }
+
+    return current;
+  }
 }

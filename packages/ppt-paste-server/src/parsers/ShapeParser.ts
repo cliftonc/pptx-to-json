@@ -3,17 +3,30 @@
  */
 
 import { BaseParser } from './BaseParser.js';
+import {
+  XMLNode,
+  ShapeComponent,
+  NormalizedShapeComponent,
+  FillInfo,
+  BorderInfo,
+  GeometryInfo,
+  EffectsInfo
+} from '../types/index.js';
 
 export class ShapeParser extends BaseParser {
 
   /**
    * Parse shape component from normalized data (works for both PPTX and clipboard)
-   * @param {Object} shapeComponent - Normalized shape component
-   * @param {number} componentIndex - Component index
-   * @param {number} slideIndex - Slide index
-   * @returns {Promise<Object>} - Parsed shape component
+   * @param shapeComponent - Normalized shape component
+   * @param componentIndex - Component index
+   * @param slideIndex - Slide index
+   * @returns Parsed shape component
    */
-  static async parseFromNormalized(shapeComponent, componentIndex, slideIndex) {
+  static async parseFromNormalized(
+    shapeComponent: NormalizedShapeComponent,
+    componentIndex: number,
+    slideIndex: number
+  ): Promise<ShapeComponent | null> {
     const { data, spPr, nvSpPr, namespace, style } = shapeComponent;
     
     if (!spPr) {
@@ -51,32 +64,34 @@ export class ShapeParser extends BaseParser {
       rotation: transform.rotation || 0,
       slideIndex,
       style: {
-        backgroundColor: fill.color,
+        fillColor: fill.color,
         borderColor: border.color,
         borderWidth: border.width,
         borderStyle: border.style,
-        opacity: fill.opacity,
+        fillOpacity: fill.opacity,
+        rotation: transform.rotation || 0,
         ...effects
       },
+      shapeType: geometry.type,
+      geometry: geometry.preset || geometry.type,
       metadata: {
         namespace,
         geometry,
         originalFormat: 'normalized',
         shapeType: geometry.type,
-        hasEffects: effects.length > 0,
+        hasEffects: effects.effects.length > 0,
         hasFill: !!fill.color,
         hasBorder: border.type !== 'none'
       }
     };
   }
 
-
   /**
    * Parse shape geometry information
-   * @param {Object} spPr - Shape properties
-   * @returns {Object} geometry info
+   * @param spPr - Shape properties
+   * @returns geometry info
    */
-  static parseGeometry(spPr) {
+  static parseGeometry(spPr: XMLNode): GeometryInfo {
     // Check for preset geometry
     const prstGeom = this.safeGet(spPr, 'prstGeom');
     if (prstGeom) {
@@ -108,11 +123,11 @@ export class ShapeParser extends BaseParser {
 
   /**
    * Get human-readable shape type name from preset
-   * @param {string} preset - PowerPoint preset name
-   * @returns {string} readable shape type
+   * @param preset - PowerPoint preset name
+   * @returns readable shape type
    */
-  static getShapeTypeName(preset) {
-    const shapeTypes = {
+  static getShapeTypeName(preset: string): string {
+    const shapeTypes: Record<string, string> = {
       'rect': 'rectangle',
       'roundRect': 'rounded rectangle',
       'ellipse': 'ellipse',
@@ -194,11 +209,11 @@ export class ShapeParser extends BaseParser {
 
   /**
    * Parse fill properties
-   * @param {Object} spPr - Shape properties
-   * @param {Object} style - Style properties (optional)
-   * @returns {Object} fill information
+   * @param spPr - Shape properties
+   * @param style - Style properties (optional)
+   * @returns fill information
    */
-  static parseFill(spPr, style = null) {
+  static parseFill(spPr: XMLNode, style: XMLNode | null = null): FillInfo {
     // First check for direct SRGB colors in spPr (highest priority)
     const solidFill = this.safeGet(spPr, 'solidFill');
     if (solidFill) {
@@ -250,11 +265,11 @@ export class ShapeParser extends BaseParser {
 
   /**
    * Parse border/line properties
-   * @param {Object} spPr - Shape properties
-   * @param {Object} style - Style properties (optional)
-   * @returns {Object} border information
+   * @param spPr - Shape properties
+   * @param style - Style properties (optional)
+   * @returns border information
    */
-  static parseBorder(spPr, style = null) {
+  static parseBorder(spPr: XMLNode, style: XMLNode | null = null): BorderInfo {
     // First check for direct border/line definitions in spPr
     const ln = this.safeGet(spPr, 'ln');
     if (!ln) {
@@ -301,10 +316,10 @@ export class ShapeParser extends BaseParser {
 
   /**
    * Parse dash style from line properties
-   * @param {Object} ln - Line properties
-   * @returns {string} CSS border-style value
+   * @param ln - Line properties
+   * @returns CSS border-style value
    */
-  static parseDashStyle(ln) {
+  static parseDashStyle(ln: XMLNode): string {
     const prstDash = this.safeGet(ln, 'prstDash.$val');
     if (!prstDash) return 'solid';
 
@@ -322,16 +337,26 @@ export class ShapeParser extends BaseParser {
 
   /**
    * Parse gradient fill
-   * @param {Object} gradFill - Gradient fill properties
-   * @returns {Object} gradient information
+   * @param gradFill - Gradient fill properties
+   * @returns gradient information
    */
-  static parseGradientFill(gradFill) {
+  static parseGradientFill(gradFill: XMLNode): FillInfo {
     // For now, return the first gradient stop color
     // In the future, this could return full gradient information
     const gsLst = this.safeGet(gradFill, 'gsLst.gs');
-    if (gsLst && gsLst.length > 0) {
-      const firstStop = gsLst;
+    if (gsLst && Array.isArray(gsLst) && gsLst.length > 0) {
+      const firstStop = gsLst[0];
       const solidFill = this.safeGet(firstStop, 'solidFill');
+      if (solidFill) {
+        return {
+          type: 'gradient',
+          color: this.parseColor(solidFill),
+          opacity: this.parseOpacity(solidFill)
+        };
+      }
+    } else if (gsLst) {
+      // Handle case where gsLst.gs is not an array
+      const solidFill = this.safeGet(gsLst, 'solidFill');
       if (solidFill) {
         return {
           type: 'gradient',
@@ -350,10 +375,10 @@ export class ShapeParser extends BaseParser {
 
   /**
    * Parse opacity from fill properties
-   * @param {Object} fill - Fill properties
-   * @returns {number} opacity (0-1)
+   * @param fill - Fill properties
+   * @returns opacity (0-1)
    */
-  static parseOpacity(fill) {
+  static parseOpacity(fill: XMLNode): number {
     // Alpha values in PowerPoint are often in the color definition
     // This is a simplified implementation
     return 1;
@@ -361,11 +386,11 @@ export class ShapeParser extends BaseParser {
 
   /**
    * Parse shape effects (shadows, glows, etc.)
-   * @param {Object} spPr - Shape properties
-   * @returns {Object} effects information
+   * @param spPr - Shape properties
+   * @returns effects information
    */
-  static parseEffects(spPr) {
-    const effects = {
+  static parseEffects(spPr: XMLNode): EffectsInfo {
+    const effects: EffectsInfo = {
       effects: []
     };
 
@@ -391,10 +416,10 @@ export class ShapeParser extends BaseParser {
 
   /**
    * Parse custom geometry paths
-   * @param {Object} custGeom - Custom geometry
-   * @returns {Array} simplified path information
+   * @param custGeom - Custom geometry
+   * @returns simplified path information
    */
-  static parseCustomGeometry(custGeom) {
+  static parseCustomGeometry(custGeom: XMLNode): any[] {
     // This is a complex topic - for now return empty array
     // In the future, this could parse path commands
     return [];
@@ -402,10 +427,10 @@ export class ShapeParser extends BaseParser {
 
   /**
    * Parse fill properties from style element
-   * @param {Object} style - Style properties
-   * @returns {Object|null} fill information or null
+   * @param style - Style properties
+   * @returns fill information or null
    */
-  static parseFillFromStyle(style) {
+  static parseFillFromStyle(style: XMLNode): FillInfo | null {
     // Look for fill reference in style
     const fillRef = this.safeGet(style, 'fillRef');
     if (fillRef) {
@@ -423,9 +448,7 @@ export class ShapeParser extends BaseParser {
       
       // Handle scheme colors - basic mapping
       if (schemeClr && schemeClr.$val) {
-        let color = this.parseSchemeColor(schemeClr.$val);
-        
-        // Note: Removed hardcoded color override to use consistent scheme colors
+        const color = this.parseSchemeColor(schemeClr.$val);
         
         if (color) {
           return {
@@ -442,10 +465,10 @@ export class ShapeParser extends BaseParser {
 
   /**
    * Parse border properties from style element
-   * @param {Object} style - Style properties
-   * @returns {Object|null} border information or null
+   * @param style - Style properties
+   * @returns border information or null
    */
-  static parseBorderFromStyle(style) {
+  static parseBorderFromStyle(style: XMLNode): BorderInfo | null {
     // Look for line reference in style
     const lnRef = this.safeGet(style, 'lnRef');
     if (lnRef) {
@@ -494,11 +517,11 @@ export class ShapeParser extends BaseParser {
 
   /**
    * Apply shade to a color (makes it darker)
-   * @param {string} color - Hex color (e.g., '#4472C4')
-   * @param {number} shadeVal - Shade value (percentage, e.g., 50000 = 50%)
-   * @returns {string} modified hex color
+   * @param color - Hex color (e.g., '#4472C4')
+   * @param shadeVal - Shade value (percentage, e.g., 50000 = 50%)
+   * @returns modified hex color
    */
-  static applyShade(color, shadeVal) {
+  static applyShade(color: string, shadeVal: number): string {
     if (!color || !color.startsWith('#')) return color;
     
     // Convert shade value from PowerPoint format (50000 = 50%) to percentage
@@ -516,18 +539,18 @@ export class ShapeParser extends BaseParser {
     const shadedB = Math.round(b * (1 - shadePercent));
     
     // Convert back to hex
-    const toHex = (n) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0');
+    const toHex = (n: number) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0');
     return `#${toHex(shadedR)}${toHex(shadedG)}${toHex(shadedB)}`.toUpperCase();
   }
 
   /**
    * Parse scheme color to hex value
-   * @param {string} scheme - Scheme color name
-   * @returns {string|null} hex color or null
+   * @param scheme - Scheme color name
+   * @returns hex color or null
    */
-  static parseSchemeColor(scheme) {
+  static parseSchemeColor(scheme: string): string | null {
     // Default Office scheme color mappings
-    const schemeColors = {
+    const schemeColors: Record<string, string> = {
       'accent1': '#4472C4', // Blue
       'accent2': '#E7E6E6', // Light Gray
       'accent3': '#A5A5A5', // Gray
@@ -547,4 +570,44 @@ export class ShapeParser extends BaseParser {
     return schemeColors[scheme] || null;
   }
 
+  /**
+   * Safely get a nested property from an object
+   * @param obj - Object to query
+   * @param path - Dot-separated path to property
+   * @returns the property value or null
+   */
+  static safeGet(obj: any, path: string): any {
+    if (!obj) return null;
+
+    const parts = path.split('.');
+    let current = obj;
+
+    for (const part of parts) {
+      if (current == null || typeof current !== 'object') {
+        return null;
+      }
+
+      // Handle array access or object property
+      if (part.includes('[') && part.includes(']')) {
+        // Array access like 'items[0]'
+        const [prop, indexStr] = part.split('[');
+        const index = parseInt(indexStr.replace(']', ''));
+        current = current[prop];
+        
+        if (Array.isArray(current) && index >= 0 && index < current.length) {
+          current = current[index];
+        } else {
+          return null;
+        }
+      } else if (part.startsWith('$')) {
+        // Attribute access
+        current = current[part];
+      } else {
+        // Regular property access
+        current = current[part];
+      }
+    }
+
+    return current;
+  }
 }

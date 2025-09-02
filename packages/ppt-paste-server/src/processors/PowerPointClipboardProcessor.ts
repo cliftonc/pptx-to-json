@@ -7,9 +7,80 @@
 
 import { PowerPointParser } from '../parsers/PowerPointParser.js';
 import { PPTXParser } from './PPTXParser.js';
+import type { PowerPointComponent } from '../types/index.js';
+
+// Types for fetch function and R2 storage
+type FetchFunction = typeof fetch;
+interface R2Storage {
+  put(key: string, data: ArrayBuffer | Uint8Array | string): Promise<void>;
+  get(key: string): Promise<any>;
+}
+
+// Response types
+interface FetchClipboardDataResult {
+  buffer: Uint8Array;
+  contentType: string;
+  size: number;
+  metadata: {
+    hexPreview: string;
+    textPreview: string;
+  };
+}
+
+interface ParsedSlideData {
+  slides: Array<{
+    components: PowerPointComponent[];
+    slideNumber?: number;
+  }>;
+  totalComponents: number;
+  format: string;
+  slideDimensions?: {
+    width: number;
+    height: number;
+  };
+}
+
+interface ProcessingOptions {
+  debug?: boolean;
+}
+
+interface ProcessClipboardUrlResult {
+  type: string;
+  contentType: string;
+  size: number;
+  slides: Array<{
+    components: PowerPointComponent[];
+    slideNumber?: number;
+  }>;
+  slideCount: number;
+  slideDimensions?: {
+    width: number;
+    height: number;
+  };
+  isPowerPoint: boolean;
+  debug: {
+    hexPreview: string;
+    textPreview: string;
+    componentCount: number;
+    componentTypes: Record<string, number>;
+    slideCount: number;
+  };
+}
+
+interface ResponseData {
+  type: string;
+  contentType: string;
+  data?: any;
+  preview?: string;
+}
 
 export class PowerPointClipboardProcessor {
-  constructor(fetchFunction = null, r2Storage = null) {
+  private powerPointParser: PowerPointParser;
+  private pptxParser: PPTXParser;
+  private fetchFn: FetchFunction;
+  private r2Storage: R2Storage | null;
+
+  constructor(fetchFunction: FetchFunction | null = null, r2Storage: R2Storage | null = null) {
     this.powerPointParser = new PowerPointParser();
     this.pptxParser = new PPTXParser();
     this.fetchFn = fetchFunction || this._getDefaultFetch();
@@ -19,9 +90,9 @@ export class PowerPointClipboardProcessor {
   /**
    * Get default fetch function if none provided
    */
-  _getDefaultFetch() {
+  private _getDefaultFetch(): FetchFunction {
     if (globalThis.fetch) {
-      return globalThis.fetch;
+      return globalThis.fetch.bind(globalThis);
     }
     // For Node.js environments, require fetch to be explicitly provided
     throw new Error('No fetch function available. Please provide one to the constructor or ensure globalThis.fetch is available.');
@@ -29,10 +100,8 @@ export class PowerPointClipboardProcessor {
 
   /**
    * Validate that the URL is from a trusted Microsoft domain
-   * @param {string} url - URL to validate
-   * @returns {boolean} - Whether the URL is valid
    */
-  validateUrl(url) {
+  validateUrl(url: string): boolean {
     if (!url || typeof url !== 'string') {
       return false;
     }
@@ -72,10 +141,8 @@ export class PowerPointClipboardProcessor {
 
   /**
    * Fetch clipboard data from Microsoft API
-   * @param {string} url - Microsoft API URL
-   * @returns {Promise<Object>} - Response object with buffer and metadata
    */
-  async fetchClipboardData(url, { debug = false } = {}) {
+  async fetchClipboardData(url: string, { debug = false }: ProcessingOptions = {}): Promise<FetchClipboardDataResult> {
     if (!this.validateUrl(url)) {
       throw new Error('Only Microsoft Office URLs are allowed');
     }
@@ -141,12 +208,8 @@ export class PowerPointClipboardProcessor {
 
   /**
    * Parse PowerPoint clipboard buffer into slides structure
-   * @param {Buffer} buffer - PowerPoint clipboard buffer
-   * @param {Object} options - Parsing options
-   * @param {boolean} options.debug - Enable debug logging
-   * @returns {Promise<Object>} - Slides structure with components
    */
-  async parseClipboardBuffer(buffer, { debug = false } = {}) {
+  async parseClipboardBuffer(buffer: Uint8Array | ArrayBuffer, { debug = false }: ProcessingOptions = {}): Promise<ParsedSlideData> {
     if (!(buffer instanceof Uint8Array) && !(buffer instanceof ArrayBuffer)) {
       throw new Error('Input must be a Uint8Array or ArrayBuffer');
     }
@@ -188,18 +251,14 @@ export class PowerPointClipboardProcessor {
       return result;
     } catch (error) {
       console.error('❌ PowerPoint parsing failed:', error);
-      throw new Error(`Failed to parse PowerPoint data: ${error.message}`);
+      throw new Error(`Failed to parse PowerPoint data: ${(error as Error).message}`);
     }
   }
 
   /**
    * Process a PowerPoint clipboard URL - fetch and parse in one step
-   * @param {string} url - Microsoft API URL
-   * @param {Object} options - Processing options
-   * @param {boolean} options.debug - Enable debug logging
-   * @returns {Promise<Object>} - Processing result with slides structure and metadata
    */
-  async processClipboardUrl(url, { debug = false } = {}) {
+  async processClipboardUrl(url: string, { debug = false }: ProcessingOptions = {}): Promise<ProcessClipboardUrlResult> {
     try {
       // Fetch the data
       const fetchResult = await this.fetchClipboardData(url, { debug });
@@ -211,7 +270,7 @@ export class PowerPointClipboardProcessor {
       const slideDimensions = result.slideDimensions;
       
       // Calculate component type statistics from all slides
-      const componentTypes = {};
+      const componentTypes: Record<string, number> = {};
       let totalComponents = 0;
       slides.forEach(slide => {
         totalComponents += slide.components.length;
@@ -220,7 +279,7 @@ export class PowerPointClipboardProcessor {
         });
       });
 
-      const response = {
+      const response: ProcessClipboardUrlResult = {
         type: 'powerpoint',
         contentType: fetchResult.contentType,
         size: fetchResult.size,
@@ -246,10 +305,8 @@ export class PowerPointClipboardProcessor {
 
   /**
    * Handle different content types from Microsoft API
-   * @param {Object} response - Fetch response
-   * @returns {Promise<Object>} - Processed response data
    */
-  async handleResponse(response) {
+  async handleResponse(response: Response, debug = false): Promise<ResponseData> {
     const contentType = response.headers.get('content-type') || 'application/octet-stream';
     
     if (contentType.includes('application/json')) {
@@ -285,7 +342,12 @@ export class PowerPointClipboardProcessor {
     }
     
     // Handle binary data (PowerPoint clipboard data)
-    return await this.processClipboardUrl(response.url);
+    const result = await this.processClipboardUrl(response.url);
+    return {
+      type: 'binary',
+      contentType,
+      data: result
+    };
   }
 }
 

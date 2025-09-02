@@ -20,8 +20,14 @@ export const DEFAULT_SLIDE_HEIGHT_EMU = 6858000; // 7.5 inches in EMU
 export const DEFAULT_SLIDE_WIDTH_PX = Math.round(DEFAULT_SLIDE_WIDTH_EMU * EMU_TO_PIXELS);  // 960px
 export const DEFAULT_SLIDE_HEIGHT_PX = Math.round(DEFAULT_SLIDE_HEIGHT_EMU * EMU_TO_PIXELS); // 720px
 
+// Slide dimensions interface
+export interface SlideDimensions {
+  width: number;
+  height: number;
+}
+
 // PowerPoint standard dimensions for reference
-export const STANDARD_DIMENSIONS = {
+export const STANDARD_DIMENSIONS: Record<string, SlideDimensions> = {
   // 4:3 aspect ratio (default)
   STANDARD_4_3: {
     width: DEFAULT_SLIDE_WIDTH_PX,
@@ -37,10 +43,10 @@ export const STANDARD_DIMENSIONS = {
 /**
  * Convert EMU (English Metric Units) to pixels
  * This is the single source of truth for EMU conversion
- * @param {number} emu - EMU value from PowerPoint
- * @returns {number} pixel value rounded to integer
+ * @param emu - EMU value from PowerPoint
+ * @returns pixel value rounded to integer
  */
-export function emuToPixels(emu) {
+export function emuToPixels(emu: number): number {
   if (typeof emu !== 'number' || isNaN(emu)) {
     console.warn('Invalid EMU value provided to emuToPixels:', emu);
     return 0;
@@ -51,10 +57,10 @@ export function emuToPixels(emu) {
 /**
  * Convert EMU to points (for font sizes)
  * 1 inch = 914400 EMUs, 1 inch = 72 points
- * @param {number} emu - EMU value
- * @returns {number} point value rounded to integer
+ * @param emu - EMU value
+ * @returns point value rounded to integer
  */
-export function emuToPoints(emu) {
+export function emuToPoints(emu: number): number {
   if (typeof emu !== 'number' || isNaN(emu)) {
     console.warn('Invalid EMU value provided to emuToPoints:', emu);
     return 12; // Default font size
@@ -65,11 +71,11 @@ export function emuToPoints(emu) {
 /**
  * Validate that a coordinate value is in pixel range (not EMU)
  * EMU values are typically very large (> 100000), pixels are smaller
- * @param {number} value - coordinate value to check
- * @param {string} context - description for logging
- * @returns {boolean} true if value appears to be in pixels
+ * @param value - coordinate value to check
+ * @param context - description for logging
+ * @returns true if value appears to be in pixels
  */
-export function validatePixelRange(value, context = 'coordinate') {
+export function validatePixelRange(value: number, context: string = 'coordinate'): boolean {
   if (typeof value !== 'number' || isNaN(value)) return false;
   
   // EMU values are typically > 100000, pixels are usually < 10000 for slides
