@@ -2,11 +2,11 @@
 
 ## Key Files
 
-**`/packages/ppt-paste-parser/src/ClipboardParser.tsx`** - Main React component that handles clipboard paste events, detects PowerPoint cloud service metadata, extracts Microsoft API URLs, and calls the proxy server to get parsed components.
+**`/packages/ppt-paste-parser/src/ClipboardParser.tsx`** - Main React component that handles clipboard paste events, detects PowerPoint cloud service metadata, extracts Microsoft API URLs, and calls the worker server to get parsed components.
 
-**`/apps/proxy-server/server.js`** - Express server that bypasses CORS restrictions, calls Microsoft's GetClipboardBytes API, extracts ZIP contents using yauzl, and parses PowerPoint drawing XML to return structured component data.
+**`/apps/worker/worker.js`** - Cloudflare Worker with Hono framework that serves the client app and provides API endpoints. Bypasses CORS restrictions, calls Microsoft's GetClipboardBytes API, and uses the ppt-paste-server package for parsing.
 
-**`/apps/demo/src/App.tsx`** - Demo application that displays parsed PowerPoint components in a structured UI with visual styling, component types, positions, and content details.
+**`/apps/worker/client/src/App.tsx`** - Client application that displays parsed PowerPoint components with TLDraw integration, slideshow mode, and structured UI with visual styling.
 
 **`/packages/ppt-paste-parser/src/index.ts`** - Library exports for the ClipboardParser component and TypeScript interfaces.
 
@@ -21,21 +21,24 @@ The system detects PowerPoint clipboard data, extracts Microsoft API URLs from c
 ## System Architecture
 
 ### Client-Side Library (`packages/ppt-paste-parser/`)
-- Minimal implementation that detects PowerPoint data, calls proxy server, and returns structured components
+- Minimal implementation that detects PowerPoint data, calls worker server, and returns structured components
 - React component with TypeScript interfaces
 - Delegates parsing to the server
 
-### Proxy Server (`apps/proxy-server/`)
-- Express.js server running on `http://localhost:3001`
-- Bypasses CORS restrictions for Microsoft API calls
-- ZIP extraction using `yauzl` library
-- XML parsing with custom regex-based PowerPoint drawing parser
+### Cloudflare Worker (`apps/worker/`)
+- Hono-based worker running on Cloudflare Workers platform
+- Serves static client application via assets binding
+- Provides API endpoints for PowerPoint parsing
+- Uses ppt-paste-server package for ZIP/XML processing
+- Supports R2 storage for uploaded PPTX files
 - Returns structured JSON with parsed components
 
-### Demo Application (`apps/demo/`)
-- UI displaying parsed components
-- Shows PowerPoint component data with visual styling
-- Displays component types, positions, and sizes
+### Client Application (`apps/worker/client/`)
+- React application with Vite build system
+- TLDraw integration for visual presentation canvas
+- Slideshow mode with keyboard navigation
+- Displays PowerPoint component data with visual styling
+- Built to `/apps/worker/dist` for worker deployment
 
 ## What Gets Parsed
 
@@ -61,9 +64,9 @@ Example: Currently parsing 13 components from test PowerPoint data.
    ↓
 4. Extracts Microsoft GetClipboardBytes API URL
    ↓
-5. Calls proxy server: http://localhost:3001/api/proxy-powerpoint-clipboard
+5. Calls worker server: http://localhost:3001/api/proxy-powerpoint-clipboard
    ↓
-6. Proxy server fetches from Microsoft API (11,607 bytes binary data)
+6. Worker server fetches from Microsoft API (11,607 bytes binary data)
    ↓
 7. Detects Office Open XML format (ZIP signature: 50 4B 03 04)
    ↓
@@ -84,43 +87,59 @@ Example: Currently parsing 13 components from test PowerPoint data.
 
 ```
 ppt-paste/
-├── packages/ppt-paste-parser/          # Client library (TypeScript/React)
-│   ├── src/ClipboardParser.tsx         # Main component (clean, minimal)
-│   ├── src/index.ts                    # Exports
-│   └── dist/                           # Built library
-├── apps/proxy-server/                  # Node.js proxy server
-│   ├── server.js                       # Express server with ZIP/XML parsing
-│   └── package.json                    # Dependencies: express, cors, yauzl, etc.
-├── apps/demo/                          # React demo app
-│   └── src/App.tsx                     # Clean UI displaying parsed components
+├── packages/
+│   ├── ppt-paste-parser/               # Client library (TypeScript/React)
+│   │   ├── src/ClipboardParser.tsx     # Main component (clean, minimal)
+│   │   ├── src/index.ts                # Exports
+│   │   └── dist/                       # Built library
+│   └── ppt-paste-server/               # Server parsing logic
+│       └── src/                        # ZIP/XML parsing, PowerPoint parsers
+├── apps/worker/                        # Cloudflare Worker app
+│   ├── client/                         # Client application
+│   │   ├── src/                        # React components, TLDraw integration
+│   │   ├── package.json                # Client dependencies
+│   │   └── vite.config.ts              # Builds to ../dist
+│   ├── dist/                           # Built client (deployment target)
+│   ├── worker.js                       # Cloudflare Worker with Hono
+│   ├── package.json                    # Worker dependencies and scripts
+│   └── wrangler.toml                   # Cloudflare configuration
 └── CLAUDE.md                           # This summary
 ```
 
 ## How to Run
 
-1. Start Proxy Server:
-   ```bash
-   cd apps/proxy-server
-   npm run dev  # Runs on http://localhost:3001
-   ```
+### Development
+```bash
+# Start both worker and client in development
+pnpm dev
 
-2. Start Demo App:
-   ```bash
-   cd apps/demo
-   pnpm dev  # Runs on http://localhost:5173
-   ```
+# This runs:
+# - Worker: http://localhost:3001 (API + serves built client)
+# - Client dev server: http://localhost:5173 (with hot reload)
+```
 
-3. Use the System:
-   - Copy content from PowerPoint (shapes, text, images)
-   - Paste in the demo app
-   - View component parsing and structured display
+### Production Build & Deploy
+```bash
+# Build everything and deploy to Cloudflare
+pnpm deploy
+
+# Or step by step:
+pnpm build     # Build library + client
+pnpm --filter worker deploy  # Deploy to Cloudflare Workers
+```
+
+### Usage
+- Copy content from PowerPoint (shapes, text, images)
+- Paste in the application (dev: http://localhost:5173, prod: your-worker.workers.dev)
+- View component parsing with TLDraw visualization
+- Use slideshow mode for presentation view
 
 ## Technical Implementation
 
 ### Microsoft API Integration
 - Reverse-engineered PowerPoint's cloud service integration
 - Calls `GetClipboardBytes.ashx` API endpoint
-- Handles authentication and CORS via proxy server
+- Handles authentication and CORS via Cloudflare Worker
 
 ### Office Open XML Processing
 - ZIP extraction from binary clipboard data using pptx2json library
@@ -130,7 +149,7 @@ ppt-paste/
 
 ### Parser Architecture
 
-**Core Parsers** (`/apps/proxy-server/parsers/`):
+**Core Parsers** (`/packages/ppt-paste-server/src/parsers/`):
 - **BaseParser.js**: Common utilities (EMU conversion, color parsing, transform extraction)
 - **PowerPointParser.js**: Main coordinator, handles clipboard vs file format detection
 - **TextParser.js**: Text components with comprehensive font/style parsing
@@ -148,7 +167,8 @@ ppt-paste/
 - **Clipboard Format Support**: Proper detection and handling of PowerPoint clipboard structure (`a:txSp` → `a:txBody`)
 - **Enhanced Component Classification**: Reliable text vs shape detection with fallback logic
 - **Type-safe interfaces**: TypeScript throughout the stack
-- **Server-side processing**: Client delegates parsing to proxy server for better performance
+- **Server-side processing**: Client delegates parsing to Cloudflare Worker for better performance
+- **Edge deployment**: Runs on Cloudflare's global edge network for low latency
 
 ### User Experience
 - Real-time processing with loading states
@@ -190,14 +210,21 @@ Example parsing results:
 ## Development Commands
 
 ```bash
-# Build the library
-pnpm --filter ppt-paste-parser build
+# Development
+pnpm dev                        # Start worker + client dev servers
 
-# Run tests
-pnpm test
+# Building
+pnpm build:lib                  # Build ppt-paste-parser library
+pnpm build                      # Build library + client app
+pnpm deploy                     # Build + deploy to Cloudflare Workers
 
-# Start all services
-pnpm dev
+# Client-specific
+pnpm --filter worker dev:client    # Run only client dev server
+pnpm --filter worker build:client  # Build only client app
+
+# Worker-specific
+pnpm --filter worker dev        # Run only worker dev server
+pnpm --filter worker deploy     # Deploy worker to Cloudflare
 
 # Type checking
 pnpm --filter ppt-paste-parser tsc --noEmit
@@ -211,18 +238,20 @@ pnpm log-bin bullets.bin --debug  # Example: with debug output
 ## Dependencies
 
 **Client Library:**
-- React 18+
+- React 19+
 - TypeScript
 
-**Proxy Server:**
-- Express.js
-- yauzl (ZIP extraction)
-- node-fetch
-- cors
+**Cloudflare Worker:**
+- Hono (web framework)
+- ppt-paste-server (parsing logic)
+- Cloudflare Workers Runtime
+- R2 storage (for uploaded files)
 
-**Demo App:**
-- Vite
-- React
+**Client App:**
+- Vite (build tool)
+- React 19+
+- TLDraw (canvas rendering)
+- TipTap (rich text editing)
 - ppt-paste-parser (local)
 
 ---
@@ -231,5 +260,8 @@ pnpm log-bin bullets.bin --debug  # Example: with debug output
 
 The PowerPoint Component Parser is operational and parsing real PowerPoint data into structured components. The system provides an end-to-end solution for extracting and analyzing PowerPoint clipboard content.
 
-Date: August 31, 2025
+Date: September 2, 2025
+- **✅ App Consolidation**: Combined demo and worker into single deployment
+- **✅ TLDraw Integration**: Visual canvas rendering with slideshow mode
+- **✅ Cloudflare Deployment**: Edge-deployed worker with R2 storage
 - When we later want to create pptx use pptxgenjs

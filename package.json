@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm --filter worker dev & pnpm --filter demo dev",
+    "dev": "pnpm --filter worker dev & pnpm --filter worker dev:client",
     "build:lib": "pnpm --filter ppt-paste-parser build",
-    "build": "pnpm build:lib && pnpm --filter demo build",
-    "preview": "pnpm --filter demo preview",
+    "build": "pnpm build:lib && pnpm --filter worker build",
+    "deploy": "pnpm build:lib && cd apps/worker && pnpm run deploy",
+    "preview": "pnpm --filter worker start",
     "log-bin": "cd packages/ppt-paste-server && node scripts/log-paste-bin.js"
   },
   "devDependencies": {

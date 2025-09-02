@@ -31,21 +31,40 @@ The system extracts:
 
 ## Architecture
 
-- **Client Library** (`packages/ppt-paste-parser/`): React component that detects PowerPoint data and calls the proxy server
-- **Server Library** (`packages/ppt-paste-server/`): Code that parses the OfficeXML and returns structured data.
-- **Proxy Server** (`apps/worker/`): Hono cloudflare worker that provides backend.
-- **Demo Application** (`apps/demo/`): UI for testing and displaying parsed components
+- **Client Library** (`packages/ppt-paste-parser/`): React component that detects PowerPoint data and calls the worker server
+- **Server Library** (`packages/ppt-paste-server/`): Code that parses the OfficeXML and returns structured data
+- **Cloudflare Worker** (`apps/worker/`): Hono-based worker that serves the client app and provides API endpoints
+- **Client Application** (`apps/worker/client/`): React app with TLDraw integration for visual presentation
 
 ## Quick Start
 
-1. **Start the dev server:**
-   ```bash   
-   npm run dev  # Runs FE on http://localhost:5173
-   ```
-2. **Test the system:**
-   - Copy content from PowerPoint (shapes, text, images)
-   - Paste in the demo app
-   - View the parsed component data
+### Development
+```bash
+# Start both worker and client in development
+pnpm dev
+# Worker: http://localhost:3001 (API + serves built client)
+# Client dev server: http://localhost:5173 (with hot reload)
+```
+
+### Production Deploy
+```bash
+# Build everything and deploy to Cloudflare Workers
+pnpm deploy
+```
+
+### Usage
+- Copy content from PowerPoint (shapes, text, images)
+- Paste in the application (dev: http://localhost:5173)
+- View parsed components with TLDraw visualization
+- Use slideshow mode for presentation view
+
+## Features
+
+- **Real-time Parsing**: Instant PowerPoint clipboard data extraction
+- **Visual Canvas**: TLDraw integration for interactive presentation
+- **Slideshow Mode**: Full-screen presentation with keyboard navigation
+- **Multiple Formats**: Support for clipboard data and uploaded PPTX files
+- **Edge Deployment**: Runs on Cloudflare's global network for low latency
 
 ## Use Cases
 
@@ -56,6 +75,6 @@ The system extracts:
 
 ## Technical Details
 
-The system reverse-engineers PowerPoint's cloud service integration, extracts ZIP-formatted Office Open XML data, and uses specialized parsers for different component types (TextParser, ShapeParser, ImageParser, TableParser).
+The system reverse-engineers PowerPoint's cloud service integration, extracts ZIP-formatted Office Open XML data, and uses specialized parsers for different component types (TextParser, ShapeParser, ImageParser, TableParser). Built with TypeScript throughout and deployed on Cloudflare Workers for edge computing performance.
 
 See `CLAUDE.md` for detailed implementation information.

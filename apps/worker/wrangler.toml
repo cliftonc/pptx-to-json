@@ -10,7 +10,7 @@ bucket_name = "ppt-paste-files"
 
 # Static assets binding
 [assets]
-directory = "./public"
+directory = "./dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 

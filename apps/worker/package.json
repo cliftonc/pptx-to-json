@@ -4,11 +4,11 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev --port=3001",
+    "dev:client": "cd client && pnpm dev",
     "start": "wrangler dev --port=3001",
-    "deploy": "npm run build && wrangler deploy",
-    "build": "npm run build:frontend && npm run copy:frontend",
-    "build:frontend": "cd ../demo && pnpm build",
-    "copy:frontend": "cp -r ../demo/dist/* ./public"
+    "deploy": "pnpm run build && wrangler deploy",
+    "build": "pnpm run build:client",
+    "build:client": "cd client && pnpm build"
   },
   "dependencies": {
     "hono": "^4.9.5",
