@@ -2,11 +2,26 @@ import { tipTapDefaultExtensions, defaultAddFontsFromNode, type TLTextOptions } 
 import FontFamily from '@tiptap/extension-font-family'
 import { TextStyle } from '@tiptap/extension-text-style'
 import { FontSize } from '../extensions/FontSizeExtension'
+import { 
+  TableExtension, 
+  TableRowExtension, 
+  TableCellExtension, 
+  TableHeaderExtension 
+} from '../extensions/TableExtension'
 
-// Text options configuration to support FontSize and TextStyle marks
+// Text options configuration to support FontSize, TextStyle marks, and Tables
 export const textOptions: Partial<TLTextOptions> = {
   tipTapConfig: {
-    extensions: [...tipTapDefaultExtensions, FontFamily, FontSize, TextStyle],
+    extensions: [
+      ...tipTapDefaultExtensions, 
+      FontFamily, 
+      FontSize, 
+      TextStyle, 
+      TableExtension,
+      TableRowExtension,
+      TableCellExtension,
+      TableHeaderExtension
+    ],
   },
   addFontsFromNode(node, state, addFont) {
     state = defaultAddFontsFromNode(node, state, addFont)

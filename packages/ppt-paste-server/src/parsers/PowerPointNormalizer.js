@@ -7,6 +7,7 @@
 
 import { PPTXParser } from '../processors/PPTXParser.js';
 import { DEFAULT_SLIDE_WIDTH_PX, DEFAULT_SLIDE_HEIGHT_PX } from '../utils/constants.js';
+import { BaseParser } from './BaseParser.js';
 
 export class PowerPointNormalizer {
   
@@ -199,10 +200,13 @@ export class PowerPointNormalizer {
       slides.push(normalizedSlide);
     }
     
+    // Calculate content-based dimensions for clipboard format
+    const contentBounds = this.calculateContentBounds(slides);
+    
     return {
       format: 'clipboard',
       slides,
-      slideDimensions: { width: DEFAULT_SLIDE_WIDTH_PX, height: DEFAULT_SLIDE_HEIGHT_PX }, // Default for clipboard format
+      slideDimensions: contentBounds,
       mediaFiles: this.extractMediaFiles(json),
       relationships: this.extractRelationships(json)
     };
@@ -542,6 +546,28 @@ export class PowerPointNormalizer {
             spPr: pic['spPr']
           });
         }
+      } else if (key === 'graphicFrame') {
+        // Handle tables (graphicFrame containing table data)
+        const graphicFrameArray = this.ensureArray(value);
+        for (const graphicFrame of graphicFrameArray) {
+          // Check if this is a table by looking at the graphicData URI
+          const graphic = graphicFrame['graphic'];
+          const graphicData = graphic?.['graphicData'];
+          const uri = graphicData?.['$uri'];
+          
+          if (uri === 'http://schemas.openxmlformats.org/drawingml/2006/table') {
+            elements.push({
+              type: 'table',
+              zIndex: zIndex++,
+              namespace: 'p',
+              element: 'graphicFrame',
+              data: graphicFrame,
+              nvGraphicFramePr: graphicFrame['nvGraphicFramePr'],
+              spPr: graphicFrame['xfrm'], // Use xfrm for positioning
+              graphicData: graphicData
+            });
+          }
+        }
       }
     }
 
@@ -607,6 +633,28 @@ export class PowerPointNormalizer {
             blipFill: pic['blipFill'],
             spPr: pic['spPr']
           });
+        }
+      } else if (key === 'graphicFrame') {
+        // Handle tables (graphicFrame containing table data) in clipboard
+        const graphicFrameArray = this.ensureArray(value);
+        for (const graphicFrame of graphicFrameArray) {
+          // Check if this is a table by looking at the graphicData URI
+          const graphic = graphicFrame['graphic'];
+          const graphicData = graphic?.['graphicData'];
+          const uri = graphicData?.['$uri'];
+          
+          if (uri === 'http://schemas.openxmlformats.org/drawingml/2006/table') {
+            elements.push({
+              type: 'table',
+              zIndex: zIndex++,
+              namespace: 'a',
+              element: 'graphicFrame',
+              data: graphicFrame,
+              nvGraphicFramePr: graphicFrame['nvGraphicFramePr'],
+              spPr: graphicFrame['xfrm'], // Use xfrm for positioning
+              graphicData: graphicData
+            });
+          }
         }
       }
     }
@@ -815,5 +863,83 @@ export class PowerPointNormalizer {
       console.warn('Error converting master element:', error);
       return null;
     }
+  }
+
+  /**
+   * Calculate content bounds to determine appropriate slide dimensions
+   * @param {Array} slides - Array of normalized slide objects
+   * @returns {Object} - Dimensions object with width and height
+   */
+  calculateContentBounds(slides) {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    let hasContent = false;
+
+    // BaseParser is already imported at the top
+
+    for (const slide of slides) {
+      // Check all element types
+      const allElements = [...slide.shapes, ...slide.text, ...slide.images];
+      
+      for (const element of allElements) {
+        if (!element.data || !element.spPr) continue;
+        
+        try {
+          // Parse transform to get position and size
+          const xfrm = element.spPr['xfrm'];
+          if (!xfrm) continue;
+          
+          const transform = BaseParser.parseTransform(xfrm);
+          if (transform.width === 0 && transform.height === 0) continue;
+          
+          // Calculate element bounds
+          const elementMinX = transform.x;
+          const elementMinY = transform.y;
+          const elementMaxX = transform.x + transform.width;
+          const elementMaxY = transform.y + transform.height;
+          
+          // Update overall bounds
+          minX = Math.min(minX, elementMinX);
+          minY = Math.min(minY, elementMinY);
+          maxX = Math.max(maxX, elementMaxX);
+          maxY = Math.max(maxY, elementMaxY);
+          
+          hasContent = true;
+        } catch (error) {
+          console.warn('Error parsing element bounds:', error);
+        }
+      }
+    }
+    
+    if (!hasContent) {
+      // Fallback to default dimensions if no content found
+      console.log('📐 No content bounds found, using default dimensions');
+      return { width: DEFAULT_SLIDE_WIDTH_PX, height: DEFAULT_SLIDE_HEIGHT_PX };
+    }
+    
+    // Add padding around content (10% on each side)
+    const contentWidth = maxX - minX;
+    const contentHeight = maxY - minY;
+    const paddingX = Math.max(50, contentWidth * 0.1); // Minimum 50px padding
+    const paddingY = Math.max(50, contentHeight * 0.1); // Minimum 50px padding
+    
+    const finalWidth = Math.round(contentWidth + (paddingX * 2));
+    const finalHeight = Math.round(contentHeight + (paddingY * 2));
+    
+    // Ensure minimum dimensions
+    const minWidth = 400;
+    const minHeight = 300;
+    
+    const result = {
+      width: Math.max(finalWidth, minWidth),
+      height: Math.max(finalHeight, minHeight)
+    };
+    
+    console.log('📐 Calculated content-based slide dimensions:', result, 
+                `(content bounds: ${contentWidth}x${contentHeight}, padding: ${paddingX}x${paddingY})`);
+    
+    return result;
   }
 }

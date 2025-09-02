@@ -37,6 +37,31 @@ export function RichTextToolbar() {
   const currentFontFamily = textEditor?.getAttributes('textStyle').fontFamily ?? 'DEFAULT'
   const currentFontSize = textEditor?.getAttributes('textStyle').fontSize ?? 'DEFAULT'
 
+  // Table helper functions
+  const insertTable = () => {
+    textEditor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+  }
+
+  const addRowAfter = () => {
+    textEditor?.chain().focus().addRowAfter().run()
+  }
+
+  const addColumnAfter = () => {
+    textEditor?.chain().focus().addColumnAfter().run()
+  }
+
+  const deleteRow = () => {
+    textEditor?.chain().focus().deleteRow().run()
+  }
+
+  const deleteColumn = () => {
+    textEditor?.chain().focus().deleteColumn().run()
+  }
+
+  const deleteTable = () => {
+    textEditor?.chain().focus().deleteTable().run()
+  }
+
   return (
     <DefaultRichTextToolbar>
       <select
@@ -73,6 +98,59 @@ export function RichTextToolbar() {
           </option>
         ))}
       </select>
+      
+      {/* Table Controls */}
+      <div style={{ display: 'flex', gap: '4px', borderLeft: '1px solid #e0e0e0', paddingLeft: '8px', marginLeft: '8px' }}>
+        <button
+          onPointerDown={stopEventPropagation}
+          onClick={insertTable}
+          title="Insert Table (3×3)"
+          style={{ padding: '4px 8px', fontSize: '12px', border: '1px solid #ccc', borderRadius: '3px', background: 'white' }}
+        >
+          📋 Table
+        </button>
+        <button
+          onPointerDown={stopEventPropagation}
+          onClick={addRowAfter}
+          title="Add Row"
+          style={{ padding: '4px 6px', fontSize: '12px', border: '1px solid #ccc', borderRadius: '3px', background: 'white' }}
+        >
+          ➕ Row
+        </button>
+        <button
+          onPointerDown={stopEventPropagation}
+          onClick={addColumnAfter}
+          title="Add Column"
+          style={{ padding: '4px 6px', fontSize: '12px', border: '1px solid #ccc', borderRadius: '3px', background: 'white' }}
+        >
+          ➕ Col
+        </button>
+        <button
+          onPointerDown={stopEventPropagation}
+          onClick={deleteRow}
+          title="Delete Row"
+          style={{ padding: '4px 6px', fontSize: '12px', border: '1px solid #ccc', borderRadius: '3px', background: 'white' }}
+        >
+          ❌ Row
+        </button>
+        <button
+          onPointerDown={stopEventPropagation}
+          onClick={deleteColumn}
+          title="Delete Column"
+          style={{ padding: '4px 6px', fontSize: '12px', border: '1px solid #ccc', borderRadius: '3px', background: 'white' }}
+        >
+          ❌ Col
+        </button>
+        <button
+          onPointerDown={stopEventPropagation}
+          onClick={deleteTable}
+          title="Delete Table"
+          style={{ padding: '4px 6px', fontSize: '12px', border: '1px solid #ccc', borderRadius: '3px', background: '#ffebee' }}
+        >
+          🗑️ Table
+        </button>
+      </div>
+      
       <DefaultRichTextToolbarContent textEditor={textEditor} />
     </DefaultRichTextToolbar>
   )

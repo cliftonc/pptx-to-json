@@ -67,16 +67,6 @@ function App() {
     setLoadingProgress(progress);
   };
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'text': return '#d1edff';
-      case 'image': return '#f8d7da';
-      case 'shape': return '#d4edda';
-      case 'table': return '#fff3cd';
-      default: return '#e2e3e5';
-    }
-  };
-
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'text': return '📝';
@@ -87,93 +77,6 @@ function App() {
     }
   };
 
-  const renderRichText = (richText: any): React.ReactNode => {
-    if (!richText || !richText.content) return null;
-    
-    return richText.content.map((item: any, index: number) => {
-      if (item.type === 'paragraph') {
-        return (
-          <div key={index} style={{ marginBottom: '8px' }}>
-            {item.content?.map((textNode: any, textIndex: number) => {
-              if (textNode.type === 'text') {
-                let style: React.CSSProperties = {};
-                
-                // Apply marks (formatting)
-                if (textNode.marks) {
-                  textNode.marks.forEach((mark: any) => {
-                    if (mark.type === 'bold') style.fontWeight = 'bold';
-                    if (mark.type === 'italic') style.fontStyle = 'italic';
-                    if (mark.type === 'textStyle' && mark.attrs) {
-                      if (mark.attrs.fontSize) style.fontSize = mark.attrs.fontSize;
-                      if (mark.attrs.color) style.color = mark.attrs.color;
-                      if (mark.attrs.fontFamily) style.fontFamily = mark.attrs.fontFamily;
-                    }
-                  });
-                }
-                
-                // Apply custom attributes (fallback for legacy format)
-                if (textNode.attrs) {
-                  if (textNode.attrs.fontSize) style.fontSize = `${textNode.attrs.fontSize}pt`;
-                  if (textNode.attrs.color) style.color = textNode.attrs.color;
-                  if (textNode.attrs.fontFamily) style.fontFamily = textNode.attrs.fontFamily;
-                }
-                
-                return (
-                  <span key={textIndex} style={style}>
-                    {textNode.text}
-                  </span>
-                );
-              }
-              return null;
-            })}
-          </div>
-        );
-      } else if (item.type === 'bulletList') {
-        return (
-          <ul key={index} style={{ marginBottom: '8px', paddingLeft: '20px' }}>
-            {item.content?.map((listItem: any, listIndex: number) => (
-              <li key={listIndex}>
-                {listItem.content?.[0]?.content?.map((textNode: any, textIndex: number) => {
-                  if (textNode.type === 'text') {
-                    let style: React.CSSProperties = {};
-                    
-                    // Apply marks (formatting)
-                    if (textNode.marks) {
-                      textNode.marks.forEach((mark: any) => {
-                        if (mark.type === 'bold') style.fontWeight = 'bold';
-                        if (mark.type === 'italic') style.fontStyle = 'italic';
-                        if (mark.type === 'textStyle' && mark.attrs) {
-                          if (mark.attrs.fontSize) style.fontSize = mark.attrs.fontSize;
-                          if (mark.attrs.color) style.color = mark.attrs.color;
-                          if (mark.attrs.fontFamily) style.fontFamily = mark.attrs.fontFamily;
-                        }
-                      });
-                    }
-                    
-                    // Apply custom attributes (fallback for legacy format)
-                    if (textNode.attrs) {
-                      if (textNode.attrs.fontSize) style.fontSize = `${textNode.attrs.fontSize}pt`;
-                      if (textNode.attrs.color) style.color = textNode.attrs.color;
-                      if (textNode.attrs.fontFamily) style.fontFamily = textNode.attrs.fontFamily;
-                    }
-                    
-                    return (
-                      <span key={textIndex} style={style}>
-                        {textNode.text}
-                      </span>
-                    );
-                  }
-                  return null;
-                })}
-              </li>
-            ))}
-          </ul>
-        );
-      }
-      return null;
-    });
-  };
-
   if (currentPage === 'raw') {
     return <RawDataPage />
   }
@@ -182,8 +85,8 @@ function App() {
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       {/* Left Column - Existing UI */}
       <div style={{ 
-        width: '40%', 
-        padding: '20px', 
+        width: '25%', 
+        padding: '15px', 
         overflowY: 'auto',
         borderRight: '1px solid #ddd'
       }}>
@@ -365,7 +268,7 @@ function App() {
           
           {/* Component Support Information */}
           <div style={{ marginTop: '20px', fontSize: '14px', textAlign: 'left' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '15px' }}>
               {/* Supported Components */}
               <div style={{
                 padding: '16px',
@@ -385,6 +288,7 @@ function App() {
                   <li><strong>📝 Text:</strong> Rich text with fonts, colors, sizes, bold/italic</li>
                   <li><strong>🖼️ Images:</strong> PNG, JPG with positioning & scaling</li>
                   <li><strong>🔸 Shapes:</strong> Rectangles, circles, lines with fills & borders</li>
+                  <li><strong>📊 Tables:</strong> Rich text tables with headers and data cells</li>
                   <li><strong>🎨 Styling:</strong> Colors, gradients, transparency, shadows</li>
                   <li><strong>📐 Layout:</strong> Precise positioning, rotation, grouping</li>
                 </ul>
@@ -406,7 +310,6 @@ function App() {
                   lineHeight: '1.8', 
                   color: '#721c24' 
                 }}>
-                  <li><strong>📊 Tables:</strong> Coming soon - handled client-side</li>
                   <li><strong>📈 Charts:</strong> Graphs, pie charts, data visualizations</li>
                   <li><strong>🎬 Media:</strong> Videos, audio files, embedded content</li>
                   <li><strong>🔗 SmartArt:</strong> Diagrams, org charts, process flows</li>
@@ -498,212 +401,6 @@ function App() {
                   </div>
                 )}
 
-                {/* Individual Components */}
-                <h4>📝 Component Details:</h4>
-                <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
-                  {structuredData.slides?.flatMap((slide: any, slideIndex: number) => 
-                    slide.components.map((component: any, componentIndex: number) => ({
-                      ...component,
-                      slideIndex,
-                      componentIndex
-                    }))
-                  ).map((component: any, index: number) => (
-                    <div key={`${component.slideIndex}-${component.id}-${component.componentIndex}`} style={{
-                      border: '1px solid #ddd',
-                      padding: '15px',
-                      marginBottom: '10px',
-                      borderRadius: '6px',
-                      backgroundColor: getTypeColor(component.type)
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                        <div>
-                          <strong style={{ fontSize: '16px' }}>
-                            {getTypeIcon(component.type) as string} Component #{index + 1}
-                          </strong>
-                          <span style={{ 
-                            marginLeft: '10px', 
-                            padding: '3px 8px', 
-                            backgroundColor: '#666', 
-                            color: 'white', 
-                            fontSize: '12px', 
-                            borderRadius: '4px',
-                            textTransform: 'uppercase'
-                          }}>
-                            {component.type}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '12px', color: '#666' }}>
-                          ID: {component.id}
-                        </div>
-                      </div>
-
-                      {/* Position and Size */}
-                      <div style={{ 
-                        display: 'grid', 
-                        gridTemplateColumns: '1fr 1fr', 
-                        gap: '10px', 
-                        marginBottom: '10px',
-                        fontSize: '13px',
-                        color: '#555'
-                      }}>
-                        <div>
-                          <strong>Position:</strong> ({Math.round(component.x || 0)}, {Math.round(component.y || 0)})
-                        </div>
-                        <div>
-                          <strong>Size:</strong> {Math.round(component.width || 0)} × {Math.round(component.height || 0)}
-                        </div>
-                        {component.rotation && (
-                          <div>
-                            <strong>Rotation:</strong> {Math.round(component.rotation)}°
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Content */}
-                      <div style={{ marginBottom: '10px' }}>
-                        <strong>Content:</strong>
-                        <div style={{
-                          marginTop: '5px',
-                          padding: '8px',
-                          backgroundColor: 'white',
-                          border: '1px solid #ddd',
-                          borderRadius: '3px',
-                          fontSize: '14px',
-                          maxHeight: '100px',
-                          overflow: 'auto',
-                          wordBreak: 'break-word'
-                        }}>
-                          {component.content || <em style={{color: '#999'}}>No text content</em>}
-                        </div>
-                      </div>
-
-                      {/* Rich Text with Formatting */}
-                      {component.richText && (
-                        <div style={{ marginBottom: '10px' }}>
-                          <strong>Rich Text (with formatting):</strong>
-                          <div style={{
-                            marginTop: '5px',
-                            padding: '8px',
-                            backgroundColor: 'white',
-                            border: '1px solid #ddd',
-                            borderRadius: '3px',
-                            fontSize: '14px',
-                            maxHeight: '150px',
-                            overflow: 'auto',
-                            wordBreak: 'break-word'
-                          }}>
-                            {renderRichText(component.richText)}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Table Data */}
-                      {component.type === 'table' && component.metadata?.tableData && (
-                        <div style={{ marginBottom: '10px' }}>
-                          <strong>Table Data ({component.metadata.rows} rows × {component.metadata.cols} columns):</strong>
-                          <div style={{
-                            marginTop: '5px',
-                            border: '1px solid #ddd',
-                            borderRadius: '3px',
-                            overflow: 'auto',
-                            maxHeight: '300px'
-                          }}>
-                            <table style={{
-                              width: '100%',
-                              borderCollapse: 'collapse',
-                              fontSize: '13px'
-                            }}>
-                              <tbody>
-                                {component.metadata.tableData.map((row: string[], rowIndex: number) => (
-                                  <tr key={rowIndex}>
-                                    {row.map((cell: string, cellIndex: number) => (
-                                      <td key={cellIndex} style={{
-                                        border: '1px solid #ddd',
-                                        padding: '6px',
-                                        backgroundColor: rowIndex === 0 && component.metadata.hasHeader 
-                                          ? '#f8f9fa' 
-                                          : 'white',
-                                        fontWeight: rowIndex === 0 && component.metadata.hasHeader 
-                                          ? 'bold' 
-                                          : 'normal'
-                                      }}>
-                                        {cell || <em style={{color: '#999'}}>empty</em>}
-                                      </td>
-                                    ))}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                          <div style={{
-                            marginTop: '5px',
-                            fontSize: '11px',
-                            color: '#666'
-                          }}>
-                            Source: {component.metadata.source || 'unknown'}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Enhanced Style Information */}
-                      {component.style && (
-                        <div style={{ marginBottom: '10px' }}>
-                          <strong>Style:</strong>
-                          <div style={{
-                            marginTop: '5px',
-                            padding: '8px',
-                            backgroundColor: '#f8f9fa',
-                            border: '1px solid #ddd',
-                            borderRadius: '3px',
-                            fontSize: '12px'
-                          }}>
-                            {component.style.fontSize && (
-                              <div><strong>Font Size:</strong> {component.style.fontSize}pt</div>
-                            )}
-                            {component.style.fontFamily && (
-                              <div><strong>Font Family:</strong> {component.style.fontFamily}</div>
-                            )}
-                            {component.style.fontWeight && component.style.fontWeight !== 'normal' && (
-                              <div><strong>Font Weight:</strong> {component.style.fontWeight}</div>
-                            )}
-                            {component.style.color && (
-                              <div><strong>Text Color:</strong> <span style={{color: component.style.color}}>{component.style.color}</span></div>
-                            )}
-                            {component.style.backgroundColor && component.style.backgroundColor !== 'transparent' && (
-                              <div><strong>Background:</strong> <span style={{backgroundColor: component.style.backgroundColor, padding: '2px 4px', borderRadius: '2px'}}>{component.style.backgroundColor}</span></div>
-                            )}
-                            {component.style.borderColor && component.style.borderColor !== 'transparent' && (
-                              <div><strong>Border:</strong> {component.style.borderWidth || 1}px {component.style.borderStyle || 'solid'} <span style={{color: component.style.borderColor}}>{component.style.borderColor}</span></div>
-                            )}
-                            {component.style.textAlign && component.style.textAlign !== 'left' && (
-                              <div><strong>Text Align:</strong> {component.style.textAlign}</div>
-                            )}
-                            {component.style.opacity !== undefined && component.style.opacity !== 1 && (
-                              <div><strong>Opacity:</strong> {Math.round(component.style.opacity * 100)}%</div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Metadata */}
-                      {component.metadata && (
-                        <div style={{ fontSize: '12px', color: '#666' }}>
-                          <strong>Metadata:</strong>
-                          <div style={{ marginTop: '5px', padding: '5px', backgroundColor: '#f8f9fa', borderRadius: '3px' }}>
-                            {Object.entries(component.metadata)
-                              .filter(([key]) => key !== 'imageUrl') // Don't show imageUrl as it's very long
-                              .map(([key, value]) => (
-                              <div key={key} style={{ margin: '2px 0' }}>
-                                <strong>{key}:</strong> {JSON.stringify(value)}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
                 {/* Debug Info */}
                 <div style={{ marginTop: '20px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '4px', fontSize: '12px', color: '#666' }}>
                   <strong>Debug:</strong> PowerPoint: {structuredData.isPowerPoint ? 'Yes' : 'No'} | 
@@ -717,7 +414,7 @@ function App() {
       </div>
 
       {/* Right Column - Tldraw Canvas */}
-      <div style={{ width: '60%', height: '100%' }}>
+      <div style={{ width: '75%', height: '100%' }}>
         <TldrawCanvas 
           components={[]} // No longer used, components are in slides
           slides={structuredData?.slides || []}

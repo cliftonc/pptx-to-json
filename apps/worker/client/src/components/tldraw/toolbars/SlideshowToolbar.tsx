@@ -63,10 +63,6 @@ export function SlideshowToolbar({
     )
   }
 
-  // Debug: Show when no slides are available
-  return (
-    <div className="slideshow-info" style={{ color: '#666', fontSize: '11px' }}>
-      Paste PowerPoint content to enable slideshow ({totalSlides} slides)
-    </div>
-  )
+  // No slides available - return null to hide toolbar
+  return null
 }

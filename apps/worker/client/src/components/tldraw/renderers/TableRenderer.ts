@@ -1,7 +1,70 @@
-import { createShapeId, toRichText, type Editor } from '@tldraw/tldraw'
+import { createShapeId, type Editor } from '@tldraw/tldraw'
 import type { PowerPointComponent } from 'ppt-paste-parser'
 import { createComponentShapeId } from '../utils/tldrawHelpers'
 import { calculateFrameRelativePosition } from '../utils/coordinateHelpers'
+
+/**
+ * Convert table data to TipTap richText table structure
+ */
+function createTableRichText(tableData: string[][], hasHeader: boolean = true): any {
+  if (!tableData || tableData.length === 0) {
+    return {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'Empty table' }]
+        }
+      ]
+    }
+  }
+
+  const tableRows = tableData.map((rowData, rowIndex) => {
+    const isHeaderRow = hasHeader && rowIndex === 0
+    const cellType = isHeaderRow ? 'tableHeader' : 'tableCell'
+    
+    const cells = rowData.map((cellContent) => {
+      const textContent = cellContent && cellContent.trim() ? cellContent : ' '
+      return {
+        type: cellType,
+        attrs: {
+          colspan: 1,
+          rowspan: 1,
+          colwidth: null
+        },
+        content: [
+          {
+            type: 'paragraph',
+            attrs: {
+              dir: 'auto'
+            },
+            content: [
+              {
+                type: 'text',
+                text: textContent
+              }
+            ]
+          }
+        ]
+      }
+    })
+
+    return {
+      type: 'tableRow',
+      content: cells
+    }
+  })
+
+  return {
+    type: 'doc',
+    content: [
+      {
+        type: 'table',
+        content: tableRows
+      }
+    ]
+  }
+}
 
 export async function renderTableComponent(
   component: PowerPointComponent,
@@ -14,18 +77,12 @@ export async function renderTableComponent(
 ) {
   // Get table data from metadata
   const tableData = component.metadata?.tableData || []
-  const rows = component.metadata?.rows || tableData.length
-  const cols = component.metadata?.cols || (tableData[0]?.length || 0)
+  const hasHeader = component.metadata?.hasHeader ?? true
   
   if (tableData.length === 0) {
+    console.warn('No table data found for table component')
     return
   }
-  
-  // Calculate cell dimensions
-  const tableWidth = component.width || 300
-  const tableHeight = component.height || 150
-  const cellWidth = tableWidth / cols
-  const cellHeight = tableHeight / rows
   
   const scale = 1
   const { x: tableX, y: tableY } = calculateFrameRelativePosition(
@@ -37,129 +94,39 @@ export async function renderTableComponent(
     !!frameId
   )
   
-  // Create shapes for each table cell
-  tableData.forEach((row: any[], rowIndex: number) => {
-    if (!Array.isArray(row)) return
-    
-    row.forEach((cellContent: any, colIndex: number) => {
-      const cellX = tableX + (colIndex * cellWidth)
-      const cellY = tableY + (rowIndex * cellHeight)
-      
-      // Create cell background rectangle
-      createCellBackground(
-        editor,
-        slideIndex,
-        component,
-        index,
-        rowIndex,
-        colIndex,
-        cellX,
-        cellY,
-        cellWidth,
-        cellHeight,
-        frameId
-      )
-      
-      // Create cell text if there's content
-      if (cellContent && cellContent.trim()) {
-        createCellText(
-          editor,
-          slideIndex,
-          component,
-          index,
-          rowIndex,
-          colIndex,
-          cellX,
-          cellY,
-          cellHeight,
-          cellContent,
-          frameId
-        )
-      }
-    })
+  // Create table rich text structure
+  const richText = createTableRichText(tableData, hasHeader)
+  
+  // Create a single text shape with the table richText
+  const tableId = createShapeId(createComponentShapeId('table', slideIndex, component.id || index, 'richtext'))
+  
+  const tableProps: any = {
+    id: tableId,
+    type: 'text',
+    x: tableX,
+    y: tableY,
+    props: {
+      richText: richText,
+      color: 'black',
+      size: 's',
+      font: 'sans',
+      w: component.width || 400,
+      autoSize: false
+    }
+  }
+  
+  if (frameId) {
+    tableProps.parentId = frameId
+  }
+  
+  editor.createShape(tableProps)
+  
+  console.log('📊 Created richText table component:', {
+    rows: tableData.length,
+    cols: tableData[0]?.length || 0,
+    hasHeader,
+    position: { x: tableX, y: tableY },
+    dimensions: { w: component.width, h: component.height }
   })
 }
 
-function createCellBackground(
-  editor: Editor,
-  slideIndex: number,
-  component: PowerPointComponent,
-  index: number,
-  rowIndex: number,
-  colIndex: number,
-  cellX: number,
-  cellY: number,
-  cellWidth: number,
-  cellHeight: number,
-  frameId: string | null
-) {
-  const cellRectId = createShapeId(createComponentShapeId('table', slideIndex, component.id || index, `cell-bg-${rowIndex}-${colIndex}`))
-  
-  // Determine cell colors (header vs data)
-  const isHeader = rowIndex === 0 && component.metadata?.hasHeader
-  const fillColor = isHeader ? 'blue' : 'light-blue'
-  
-  const cellRectProps: any = {
-    id: cellRectId,
-    type: 'geo',
-    x: cellX,
-    y: cellY,
-    props: {
-      geo: 'rectangle',
-      color: fillColor,
-      fill: 'solid',
-      size: 's',
-      w: cellWidth,
-      h: cellHeight
-    }
-  }
-  
-  if (frameId) {
-    cellRectProps.parentId = frameId
-  }
-  
-  editor.createShape(cellRectProps)
-}
-
-function createCellText(
-  editor: Editor,
-  slideIndex: number,
-  component: PowerPointComponent,
-  index: number,
-  rowIndex: number,
-  colIndex: number,
-  cellX: number,
-  cellY: number,
-  cellHeight: number,
-  cellContent: any,
-  frameId: string | null
-) {
-  const cellTextId = createShapeId(createComponentShapeId('table', slideIndex, component.id || index, `cell-text-${rowIndex}-${colIndex}`))
-  
-  // Position text in the center of the cell with some padding
-  const textX = cellX + 8 // Small left padding
-  const textY = cellY + cellHeight / 2 - 6 // Center vertically
-  
-  // Text styling
-  const textColor = 'black'
-  const textSize = 's' // Small text for table cells
-  
-  const cellTextProps: any = {
-    id: cellTextId,
-    type: 'text',
-    x: textX,
-    y: textY,
-    props: {
-      richText: toRichText(cellContent.toString()),
-      color: textColor,
-      size: textSize,
-      font: 'sans'
-    }
-  }
-  
-  if (frameId) {
-    cellTextProps.parentId = frameId
-  }
-  
-  editor.createShape(cellTextProps)
-}

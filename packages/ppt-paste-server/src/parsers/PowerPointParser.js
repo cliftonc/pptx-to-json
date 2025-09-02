@@ -6,6 +6,7 @@ import { PowerPointNormalizer } from './PowerPointNormalizer.js';
 import { TextParser } from './TextParser.js';
 import { ShapeParser } from './ShapeParser.js';
 import { ImageParser } from './ImageParser.js';
+import { TableParser } from './TableParser.js';
 import { BaseParser, isBufferLike, bufferFrom } from './BaseParser.js';
 
 export class PowerPointParser extends BaseParser {
@@ -79,6 +80,15 @@ export class PowerPointParser extends BaseParser {
                 globalComponentIndex++,
                 slideNumber - 1, // Use 0-based index for relationships
                 { debug, r2Storage }
+              );
+            } else if (element.type === 'table') {
+              component = await this.parseUnifiedTableComponent(
+                element,
+                normalized.relationships,
+                normalized.mediaFiles,
+                globalComponentIndex++,
+                slideNumber - 1, // Use 0-based index for relationships
+                { debug }
               );
             }
             
@@ -264,6 +274,24 @@ export class PowerPointParser extends BaseParser {
       return await ImageParser.parseFromNormalized(imageComponent, relationships, mediaFiles, componentIndex, slideIndex, r2Storage);
     } catch (error) {
       if (debug) console.warn(`⚠️ Failed to parse image component:`, error);
+      return null;
+    }
+  }
+  
+  /**
+   * Parse unified table component from normalized data
+   * @param {Object} tableComponent - Normalized table component
+   * @param {Object} relationships - Relationship data
+   * @param {Object} mediaFiles - Media files
+   * @param {number} componentIndex - Component index
+   * @param {number} slideIndex - Slide index
+   * @returns {Promise<Object|null>} - Parsed component or null
+   */
+  async parseUnifiedTableComponent(tableComponent, relationships, mediaFiles, componentIndex, slideIndex, { debug = false } = {}) {
+    try {
+      return await TableParser.parseFromNormalized(tableComponent, componentIndex, slideIndex);
+    } catch (error) {
+      if (debug) console.warn(`⚠️ Failed to parse table component:`, error);
       return null;
     }
   }
