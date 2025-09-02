@@ -1,16 +1,228 @@
-import { useEffect, useRef } from 'react'
-import { Tldraw, Editor, createShapeId, toRichText, AssetRecordType } from '@tldraw/tldraw'
+import { useEffect, useRef, useState } from 'react'
+import { EditorState as TextEditorState } from '@tiptap/pm/state'
+import { Extension } from '@tiptap/core'
+import { 
+  Tldraw, 
+  Editor, 
+  createShapeId, 
+  toRichText, 
+  AssetRecordType, 
+  tipTapDefaultExtensions, 
+  defaultAddFontsFromNode, 
+  type TLTextOptions,
+  type TLComponents,
+  useEditor,
+  useValue,
+  DefaultRichTextToolbar,
+  DefaultRichTextToolbarContent,
+  stopEventPropagation
+} from '@tldraw/tldraw'
+import FontFamily from '@tiptap/extension-font-family'
+import { TextStyle } from '@tiptap/extension-text-style'
+
+// FontSize extension for TipTap v2.26.1
+const FontSize = Extension.create({
+  name: 'fontSize',
+  
+  addOptions() {
+    return {
+      types: ['textStyle'],
+    }
+  },
+
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          fontSize: {
+            default: null,
+            parseHTML: element => element.style.fontSize,
+            renderHTML: attributes => {
+              if (!attributes.fontSize) {
+                return {}
+              }
+              return {
+                style: `font-size: ${attributes.fontSize}`,
+              }
+            },
+          },
+        },
+      },
+    ]
+  },
+
+  addCommands() {
+    return {
+      setFontSize: fontSize => ({ chain }) => {
+        return chain()
+          .setMark('textStyle', { fontSize })
+          .run()
+      },
+      unsetFontSize: () => ({ chain }) => {
+        return chain()
+          .setMark('textStyle', { fontSize: null })
+          .removeEmptyTextStyle()
+          .run()
+      },
+    }
+  },
+})
 import type { PowerPointComponent, PowerPointSlide } from 'ppt-paste-parser'
 import '@tldraw/tldraw/tldraw.css'
+
+// Custom CSS for toolbar select elements
+const customToolbarStyles = `
+.tlui-buttons__horizontal select {
+    border: 0;
+    background: transparent;
+    margin: 0 8px;
+}
+`
 
 interface TldrawCanvasProps {
   components: PowerPointComponent[]
   slides?: PowerPointSlide[]
 }
 
+// Font options for toolbar
+const fontOptions = [
+  { label: 'Default', value: 'DEFAULT' },
+  { label: 'Arial', value: 'Arial' },
+  { label: 'Helvetica', value: 'Helvetica' },
+  { label: 'Times New Roman', value: 'Times New Roman' },
+  { label: 'Georgia', value: 'Georgia' },
+  { label: 'Courier New', value: 'Courier New' },
+]
+
+const fontSizeOptions = [
+  { label: 'Default', value: 'DEFAULT' },
+  { label: '8pt', value: '8pt' },
+  { label: '9pt', value: '9pt' },
+  { label: '10pt', value: '10pt' },
+  { label: '11pt', value: '11pt' },
+  { label: '12pt', value: '12pt' },
+  { label: '14pt', value: '14pt' },
+  { label: '16pt', value: '16pt' },
+  { label: '18pt', value: '18pt' },
+  { label: '20pt', value: '20pt' },
+  { label: '24pt', value: '24pt' },
+  { label: '28pt', value: '28pt' },
+  { label: '32pt', value: '32pt' },
+  { label: '36pt', value: '36pt' },
+  { label: '48pt', value: '48pt' },
+  { label: '72pt', value: '72pt' },
+]
+
+// Custom toolbar UI components for TLDraw
+const uiComponents: TLComponents = {
+  RichTextToolbar: () => {
+    const editor = useEditor()
+    const textEditor = useValue('textEditor', () => editor.getRichTextEditor(), [editor])
+    const [_, setTextEditorState] = useState<TextEditorState | null>(textEditor?.state ?? null)
+
+    // Set up text editor transaction listener.
+    useEffect(() => {
+      if (!textEditor) {
+        setTextEditorState(null)
+        return
+      }
+
+      const handleTransaction = ({ editor: textEditor }: { editor: any }) => {
+        setTextEditorState(textEditor.state)
+      }
+
+      textEditor.on('transaction', handleTransaction)
+      return () => {
+        textEditor.off('transaction', handleTransaction)
+        setTextEditorState(null)
+      }
+    }, [textEditor])
+
+    if (!textEditor) return null
+
+    const currentFontFamily = textEditor?.getAttributes('textStyle').fontFamily ?? 'DEFAULT'
+    const currentFontSize = textEditor?.getAttributes('textStyle').fontSize ?? 'DEFAULT'
+
+    return (
+      <DefaultRichTextToolbar>
+        <select
+          value={currentFontFamily}
+          onPointerDown={stopEventPropagation}
+          onChange={(e) => {
+            if (e.target.value === 'DEFAULT') {
+              textEditor?.chain().focus().unsetFontFamily().run()
+            } else {
+              textEditor?.chain().focus().setFontFamily(e.target.value).run()
+            }
+          }}
+        >
+          {fontOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={currentFontSize}
+          onPointerDown={stopEventPropagation}
+          onChange={(e) => {
+            if (e.target.value === 'DEFAULT') {
+              textEditor?.chain().focus().unsetFontSize().run()
+            } else {
+              textEditor?.chain().focus().setFontSize(e.target.value).run()
+            }
+          }}
+        >
+          {fontSizeOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <DefaultRichTextToolbarContent textEditor={textEditor} />
+      </DefaultRichTextToolbar>
+    )
+  },
+}
+
+// Text options configuration to support FontSize and TextStyle marks
+const textOptions: Partial<TLTextOptions> = {
+  tipTapConfig: {
+    extensions: [...tipTapDefaultExtensions, FontFamily, FontSize, TextStyle],
+  },
+  addFontsFromNode(node, state, addFont) {
+    state = defaultAddFontsFromNode(node, state, addFont)
+
+    // Handle textStyle marks with fontSize and fontFamily
+    for (const mark of node.marks) {
+      if (mark.type.name === 'textStyle' && mark.attrs) {
+        // Handle fontFamily
+        if (mark.attrs.fontFamily && mark.attrs.fontFamily !== 'DEFAULT' && mark.attrs.fontFamily !== state.family) {
+          state = { ...state, family: mark.attrs.fontFamily }
+        }
+        // Handle fontSize - note: fontSize is handled by TipTap, not font loading
+      }
+    }
+
+    return state
+  },
+}
+
 
 export default function TldrawCanvas({ components, slides }: TldrawCanvasProps) {
   const editorRef = useRef<Editor | null>(null)
+
+  // Inject custom CSS for toolbar styling
+  useEffect(() => {
+    const styleElement = document.createElement('style')
+    styleElement.textContent = customToolbarStyles
+    document.head.appendChild(styleElement)
+    
+    return () => {
+      document.head.removeChild(styleElement)
+    }
+  }, [])
 
   const handleMount = (editor: Editor) => {
     editorRef.current = editor
@@ -187,11 +399,35 @@ export default function TldrawCanvas({ components, slides }: TldrawCanvasProps) 
       console.log(`Text adjusted position for TLDraw: (${x}, ${y})`)
     }
     
-    // Convert PowerPoint font size (pt) to TLDraw size categories
-    // TLDraw only supports size categories: s, m, l, xl
-    let tldrawSize: 's' | 'm' | 'l' | 'xl' = 'm'
-    if (component.style?.fontSize) {
-      console.log('PowerPoint font size:', component.style.fontSize, 'pt → TLDraw size mapping')
+    // Check if richText contains fontSize in textStyle marks
+    const richTextData = (component as any).richText;
+    
+    // Recursive function to check for fontSize in nested structures
+    const hasTextStyleFontSize = (content: any[]): boolean => {
+      if (!content) return false;
+      
+      return content.some((item: any) => {
+        if (item.type === 'text' && item.marks) {
+          // Check if this text node has textStyle with fontSize
+          return item.marks.some((mark: any) => 
+            mark.type === 'textStyle' && mark.attrs?.fontSize
+          );
+        } else if (item.content) {
+          // Recursively check nested content (for listItems, paragraphs, etc.)
+          return hasTextStyleFontSize(item.content);
+        }
+        return false;
+      });
+    };
+    
+    const hasRichTextFontSize = richTextData && hasTextStyleFontSize(richTextData.content);
+    console.log('🎯 hasRichTextFontSize:', hasRichTextFontSize);
+    
+    // Convert PowerPoint font size (pt) to TLDraw size categories as fallback
+    // Only use this when richText doesn't have fontSize information
+    let tldrawSize: 's' | 'm' | 'l' | 'xl' | undefined = undefined;
+    if (!hasRichTextFontSize && component.style?.fontSize) {
+      console.log('PowerPoint font size:', component.style.fontSize, 'pt → TLDraw size mapping (fallback)')
       // More nuanced mapping for better visual accuracy
       if (component.style.fontSize <= 10) tldrawSize = 's'        // Very small text
       else if (component.style.fontSize <= 13) tldrawSize = 's'   // Small text (≤13pt)
@@ -199,7 +435,13 @@ export default function TldrawCanvas({ components, slides }: TldrawCanvasProps) 
       else if (component.style.fontSize <= 23) tldrawSize = 'l'   // Large text (19-23pt)
       else tldrawSize = 'xl'                                      // Extra large text (≥24pt)
       
-      console.log(`Font size ${component.style.fontSize}pt mapped to TLDraw size '${tldrawSize}'`)
+      console.log(`Font size ${component.style.fontSize}pt mapped to TLDraw size '${tldrawSize}' (fallback)`)
+    } else if (hasRichTextFontSize) {
+      console.log('Using fontSize from richText textStyle marks, skipping TLDraw size mapping')
+    } else {
+      // Default fallback
+      tldrawSize = 'm';
+      console.log('No fontSize found, using default TLDraw size: m')
     }
 
     // Map specific hex colors from the API to tldraw colors
@@ -253,21 +495,27 @@ export default function TldrawCanvas({ components, slides }: TldrawCanvasProps) 
     }
 
     // Create text shape with rotation applied directly and parent it to frame
+    const textProps: any = {
+      richText: richTextContent,
+      color: tldrawColor,
+      font: tldrawFont,
+      // Only disable autoSize if PowerPoint provided a width, otherwise let TLDraw autosize
+      autoSize: !component.width,
+      ...(component.width ? { w: component.width } : {})
+    };
+    
+    // Only set size if we don't have rich text fontSize (to avoid overriding)
+    if (tldrawSize) {
+      textProps.size = tldrawSize;
+    }
+    
     const shapeProps: any = {
       id: shapeId,
       type: 'text',
       x,
       y,
       rotation: component.rotation ? (component.rotation * Math.PI) / 180 : 0, // Convert degrees to radians
-      props: {
-        richText: richTextContent,
-        color: tldrawColor,
-        size: tldrawSize,
-        font: tldrawFont,
-        // Only disable autoSize if PowerPoint provided a width, otherwise let TLDraw autosize
-        autoSize: !component.width,
-        ...(component.width ? { w: component.width } : {})
-      }
+      props: textProps
     };
     
     if (frameId) {
@@ -739,7 +987,11 @@ export default function TldrawCanvas({ components, slides }: TldrawCanvasProps) 
 
   return (
     <div style={{ width: '100%', height: '100%' }}>
-      <Tldraw onMount={handleMount} />
+      <Tldraw 
+        onMount={handleMount} 
+        textOptions={textOptions}
+        components={uiComponents}
+      />
     </div>
   )
 }

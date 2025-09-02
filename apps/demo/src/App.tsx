@@ -88,10 +88,15 @@ function App() {
                   textNode.marks.forEach((mark: any) => {
                     if (mark.type === 'bold') style.fontWeight = 'bold';
                     if (mark.type === 'italic') style.fontStyle = 'italic';
+                    if (mark.type === 'textStyle' && mark.attrs) {
+                      if (mark.attrs.fontSize) style.fontSize = mark.attrs.fontSize;
+                      if (mark.attrs.color) style.color = mark.attrs.color;
+                      if (mark.attrs.fontFamily) style.fontFamily = mark.attrs.fontFamily;
+                    }
                   });
                 }
                 
-                // Apply custom attributes (size, color, font family)
+                // Apply custom attributes (fallback for legacy format)
                 if (textNode.attrs) {
                   if (textNode.attrs.fontSize) style.fontSize = `${textNode.attrs.fontSize}pt`;
                   if (textNode.attrs.color) style.color = textNode.attrs.color;
@@ -122,10 +127,15 @@ function App() {
                       textNode.marks.forEach((mark: any) => {
                         if (mark.type === 'bold') style.fontWeight = 'bold';
                         if (mark.type === 'italic') style.fontStyle = 'italic';
+                        if (mark.type === 'textStyle' && mark.attrs) {
+                          if (mark.attrs.fontSize) style.fontSize = mark.attrs.fontSize;
+                          if (mark.attrs.color) style.color = mark.attrs.color;
+                          if (mark.attrs.fontFamily) style.fontFamily = mark.attrs.fontFamily;
+                        }
                       });
                     }
                     
-                    // Apply custom attributes (size, color, font family)
+                    // Apply custom attributes (fallback for legacy format)
                     if (textNode.attrs) {
                       if (textNode.attrs.fontSize) style.fontSize = `${textNode.attrs.fontSize}pt`;
                       if (textNode.attrs.color) style.color = textNode.attrs.color;
