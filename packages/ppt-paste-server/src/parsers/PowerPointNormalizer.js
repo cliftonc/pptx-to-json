@@ -86,6 +86,7 @@ export class PowerPointNormalizer {
         shapes: this.extractPPTXShapes(spTree),
         images: this.extractPPTXImages(spTree),
         text: this.extractPPTXText(spTree),
+        elements: this.extractOrderedElements(spTree), // Add ordered elements
         rawSpTree: spTree // Keep for relationship lookups
       };
       
@@ -133,6 +134,7 @@ export class PowerPointNormalizer {
         shapes: this.extractClipboardShapes(lockedCanvas),
         images: this.extractClipboardImages(lockedCanvas), 
         text: this.extractClipboardText(lockedCanvas),
+        elements: this.extractOrderedClipboardElements(lockedCanvas), // Add ordered elements
         rawCanvas: lockedCanvas // Keep for relationship lookups
       };
       
@@ -416,6 +418,141 @@ export class PowerPointNormalizer {
     }
     
     return false;
+  }
+
+  /**
+   * Extract elements in their original z-order from spTree
+   * This preserves the layering order that elements appear in PowerPoint
+   * @param {Object} spTree - PPTX shape tree
+   * @returns {Array} - Ordered elements with z-index information
+   */
+  extractOrderedElements(spTree) {
+    const elements = [];
+    let zIndex = 0;
+
+    // Process all child elements in their original order
+    // This preserves the back-to-front ordering from PowerPoint XML
+    for (const [key, value] of Object.entries(spTree)) {
+      if (key === 'sp') {
+        // Handle shapes and text boxes
+        const spArray = this.ensureArray(value);
+        for (const sp of spArray) {
+          if (sp['txBody'] && this.hasTextContent(sp['txBody'])) {
+            // Text element
+            elements.push({
+              type: 'text',
+              zIndex: zIndex++,
+              namespace: 'p',
+              element: 'sp',
+              data: sp,
+              spPr: sp['spPr'],
+              nvSpPr: sp['nvSpPr'],
+              style: sp['style'],
+              textBody: sp['txBody']
+            });
+          } else {
+            // Shape element (non-text)
+            // Skip text boxes (they're handled above)
+            if (sp['nvSpPr'] && sp['nvSpPr']['cNvSpPr'] && sp['nvSpPr']['cNvSpPr']['$txBox']) continue;
+            
+            elements.push({
+              type: 'shape',
+              zIndex: zIndex++,
+              namespace: 'p', 
+              element: 'sp',
+              data: sp,
+              spPr: sp['spPr'],
+              nvSpPr: sp['nvSpPr'],
+              style: sp['style'],
+              textBody: sp['txSp'] ? sp['txSp']['txBody'] : null
+            });
+          }
+        }
+      } else if (key === 'pic') {
+        // Handle images
+        const picArray = this.ensureArray(value);
+        for (const pic of picArray) {
+          elements.push({
+            type: 'image',
+            zIndex: zIndex++,
+            namespace: 'p',
+            element: 'pic',
+            data: pic,
+            nvPicPr: pic['nvPicPr'],
+            blipFill: pic['blipFill'],
+            spPr: pic['spPr']
+          });
+        }
+      }
+    }
+
+    return elements;
+  }
+
+  /**
+   * Extract elements in their original z-order from clipboard lockedCanvas
+   * This preserves the layering order that elements appear in PowerPoint clipboard
+   * @param {Object} lockedCanvas - Clipboard locked canvas
+   * @returns {Array} - Ordered elements with z-index information
+   */
+  extractOrderedClipboardElements(lockedCanvas) {
+    const elements = [];
+    let zIndex = 0;
+
+    // Process all child elements in their original order
+    // This preserves the back-to-front ordering from PowerPoint clipboard XML
+    for (const [key, value] of Object.entries(lockedCanvas)) {
+      if (key === 'sp') {
+        // Handle shapes and text boxes
+        const spArray = this.ensureArray(value);
+        for (const sp of spArray) {
+          if (sp['txSp'] && sp['txSp']['txBody'] && this.hasTextContent(sp['txSp']['txBody'])) {
+            // Text element with clipboard structure
+            elements.push({
+              type: 'text',
+              zIndex: zIndex++,
+              namespace: 'a',
+              element: 'sp',
+              data: sp,
+              spPr: sp['spPr'],
+              nvSpPr: sp['nvSpPr'],
+              style: sp['style'],
+              textBody: sp['txSp']['txBody'] // Navigate extra layer
+            });
+          } else {
+            // Shape element (non-text)
+            elements.push({
+              type: 'shape',
+              zIndex: zIndex++,
+              namespace: 'a', 
+              element: 'sp',
+              data: sp,
+              spPr: sp['spPr'],
+              nvSpPr: sp['nvSpPr'],
+              style: sp['style'],
+              textBody: sp['txSp'] ? sp['txSp']['txBody'] : null
+            });
+          }
+        }
+      } else if (key === 'pic') {
+        // Handle images
+        const picArray = this.ensureArray(value);
+        for (const pic of picArray) {
+          elements.push({
+            type: 'image',
+            zIndex: zIndex++,
+            namespace: 'a',
+            element: 'pic',
+            data: pic,
+            nvPicPr: pic['nvPicPr'],
+            blipFill: pic['blipFill'],
+            spPr: pic['spPr']
+          });
+        }
+      }
+    }
+
+    return elements;
   }
 
   /**

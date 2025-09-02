@@ -48,60 +48,107 @@ export class PowerPointParser extends BaseParser {
         const slideComponents = [];
         let localComponentIndex = 0;
         
-        // Process text components
-        for (const textComponent of slide.text) {
-          const component = await this.parseUnifiedTextComponent(
-            textComponent, 
-            normalized.relationships,
-            normalized.mediaFiles,
-            globalComponentIndex++,
-            slideNumber - 1, // Use 0-based index for relationships
-            { debug }
-          );
-          if (component) {
-            // Fix the slideIndex to show the actual slide number (not the relationship index)
-            component.slideIndex = slideNumber;
-            slideComponents.push(component);
-            components.push(component);
-            localComponentIndex++;
+        // Process components in their original z-order if available
+        if (slide.elements && slide.elements.length > 0) {
+          // Use ordered elements to preserve z-index
+          for (const element of slide.elements) {
+            let component = null;
+            
+            if (element.type === 'text') {
+              component = await this.parseUnifiedTextComponent(
+                element, 
+                normalized.relationships,
+                normalized.mediaFiles,
+                globalComponentIndex++,
+                slideNumber - 1, // Use 0-based index for relationships
+                { debug }
+              );
+            } else if (element.type === 'shape') {
+              component = await this.parseUnifiedShapeComponent(
+                element,
+                normalized.relationships,
+                normalized.mediaFiles, 
+                globalComponentIndex++,
+                slideNumber - 1, // Use 0-based index for relationships
+                { debug }
+              );
+            } else if (element.type === 'image') {
+              component = await this.parseUnifiedImageComponent(
+                element,
+                normalized.relationships,
+                normalized.mediaFiles,
+                globalComponentIndex++,
+                slideNumber - 1, // Use 0-based index for relationships
+                { debug }
+              );
+            }
+            
+            if (component) {
+              // Fix the slideIndex to show the actual slide number (not the relationship index)
+              component.slideIndex = slideNumber;
+              component.zIndex = element.zIndex; // Add z-index information
+              slideComponents.push(component);
+              components.push(component);
+              localComponentIndex++;
+            }
           }
-        }
-        
-        // Process shape components (non-text)
-        for (const shapeComponent of slide.shapes) {
-          const component = await this.parseUnifiedShapeComponent(
-            shapeComponent,
-            normalized.relationships,
-            normalized.mediaFiles, 
-            globalComponentIndex++,
-            slideNumber - 1, // Use 0-based index for relationships
-            { debug }
-          );
-          if (component) {
-            // Fix the slideIndex to show the actual slide number (not the relationship index)
-            component.slideIndex = slideNumber;
-            slideComponents.push(component);
-            components.push(component);
-            localComponentIndex++;
+        } else {
+          // Fallback to old method if ordered elements not available
+          // Process text components
+          for (const textComponent of slide.text) {
+            const component = await this.parseUnifiedTextComponent(
+              textComponent, 
+              normalized.relationships,
+              normalized.mediaFiles,
+              globalComponentIndex++,
+              slideNumber - 1, // Use 0-based index for relationships
+              { debug }
+            );
+            if (component) {
+              // Fix the slideIndex to show the actual slide number (not the relationship index)
+              component.slideIndex = slideNumber;
+              slideComponents.push(component);
+              components.push(component);
+              localComponentIndex++;
+            }
           }
-        }
-        
-        // Process image components
-        for (const imageComponent of slide.images) {
-          const component = await this.parseUnifiedImageComponent(
-            imageComponent,
-            normalized.relationships,
-            normalized.mediaFiles,
-            globalComponentIndex++,
-            slideNumber - 1, // Use 0-based index for relationships
-            { debug }
-          );
-          if (component) {
-            // Fix the slideIndex to show the actual slide number (not the relationship index)
-            component.slideIndex = slideNumber;
-            slideComponents.push(component);
-            components.push(component);
-            localComponentIndex++;
+          
+          // Process shape components (non-text)
+          for (const shapeComponent of slide.shapes) {
+            const component = await this.parseUnifiedShapeComponent(
+              shapeComponent,
+              normalized.relationships,
+              normalized.mediaFiles, 
+              globalComponentIndex++,
+              slideNumber - 1, // Use 0-based index for relationships
+              { debug }
+            );
+            if (component) {
+              // Fix the slideIndex to show the actual slide number (not the relationship index)
+              component.slideIndex = slideNumber;
+              slideComponents.push(component);
+              components.push(component);
+              localComponentIndex++;
+            }
+          }
+          
+          // Process image components
+          for (const imageComponent of slide.images) {
+            const component = await this.parseUnifiedImageComponent(
+              imageComponent,
+              normalized.relationships,
+              normalized.mediaFiles,
+              globalComponentIndex++,
+              slideNumber - 1, // Use 0-based index for relationships
+              { debug }
+            );
+            if (component) {
+              // Fix the slideIndex to show the actual slide number (not the relationship index)
+              component.slideIndex = slideNumber;
+              slideComponents.push(component);
+              components.push(component);
+              localComponentIndex++;
+            }
           }
         }
         

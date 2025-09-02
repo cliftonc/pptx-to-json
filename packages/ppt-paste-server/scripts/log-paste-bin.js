@@ -115,6 +115,9 @@ async function logPasteBinary() {
       console.log('Content:', comp.content || '(no content)')
       console.log('Position:', `(${comp.x}, ${comp.y})`)
       console.log('Size:', `${comp.width} × ${comp.height}`)
+      if (comp.zIndex !== undefined) {
+        console.log('Z-Index:', comp.zIndex)
+      }
       
       if (comp.style) {
         console.log('Style:')

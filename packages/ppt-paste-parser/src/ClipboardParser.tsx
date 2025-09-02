@@ -17,6 +17,7 @@ export interface PowerPointComponent {
   style?: any;
   metadata?: any;
   slideIndex?: number;
+  zIndex?: number;
 }
 
 export interface PowerPointSlide {
