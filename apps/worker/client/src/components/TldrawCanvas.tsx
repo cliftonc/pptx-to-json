@@ -3,7 +3,6 @@ import { Tldraw, Editor } from '@tldraw/tldraw'
 
 import type { PowerPointComponent, PowerPointSlide } from 'ppt-paste-parser'
 import '@tldraw/tldraw/tldraw.css'
-import { customToolbarStyles } from './tldraw/styles'
 import { useSlideshowManager } from './tldraw/slideshow/SlideshowManager'
 import { useSlideshowKeyboardHandler } from './tldraw/slideshow/SlideshowKeyboardHandler'
 import { createUIComponents } from './tldraw/utils/uiComponents'
@@ -33,76 +32,7 @@ export default function TldrawCanvas({ components, slides, slideDimensions }: Tl
     navigateToSlide,
     nextSlide,
     previousSlide
-  } = useSlideshowManager(slides, editorRef)
-
-  // Inject custom CSS for toolbar and table styling
-  useEffect(() => {
-    const styleElement = document.createElement('style')
-    styleElement.textContent = customToolbarStyles
-    document.head.appendChild(styleElement)
-    
-    // Also inject table-specific styles for ProseMirror
-    const tableStyleElement = document.createElement('style')
-    tableStyleElement.textContent = `
-      /* Direct table styles for ProseMirror editor */
-      .ProseMirror table {
-        border-collapse: collapse !important;
-        border: 1px solid #333 !important;
-        margin: 8px 0 !important;
-      }
-      
-      .ProseMirror td,
-      .ProseMirror th {
-        border: 1px solid #333 !important;
-        padding: 6px 10px !important;
-        min-width: 60px !important;
-        vertical-align: top !important;
-      }
-      
-      .ProseMirror th,
-      .tldraw-table-header {
-        background-color: #e8e8e8 !important;
-        font-weight: bold !important;
-      }
-      
-      .ProseMirror td,
-      .tldraw-table-cell {
-        background-color: white !important;
-      }
-      
-      .ProseMirror .selectedCell {
-        background-color: rgba(100, 150, 255, 0.15) !important;
-      }
-      
-      .ProseMirror .column-resize-handle {
-        background-color: #4285f4 !important;
-        bottom: -2px !important;
-        cursor: col-resize !important;
-        position: absolute !important;
-        right: -2px !important;
-        top: 0 !important;
-        width: 4px !important;
-        opacity: 0 !important;
-        transition: opacity 0.2s !important;
-      }
-      
-      .ProseMirror td:hover .column-resize-handle,
-      .ProseMirror th:hover .column-resize-handle {
-        opacity: 1 !important;
-      }
-      
-      .tableWrapper {
-        overflow: visible !important;
-        margin: 0 !important;
-      }
-    `
-    document.head.appendChild(tableStyleElement)
-    
-    return () => {
-      document.head.removeChild(styleElement)
-      document.head.removeChild(tableStyleElement)
-    }
-  }, [])
+  } = useSlideshowManager(slides, editorRef)  
 
   // Setup slideshow keyboard handling
   useSlideshowKeyboardHandler({
@@ -114,8 +44,56 @@ export default function TldrawCanvas({ components, slides, slideDimensions }: Tl
     navigateToSlide
   })
 
+  // Global keyboard override to prevent tab insertion in tables 
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Tab' && editorRef.current?.getEditingShapeId()) {
+        const shape = editorRef.current.getShape(editorRef.current.getEditingShapeId()!)
+        
+        if (shape && shape.type === 'text') {
+          // Check if we're in a table
+          const selection = window.getSelection()
+          if (selection && selection.focusNode) {
+            let node: Node | null = selection.focusNode
+            while (node) {
+              if (node instanceof Element && (node.tagName === 'TD' || node.tagName === 'TH')) {
+                // Prevent TLDraw's tab insertion
+                e.preventDefault()
+                e.stopPropagation()
+                e.stopImmediatePropagation()
+                
+                // Call TipTap table navigation directly
+                setTimeout(() => {
+                  const proseMirrorElement = document.querySelector('.ProseMirror') as any
+                  if (proseMirrorElement && proseMirrorElement.editor) {
+                    if (e.shiftKey) {
+                      proseMirrorElement.editor.commands.goToPreviousCell()
+                    } else {
+                      proseMirrorElement.editor.commands.goToNextCell()
+                    }
+                  }
+                }, 0)
+                
+                return false
+              }
+              if (node.parentNode === document.body) break
+              node = node.parentNode
+            }
+          }
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleGlobalKeyDown, { capture: true })
+    
+    return () => {
+      document.removeEventListener('keydown', handleGlobalKeyDown, { capture: true })
+    }
+  }, [])
+
   const handleMount = (editor: Editor) => {
     editorRef.current = editor
+    
     if (slides && slides.length > 0) {
       drawSlides(slides, editor, slideDimensions)
     } else if (components && components.length > 0) {

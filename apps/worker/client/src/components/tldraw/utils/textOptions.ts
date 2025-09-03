@@ -6,17 +6,19 @@ import {
   TableExtension, 
   TableRowExtension, 
   TableCellExtension, 
-  TableHeaderExtension 
+  TableHeaderExtension,
+  TableTabHandler
 } from '../extensions/TableExtension'
 
 // Text options configuration to support FontSize, TextStyle marks, and Tables
 export const textOptions: Partial<TLTextOptions> = {
   tipTapConfig: {
     extensions: [
+      TableTabHandler, // Put tab handler before all extensions
       ...tipTapDefaultExtensions, 
       FontFamily, 
       FontSize, 
-      TextStyle, 
+      TextStyle,       
       TableExtension,
       TableRowExtension,
       TableCellExtension,
