@@ -73,6 +73,7 @@ function App() {
       case 'image': return '🖼️';
       case 'shape': return '🔸';
       case 'table': return '📊';
+      case 'video': return '🎬';
       default: return '❓';
     }
   };
@@ -287,6 +288,7 @@ function App() {
                 }}>
                   <li><strong>📝 Text:</strong> Rich text with fonts, colors, sizes, bold/italic</li>
                   <li><strong>🖼️ Images:</strong> PNG, JPG with positioning & scaling</li>
+                  <li><strong>🎬 Videos:</strong> Videos - youtube and vimeo</li>
                   <li><strong>🔸 Shapes:</strong> Rectangles, circles, lines with fills & borders</li>
                   <li><strong>📊 Tables:</strong> Rich text tables with headers and data cells</li>
                   <li><strong>🎨 Styling:</strong> Colors, gradients, transparency, shadows</li>
@@ -310,8 +312,8 @@ function App() {
                   lineHeight: '1.8', 
                   color: '#721c24' 
                 }}>
-                  <li><strong>📈 Charts:</strong> Graphs, pie charts, data visualizations</li>
-                  <li><strong>🎬 Media:</strong> Videos, audio files, embedded content</li>
+                  <li><strong>📈 Charts:</strong> Graphs, pie charts, data visualizations</li>                  
+                  <li><strong>🎬 Media:</strong> Embedded audio or video</li>
                   <li><strong>🔗 SmartArt:</strong> Diagrams, org charts, process flows</li>
                   <li><strong>📎 Embedded:</strong> Excel sheets, Word docs, other files</li>
                 </ul>

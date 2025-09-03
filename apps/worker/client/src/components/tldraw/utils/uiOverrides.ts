@@ -13,5 +13,5 @@ export const uiOverrides: TLUiOverrides = {
       },
     }
     return tools
-  },
+  }
 }

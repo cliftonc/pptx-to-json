@@ -6,6 +6,7 @@ import { renderTextComponent } from '../renderers/TextRenderer'
 import { renderShapeComponent } from '../renderers/ShapeRenderer'
 import { renderImageComponent } from '../renderers/ImageRenderer'
 import { renderTableComponent } from '../renderers/TableRenderer'
+import { renderVideoComponent } from '../renderers/VideoRenderer'
 
 export async function drawSlides(slides: PowerPointSlide[], editor: Editor, slideDimensions?: { width: number; height: number }) {
   if (!editor || !slides.length) return
@@ -116,6 +117,9 @@ async function drawComponentsInFrame(
         break
       case 'table':
         await renderTableComponent(component, index, frameX, frameY, editor, slideIndex, frameId)
+        break
+      case 'video':
+        await renderVideoComponent(component, index, frameX, frameY, editor, slideIndex, frameId)
         break
       default:
         break

@@ -10,7 +10,7 @@ import { DEFAULT_SLIDE_WIDTH_PX, DEFAULT_SLIDE_HEIGHT_PX } from '../utils/consta
 import { BaseParser } from './BaseParser.js';
 
 interface NormalizedElement {
-  type: 'text' | 'shape' | 'image' | 'table';
+  type: 'text' | 'shape' | 'image' | 'table' | 'video';
   zIndex: number;
   namespace: 'p' | 'a';
   element: string;
@@ -37,6 +37,7 @@ interface NormalizedSlide {
   shapes: any[];
   images: any[];
   text: any[];
+  videos: any[];
   elements: NormalizedElement[];
   layoutFile?: string;
   masterFile?: string | null;
@@ -181,6 +182,7 @@ export class PowerPointNormalizer {
         shapes: this.extractPPTXShapes(spTree),
         images: this.extractPPTXImages(spTree),
         text: this.extractPPTXText(spTree),
+        videos: this.extractPPTXVideos(spTree),
         elements: allElements, // Combined master, layout and slide elements
         layoutFile, // Keep track of which layout this slide uses
         masterFile: masterFile || null, // Keep track of which master this slide uses
@@ -232,6 +234,7 @@ export class PowerPointNormalizer {
         shapes: this.extractClipboardShapes(lockedCanvas),
         images: this.extractClipboardImages(lockedCanvas), 
         text: this.extractClipboardText(lockedCanvas),
+        videos: this.extractClipboardVideos(lockedCanvas),
         elements: this.extractOrderedClipboardElements(lockedCanvas), // Add ordered elements
         rawCanvas: lockedCanvas // Keep for relationship lookups
       };
@@ -322,6 +325,12 @@ export class PowerPointNormalizer {
     const picArray = this.ensureArray(spTree['pic']);
     
     for (const pic of picArray) {
+      // Skip videos - they have nvPr.videoFile property
+      const nvPicPr = pic['nvPicPr'];
+      if (nvPicPr && nvPicPr['nvPr'] && nvPicPr['nvPr']['videoFile']) {
+        continue; // This is a video, not an image
+      }
+      
       images.push({
         type: 'image',
         namespace: 'p',
@@ -347,6 +356,12 @@ export class PowerPointNormalizer {
       const picArray = this.ensureArray(picData);
       
       for (const pic of picArray) {
+        // Skip videos - they have nvPr.videoFile property
+        const nvPicPr = pic['nvPicPr'];
+        if (nvPicPr && nvPicPr['nvPr'] && nvPicPr['nvPr']['videoFile']) {
+          continue; // This is a video, not an image
+        }
+        
         images.push({
           type: 'image',
           namespace: 'a',
@@ -360,6 +375,70 @@ export class PowerPointNormalizer {
     }
     
     return images;
+  }
+  
+  /**
+   * Extract videos from PPTX spTree
+   */
+  extractPPTXVideos(spTree: any): any[] {
+    const videos = [];
+    const picArray = this.ensureArray(spTree['pic']);
+    
+    for (const pic of picArray) {
+      // Check if this is a video by looking for nvPr.videoFile
+      const nvPicPr = pic['nvPicPr'];
+      if (nvPicPr && nvPicPr['nvPr'] && nvPicPr['nvPr']['videoFile']) {
+        const videoFile = nvPicPr['nvPr']['videoFile'];
+        const relationshipId = videoFile['$link'] || videoFile['link'];
+        
+        videos.push({
+          type: 'video',
+          namespace: 'p',
+          element: 'pic',
+          data: pic,
+          nvPicPr: pic['nvPicPr'],
+          blipFill: pic['blipFill'],
+          spPr: pic['spPr'],
+          relationshipId: relationshipId
+        });
+      }
+    }
+    
+    return videos;
+  }
+  
+  /**
+   * Extract videos from clipboard lockedCanvas
+   */
+  extractClipboardVideos(lockedCanvas: any): any[] {
+    const videos = [];
+    const picData = lockedCanvas['pic'];
+    
+    if (picData) {
+      const picArray = this.ensureArray(picData);
+      
+      for (const pic of picArray) {
+        // Check if this is a video by looking for nvPr.videoFile
+        const nvPicPr = pic['nvPicPr'];
+        if (nvPicPr && nvPicPr['nvPr'] && nvPicPr['nvPr']['videoFile']) {
+          const videoFile = nvPicPr['nvPr']['videoFile'];
+          const relationshipId = videoFile['$link'] || videoFile['link'];
+          
+          videos.push({
+            type: 'video',
+            namespace: 'a',
+            element: 'pic',
+            data: pic,
+            nvPicPr: pic['nvPicPr'], 
+            blipFill: pic['blipFill'],
+            spPr: pic['spPr'],
+            relationshipId: relationshipId
+          });
+        }
+      }
+    }
+    
+    return videos;
   }
   
   /**
@@ -547,19 +626,42 @@ export class PowerPointNormalizer {
           }
         }
       } else if (key === 'pic') {
-        // Handle images
+        // Handle images and videos
         const picArray = this.ensureArray(value);
         for (const pic of picArray) {
-          elements.push({
-            type: 'image',
-            zIndex: zIndex++,
-            namespace: 'p',
-            element: 'pic',
-            data: pic,
-            nvPicPr: pic['nvPicPr'],
-            blipFill: pic['blipFill'],
-            spPr: pic['spPr']
-          });
+          // Check if this is a video by looking for nvPr.videoFile
+          const nvPicPr = pic['nvPicPr'];
+          const isVideo = nvPicPr && nvPicPr['nvPr'] && nvPicPr['nvPr']['videoFile'];
+          
+          if (isVideo) {
+            // Video element
+            const videoFile = nvPicPr['nvPr']['videoFile'];
+            const relationshipId = videoFile['$link'] || videoFile['link'];
+            
+            elements.push({
+              type: 'video',
+              zIndex: zIndex++,
+              namespace: 'p',
+              element: 'pic',
+              data: pic,
+              nvPicPr: pic['nvPicPr'],
+              blipFill: pic['blipFill'],
+              spPr: pic['spPr'],
+              relationshipId: relationshipId
+            });
+          } else {
+            // Image element
+            elements.push({
+              type: 'image',
+              zIndex: zIndex++,
+              namespace: 'p',
+              element: 'pic',
+              data: pic,
+              nvPicPr: pic['nvPicPr'],
+              blipFill: pic['blipFill'],
+              spPr: pic['spPr']
+            });
+          }
         }
       } else if (key === 'graphicFrame') {
         // Handle tables (graphicFrame containing table data)
@@ -633,19 +735,42 @@ export class PowerPointNormalizer {
           }
         }
       } else if (key === 'pic') {
-        // Handle images
+        // Handle images and videos
         const picArray = this.ensureArray(value);
         for (const pic of picArray) {
-          elements.push({
-            type: 'image',
-            zIndex: zIndex++,
-            namespace: 'a',
-            element: 'pic',
-            data: pic,
-            nvPicPr: pic['nvPicPr'],
-            blipFill: pic['blipFill'],
-            spPr: pic['spPr']
-          });
+          // Check if this is a video by looking for nvPr.videoFile
+          const nvPicPr = pic['nvPicPr'];
+          const isVideo = nvPicPr && nvPicPr['nvPr'] && nvPicPr['nvPr']['videoFile'];
+          
+          if (isVideo) {
+            // Video element
+            const videoFile = nvPicPr['nvPr']['videoFile'];
+            const relationshipId = videoFile['$link'] || videoFile['link'];
+            
+            elements.push({
+              type: 'video',
+              zIndex: zIndex++,
+              namespace: 'a',
+              element: 'pic',
+              data: pic,
+              nvPicPr: pic['nvPicPr'],
+              blipFill: pic['blipFill'],
+              spPr: pic['spPr'],
+              relationshipId: relationshipId
+            });
+          } else {
+            // Image element
+            elements.push({
+              type: 'image',
+              zIndex: zIndex++,
+              namespace: 'a',
+              element: 'pic',
+              data: pic,
+              nvPicPr: pic['nvPicPr'],
+              blipFill: pic['blipFill'],
+              spPr: pic['spPr']
+            });
+          }
         }
       } else if (key === 'graphicFrame') {
         // Handle tables (graphicFrame containing table data) in clipboard

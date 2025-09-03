@@ -11,7 +11,7 @@ export class TableTool extends StateNode {
     this.editor.setCursor({ type: 'default', rotation: 0 })
   }
 
-  override onPointerDown = (info: any) => {
+  override onPointerDown = (_info: any) => {
     const { editor } = this
     const { currentPagePoint } = editor.inputs
     
@@ -32,6 +32,8 @@ export class TableTool extends StateNode {
     // Select and start editing the shape
     editor.select(shapeId)
     editor.setEditingShape(shapeId)
+
+    
     
     // Insert the table after the editor is ready
     requestAnimationFrame(() => {

@@ -13,7 +13,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { PowerPointClipboardProcessor } from '../src/processors/PowerPointClipboardProcessor.js'
+import { PowerPointClipboardProcessor } from '../dist/processors/PowerPointClipboardProcessor.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -87,7 +87,18 @@ async function logPasteBinary() {
 
     // Step 2: Parse the data to get components
     console.log('\n🔄 Step 2: Parsing PowerPoint data...')
-    const components = await processor.parseClipboardBuffer(buffer, { debug: debugMode })
+    const result = await processor.parseClipboardBuffer(buffer, { debug: debugMode })
+    
+    // Extract components from the new slide-based structure
+    const components = []
+    if (result.slides) {
+      result.slides.forEach(slide => {
+        if (slide.components) {
+          components.push(...slide.components)
+        }
+      })
+    }
+    
     console.log('✅ Parsed:', components.length, 'components')
 
     // Debug: Output full parsed JSON immediately if debug mode is enabled

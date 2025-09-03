@@ -50,8 +50,7 @@ export function RichTextToolbar() {
     // Insert table and then move cursor into first cell to trigger toolbar
     textEditor?.chain()
       .focus()
-      .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-      .goToNextCell() // Move into the first cell
+      .insertTable({ rows: 3, cols: 3, withHeaderRow: true })      
       .run()
   }
 

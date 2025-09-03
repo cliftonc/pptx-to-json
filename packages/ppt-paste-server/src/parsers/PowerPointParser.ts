@@ -7,6 +7,7 @@ import { TextParser } from './TextParser.js';
 import { ShapeParser } from './ShapeParser.js';
 import { ImageParser } from './ImageParser.js';
 import { TableParser } from './TableParser.js';
+import { VideoParser } from './VideoParser.js';
 import { BaseParser } from './BaseParser.js';
 import type { PowerPointComponent } from '../types/index.js';
 
@@ -124,6 +125,15 @@ export class PowerPointParser extends BaseParser {
                 slideNumber - 1, // Use 0-based index for relationships
                 { debug }
               );
+            } else if (element.type === 'video') {
+              component = await this.parseUnifiedVideoComponent(
+                element,
+                normalized.relationships,
+                normalized.mediaFiles,
+                globalComponentIndex++,
+                slideNumber - 1, // Use 0-based index for relationships
+                { debug, r2Storage }
+              );
             }
             
             if (component) {
@@ -192,6 +202,25 @@ export class PowerPointParser extends BaseParser {
           for (const imageComponent of slide.images) {
             const component = await this.parseUnifiedImageComponent(
               imageComponent,
+              normalized.relationships,
+              normalized.mediaFiles,
+              globalComponentIndex++,
+              slideNumber - 1, // Use 0-based index for relationships
+              { debug, r2Storage }
+            );
+            if (component) {
+              // Fix the slideIndex to show the actual slide number (not the relationship index)
+              (component as any).slideIndex = slideNumber;
+              slideComponents.push(component);
+              components.push(component);
+              localComponentIndex++;
+            }
+          }
+          
+          // Process video components
+          for (const videoComponent of slide.videos) {
+            const component = await this.parseUnifiedVideoComponent(
+              videoComponent,
               normalized.relationships,
               normalized.mediaFiles,
               globalComponentIndex++,
@@ -335,6 +364,26 @@ export class PowerPointParser extends BaseParser {
       return await TableParser.parseFromNormalized(tableComponent, componentIndex, slideIndex);
     } catch (error) {
       if (debug) console.warn(`⚠️ Failed to parse table component:`, error);
+      return null;
+    }
+  }
+  
+  /**
+   * Parse unified video component from normalized data
+   */
+  private async parseUnifiedVideoComponent(
+    videoComponent: any, 
+    relationships: any, 
+    mediaFiles: any, 
+    componentIndex: number, 
+    slideIndex: number, 
+    options: { debug?: boolean; r2Storage?: any } = {}
+  ): Promise<PowerPointComponent | null> {
+    const { debug = false, r2Storage = null } = options;
+    try {
+      return await VideoParser.parseFromNormalized(videoComponent, relationships, mediaFiles, componentIndex, slideIndex, r2Storage);
+    } catch (error) {
+      if (debug) console.warn(`⚠️ Failed to parse video component:`, error);
       return null;
     }
   }

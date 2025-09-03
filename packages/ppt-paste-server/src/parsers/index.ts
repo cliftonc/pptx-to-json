@@ -8,4 +8,5 @@ export { TextParser } from './TextParser.js';
 export { ShapeParser } from './ShapeParser.js';
 export { ImageParser } from './ImageParser.js';
 export { TableParser } from './TableParser.js';
+export { VideoParser } from './VideoParser.js';
 export { PowerPointNormalizer } from './PowerPointNormalizer.js';

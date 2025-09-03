@@ -1,5 +1,5 @@
-import type { TLComponents, TLUiOverrides } from '@tldraw/tldraw'
-import { DefaultToolbar, DefaultToolbarContent, TldrawUiMenuItem, useTools, useIsToolSelected } from '@tldraw/tldraw'
+import type { TLComponents } from '@tldraw/tldraw'
+import { DefaultToolbar, DefaultToolbarContent } from '@tldraw/tldraw'
 import type { PowerPointSlide } from 'ppt-paste-parser'
 import { SlideshowToolbar } from '../toolbars/SlideshowToolbar'
 import { RichTextToolbar } from '../toolbars/RichTextToolbar'
@@ -17,8 +17,6 @@ export function createUIComponents(
 ): TLComponents {
   return {
     Toolbar: () => {
-      const tools = useTools()
-      
       return (
         <DefaultToolbar>
           <SlideshowToolbar

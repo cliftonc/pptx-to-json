@@ -7,7 +7,7 @@ export interface ClipboardData {
 
 export interface PowerPointComponent {
   id: string;
-  type: 'text' | 'image' | 'shape' | 'table' | 'unknown';
+  type: 'text' | 'image' | 'shape' | 'table' | 'video' | 'unknown';
   content: string;
   x: number;
   y: number;
@@ -18,6 +18,11 @@ export interface PowerPointComponent {
   metadata?: any;
   slideIndex?: number;
   zIndex?: number;
+  // Video-specific properties
+  url?: string;
+  thumbnailSrc?: string;
+  title?: string;
+  embedType?: 'youtube' | 'vimeo' | 'generic';
 }
 
 export interface PowerPointSlide {

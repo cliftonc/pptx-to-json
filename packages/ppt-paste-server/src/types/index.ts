@@ -3,7 +3,7 @@
  */
 
 // Component types that can be parsed from PowerPoint
-export type ComponentType = 'text' | 'shape' | 'image' | 'table' | 'unknown';
+export type ComponentType = 'text' | 'shape' | 'image' | 'table' | 'video' | 'unknown';
 
 // Base component structure - matches client interface for compatibility
 export interface PowerPointComponent {
@@ -78,6 +78,15 @@ export interface TableComponent extends PowerPointComponent {
   type: 'table';
   rows?: TableRow[];
   columns?: number;
+}
+
+// Video-specific component
+export interface VideoComponent extends PowerPointComponent {
+  type: 'video';
+  url?: string;
+  thumbnailSrc?: string;
+  title?: string;
+  embedType?: 'youtube' | 'vimeo' | 'generic';
 }
 
 // Table row structure
@@ -209,6 +218,16 @@ export interface NormalizedTableComponent {
   spPr?: XMLNode;
   nvGraphicFramePr?: XMLNode;
   namespace?: string;
+}
+
+// Normalized video component structure from PowerPointNormalizer
+export interface NormalizedVideoComponent {
+  data?: any;
+  spPr?: XMLNode;
+  nvPicPr?: XMLNode;
+  blipFill?: XMLNode;
+  namespace?: string;
+  relationshipId?: string;
 }
 
 // Table dimensions
