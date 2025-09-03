@@ -18,16 +18,17 @@
     "allowJs": true,
     "checkJs": false,
     "incremental": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "types": ["vitest/globals", "node"]
   },
   "include": [
-    "src/**/*"
+    "src/**/*",
+    "test/**/*",
+    "vitest.config.ts"
   ],
   "exclude": [
     "node_modules",
     "dist",
-    "test",
-    "scripts",
-    "**/*.test.js"
+    "scripts"
   ]
 }

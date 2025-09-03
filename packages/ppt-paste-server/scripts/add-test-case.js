@@ -12,7 +12,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { PowerPointClipboardProcessor } from '../src/processors/PowerPointClipboardProcessor.js'
+import { PowerPointClipboardProcessor } from '../dist/processors/PowerPointClipboardProcessor.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -34,6 +34,29 @@ function truncateForLogging(components) {
     if (truncated.metadata && truncated.metadata.imageUrl && truncated.metadata.imageUrl.length > 100) {
       truncated.metadata = { ...truncated.metadata }
       truncated.metadata.imageUrl = truncated.metadata.imageUrl.substring(0, 100) + '...'
+    }
+    
+    return truncated
+  })
+}
+
+function truncateUrlsOnly(components) {
+  return components.map(component => {
+    const truncated = { ...component }
+    
+    // Only truncate URLs in metadata, not content
+    if (truncated.metadata) {
+      truncated.metadata = { ...truncated.metadata }
+      
+      // Truncate imageUrl in metadata if present
+      if (truncated.metadata.imageUrl && truncated.metadata.imageUrl.length > 100) {
+        truncated.metadata.imageUrl = truncated.metadata.imageUrl.substring(0, 100) + '...'
+      }
+      
+      // Truncate dataUrl in metadata if present (common for images)
+      if (truncated.metadata.dataUrl && truncated.metadata.dataUrl.length > 100) {
+        truncated.metadata.dataUrl = truncated.metadata.dataUrl.substring(0, 100) + '...'
+      }
     }
     
     return truncated
@@ -69,7 +92,18 @@ async function addTestCase() {
 
     // Step 2: Parse the data to get components
     console.log('\n🔄 Step 2: Parsing PowerPoint data...')
-    const components = await processor.parseClipboardBuffer(fetchResult.buffer)
+    const result = await processor.parseClipboardBuffer(fetchResult.buffer)
+
+    // Extract components from the new slide-based structure
+    const components = []
+    if (result.slides) {
+      result.slides.forEach(slide => {
+        if (slide.components) {
+          components.push(...slide.components)
+        }
+      })
+    }
+    
     console.log('✅ Parsed:', components.length, 'components')
 
     // Analyze components
@@ -94,6 +128,10 @@ async function addTestCase() {
 
     // Step 4: Create expected output
     console.log('\n📋 Step 4: Creating expected output...')
+    
+    // Apply URL truncation to components before saving (preserving content)
+    const componentsWithTruncatedUrls = truncateUrlsOnly(components)
+    
     const expectedOutput = {
       metadata: {
         name,
@@ -103,8 +141,8 @@ async function addTestCase() {
         contentType: fetchResult.contentType,
         url: url // Store original URL for reference
       },
-      components: components,
-      componentCount: components.length,
+      components: componentsWithTruncatedUrls,
+      componentCount: componentsWithTruncatedUrls.length,
       componentTypes: componentTypes
     }
 

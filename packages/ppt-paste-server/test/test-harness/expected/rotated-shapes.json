@@ -2,22 +2,35 @@
   "metadata": {
     "name": "rotated-shapes",
     "description": "PowerPoint content: rotated-shapes",
-    "downloadedAt": "2025-08-31T11:29:12.268Z",
+    "downloadedAt": "2025-09-03T17:28:10.284Z",
     "size": 4331,
     "contentType": "application/octet-stream",
     "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=7172440d-ab13-4e07-8ea0-31d4635b3e32&amp;DC=GEU7&amp;pkey=3e710a1f-7271-44d0-a424-8f38536add48&amp;wdwaccluster=GEU7&amp;DataType=shape"
   },
   "components": [
     {
-      "id": "text-1756639752267-0",
+      "id": "TextBox 1",
       "type": "text",
+      "content": "HELLO THIS IS MAGICAL",
       "x": 262,
       "y": 287,
       "width": 594,
       "height": 68,
       "rotation": -36,
-      "content": "HELLO THIS IS MAGICAL",
-      "richText": {
+      "slideIndex": 1,
+      "style": {
+        "fontSize": 36,
+        "fontFamily": "Arial",
+        "fontWeight": "bold",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#E97132",
+        "backgroundColor": "transparent",
+        "textAlign": "left",
+        "opacity": 1,
+        "rotation": -36
+      },
+      "textRuns": {
         "type": "doc",
         "content": [
           {
@@ -29,6 +42,12 @@
                 "marks": [
                   {
                     "type": "bold"
+                  },
+                  {
+                    "type": "textStyle",
+                    "attrs": {
+                      "fontSize": "36pt"
+                    }
                   }
                 ]
               }
@@ -36,52 +55,50 @@
           }
         ]
       },
-      "style": {
-        "fontSize": 36,
-        "fontFamily": "Arial",
-        "fontWeight": "bold",
-        "fontStyle": "normal",
-        "textDecoration": "none",
-        "color": "#E97132",
-        "backgroundColor": "transparent",
-        "textAlign": "left",
-        "opacity": 1
-      },
       "metadata": {
-        "isTitle": true,
+        "namespace": "a",
+        "isTextBox": true,
+        "originalFormat": "normalized",
         "paragraphCount": 1,
-        "hasMultipleRuns": false,
-        "shapeType": "rect",
-        "hasBullets": false
+        "hasMultipleRuns": false
       },
-      "slideIndex": 0
+      "zIndex": 0
     },
     {
-      "id": "shape-1756639752267-1",
+      "id": "Rectangle 10",
       "type": "shape",
+      "content": "rectangle shape",
       "x": 559,
       "y": 86,
       "width": 150,
       "height": 97,
       "rotation": 55,
-      "content": "rectangle shape",
+      "slideIndex": 1,
       "style": {
-        "backgroundColor": "#ED7D31",
+        "fillColor": "#ED7D31",
         "borderColor": "transparent",
-        "borderStyle": "none",
         "borderWidth": 0,
-        "opacity": 1,
+        "borderStyle": "none",
+        "fillOpacity": 1,
+        "rotation": 55,
         "effects": []
       },
+      "shapeType": "rectangle",
+      "geometry": "rect",
       "metadata": {
+        "namespace": "a",
+        "geometry": {
+          "type": "rectangle",
+          "preset": "rect",
+          "isCustom": false
+        },
+        "originalFormat": "normalized",
         "shapeType": "rectangle",
-        "preset": "rect",
-        "hasCustomGeometry": false,
-        "fillType": "solid",
-        "borderType": "none",
-        "effects": []
+        "hasEffects": false,
+        "hasFill": true,
+        "hasBorder": false
       },
-      "slideIndex": 0
+      "zIndex": 1
     }
   ],
   "componentCount": 2,

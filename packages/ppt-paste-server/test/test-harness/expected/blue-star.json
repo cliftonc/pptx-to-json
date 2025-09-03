@@ -2,38 +2,47 @@
   "metadata": {
     "name": "blue-star",
     "description": "PowerPoint content: blue-star",
-    "downloadedAt": "2025-08-31T09:24:48.653Z",
+    "downloadedAt": "2025-09-03T17:28:10.270Z",
     "size": 3932,
     "contentType": "application/octet-stream",
     "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=5f8e6ec3-b5ae-4778-90ba-9b2ffa41f627&DC=GEU7&pkey=29a6fdf8-6a33-41a2-8e91-53663f0da38d&wdwaccluster=GEU7&DataType=shape"
   },
   "components": [
     {
-      "id": "shape-1756632288652-0",
+      "id": "Star: 5 Points 11",
       "type": "shape",
+      "content": "5-point star shape",
       "x": 815,
       "y": 229,
       "width": 114,
       "height": 92,
       "rotation": 0,
-      "content": "5-point star shape",
+      "slideIndex": 1,
       "style": {
-        "backgroundColor": "#44546A",
+        "fillColor": "#44546A",
         "borderColor": "#4472C4",
         "borderWidth": 1,
         "borderStyle": "solid",
-        "opacity": 1,
+        "fillOpacity": 1,
+        "rotation": 0,
         "effects": []
       },
+      "shapeType": "5-point star",
+      "geometry": "star5",
       "metadata": {
+        "namespace": "a",
+        "geometry": {
+          "type": "5-point star",
+          "preset": "star5",
+          "isCustom": false
+        },
+        "originalFormat": "normalized",
         "shapeType": "5-point star",
-        "preset": "star5",
-        "hasCustomGeometry": false,
-        "fillType": "solid",
-        "borderType": "solid",
-        "effects": []
+        "hasEffects": false,
+        "hasFill": true,
+        "hasBorder": true
       },
-      "slideIndex": 0
+      "zIndex": 0
     }
   ],
   "componentCount": 1,

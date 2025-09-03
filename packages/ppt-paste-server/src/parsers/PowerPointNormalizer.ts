@@ -1065,8 +1065,7 @@ export class PowerPointNormalizer {
       height: Math.max(finalHeight, minHeight)
     };
     
-    console.log('📐 Calculated content-based slide dimensions:', result, 
-                `(content bounds: ${contentWidth}x${contentHeight}, padding: ${paddingX}x${paddingY})`);
+    // Calculated content-based slide dimensions
     
     return result;
   }

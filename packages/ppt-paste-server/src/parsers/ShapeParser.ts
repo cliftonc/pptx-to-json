@@ -2,7 +2,8 @@
  * Shape component parser for PowerPoint shapes without text content
  */
 
-import { BaseParser } from './BaseParser.js';
+import { BaseParser } from "./BaseParser.js";
+import { emuToPixels } from "../utils/constants.js";
 import {
   XMLNode,
   ShapeComponent,
@@ -10,11 +11,10 @@ import {
   FillInfo,
   BorderInfo,
   GeometryInfo,
-  EffectsInfo
-} from '../types/index.js';
+  EffectsInfo,
+} from "../types/index.js";
 
 export class ShapeParser extends BaseParser {
-
   /**
    * Parse shape component from normalized data (works for both PPTX and clipboard)
    * @param shapeComponent - Normalized shape component
@@ -25,16 +25,16 @@ export class ShapeParser extends BaseParser {
   static async parseFromNormalized(
     shapeComponent: NormalizedShapeComponent,
     componentIndex: number,
-    slideIndex: number
+    slideIndex: number,
   ): Promise<ShapeComponent | null> {
     const { data, spPr, nvSpPr, namespace, style } = shapeComponent;
-    
+
     if (!spPr) {
-      throw new Error('No spPr found in normalized shape component');
+      throw new Error("No spPr found in normalized shape component");
     }
 
     // Extract positioning from spPr (namespaces already stripped)
-    const xfrm = ShapeParser.safeGet(spPr, 'xfrm');
+    const xfrm = BaseParser.safeGet(spPr, "xfrm");
     const transform = ShapeParser.parseTransform(xfrm);
 
     // Skip if shape has no dimensions
@@ -42,11 +42,12 @@ export class ShapeParser extends BaseParser {
 
     // Parse shape geometry using existing method
     const geometry = ShapeParser.parseGeometry(spPr);
-    const shapeType = geometry ? geometry.type : 'rectangle';
+    const shapeType = geometry ? geometry.type : "rectangle";
 
     // Extract component info from nvSpPr
-    const cNvPr = ShapeParser.safeGet(nvSpPr, 'cNvPr');
-    const componentName = ShapeParser.safeGet(cNvPr, '$name') || `shape-${componentIndex}`;
+    const cNvPr = BaseParser.safeGet(nvSpPr, "cNvPr");
+    const componentName =
+      BaseParser.safeGet(cNvPr, "$name") || `shape-${componentIndex}`;
 
     // Parse styling from spPr and style data
     const fill = ShapeParser.parseFill(spPr, style);
@@ -55,7 +56,7 @@ export class ShapeParser extends BaseParser {
 
     return {
       id: componentName,
-      type: 'shape',
+      type: "shape",
       content: `${shapeType} shape`,
       x: transform.x,
       y: transform.y,
@@ -70,19 +71,19 @@ export class ShapeParser extends BaseParser {
         borderStyle: border.style,
         fillOpacity: fill.opacity,
         rotation: transform.rotation || 0,
-        ...effects
+        ...effects,
       },
       shapeType: geometry.type,
       geometry: geometry.preset || geometry.type,
       metadata: {
         namespace,
         geometry,
-        originalFormat: 'normalized',
+        originalFormat: "normalized",
         shapeType: geometry.type,
         hasEffects: effects.effects.length > 0,
         hasFill: !!fill.color,
-        hasBorder: border.type !== 'none'
-      }
+        hasBorder: border.type !== "none",
+      },
     };
   }
 
@@ -93,31 +94,31 @@ export class ShapeParser extends BaseParser {
    */
   static parseGeometry(spPr: XMLNode): GeometryInfo {
     // Check for preset geometry
-    const prstGeom = this.safeGet(spPr, 'prstGeom');
+    const prstGeom = BaseParser.safeGet(spPr, "prstGeom");
     if (prstGeom) {
       const preset = prstGeom.$prst;
       return {
         type: this.getShapeTypeName(preset),
         preset: preset,
-        isCustom: false
+        isCustom: false,
       };
     }
 
     // Check for custom geometry
-    const custGeom = this.safeGet(spPr, 'custGeom');
+    const custGeom = BaseParser.safeGet(spPr, "custGeom");
     if (custGeom) {
       return {
-        type: 'custom',
+        type: "custom",
         preset: null,
         isCustom: true,
-        paths: this.parseCustomGeometry(custGeom)
+        paths: this.parseCustomGeometry(custGeom),
       };
     }
 
     return {
-      type: 'rectangle',
-      preset: 'rect',
-      isCustom: false
+      type: "rectangle",
+      preset: "rect",
+      isCustom: false,
     };
   }
 
@@ -128,83 +129,83 @@ export class ShapeParser extends BaseParser {
    */
   static getShapeTypeName(preset: string): string {
     const shapeTypes: Record<string, string> = {
-      'rect': 'rectangle',
-      'roundRect': 'rounded rectangle',
-      'ellipse': 'ellipse',
-      'triangle': 'triangle',
-      'rtTriangle': 'right triangle',
-      'parallelogram': 'parallelogram',
-      'trapezoid': 'trapezoid',
-      'diamond': 'diamond',
-      'pentagon': 'pentagon',
-      'hexagon': 'hexagon',
-      'octagon': 'octagon',
-      'star4': '4-point star',
-      'star5': '5-point star',
-      'star6': '6-point star',
-      'star8': '8-point star',
-      'star10': '10-point star',
-      'star12': '12-point star',
-      'star16': '16-point star',
-      'star24': '24-point star',
-      'star32': '32-point star',
-      'plus': 'plus',
-      'minus': 'minus',
-      'mult': 'multiply',
-      'div': 'divide',
-      'equal': 'equal',
-      'notEqual': 'not equal',
-      'line': 'line',
-      'lineInv': 'inverted line',
-      'round1Rect': 'single rounded corner rectangle',
-      'round2SameRect': 'same-side rounded corners rectangle',
-      'round2DiagRect': 'diagonal rounded corners rectangle',
-      'snipRoundRect': 'snip and round rectangle',
-      'snip1Rect': 'single snipped corner rectangle',
-      'snip2SameRect': 'same-side snipped corners rectangle',
-      'snip2DiagRect': 'diagonal snipped corners rectangle',
-      'plaque': 'plaque',
-      'teardrop': 'teardrop',
-      'homePlate': 'home plate',
-      'chevron': 'chevron',
-      'pieWedge': 'pie wedge',
-      'pie': 'pie',
-      'blockArc': 'block arc',
-      'donut': 'donut',
-      'noSmoking': 'no smoking',
-      'rightArrow': 'right arrow',
-      'leftArrow': 'left arrow',
-      'upArrow': 'up arrow',
-      'downArrow': 'down arrow',
-      'stripedRightArrow': 'striped right arrow',
-      'notchedRightArrow': 'notched right arrow',
-      'bentUpArrow': 'bent up arrow',
-      'leftRightArrow': 'left right arrow',
-      'upDownArrow': 'up down arrow',
-      'leftUpArrow': 'left up arrow',
-      'leftRightUpArrow': 'left right up arrow',
-      'quadArrow': 'quad arrow',
-      'callout1': 'callout',
-      'callout2': 'callout 2',
-      'callout3': 'callout 3',
-      'accentCallout1': 'accent callout',
-      'accentCallout2': 'accent callout 2',
-      'accentCallout3': 'accent callout 3',
-      'borderCallout1': 'border callout',
-      'borderCallout2': 'border callout 2',
-      'borderCallout3': 'border callout 3',
-      'accentBorderCallout1': 'accent border callout',
-      'accentBorderCallout2': 'accent border callout 2',
-      'accentBorderCallout3': 'accent border callout 3',
-      'ribbon': 'ribbon',
-      'ribbon2': 'ribbon 2',
-      'verticalScroll': 'vertical scroll',
-      'horizontalScroll': 'horizontal scroll',
-      'wave': 'wave',
-      'doubleWave': 'double wave'
+      rect: "rectangle",
+      roundRect: "rounded rectangle",
+      ellipse: "ellipse",
+      triangle: "triangle",
+      rtTriangle: "right triangle",
+      parallelogram: "parallelogram",
+      trapezoid: "trapezoid",
+      diamond: "diamond",
+      pentagon: "pentagon",
+      hexagon: "hexagon",
+      octagon: "octagon",
+      star4: "4-point star",
+      star5: "5-point star",
+      star6: "6-point star",
+      star8: "8-point star",
+      star10: "10-point star",
+      star12: "12-point star",
+      star16: "16-point star",
+      star24: "24-point star",
+      star32: "32-point star",
+      plus: "plus",
+      minus: "minus",
+      mult: "multiply",
+      div: "divide",
+      equal: "equal",
+      notEqual: "not equal",
+      line: "line",
+      lineInv: "inverted line",
+      round1Rect: "single rounded corner rectangle",
+      round2SameRect: "same-side rounded corners rectangle",
+      round2DiagRect: "diagonal rounded corners rectangle",
+      snipRoundRect: "snip and round rectangle",
+      snip1Rect: "single snipped corner rectangle",
+      snip2SameRect: "same-side snipped corners rectangle",
+      snip2DiagRect: "diagonal snipped corners rectangle",
+      plaque: "plaque",
+      teardrop: "teardrop",
+      homePlate: "home plate",
+      chevron: "chevron",
+      pieWedge: "pie wedge",
+      pie: "pie",
+      blockArc: "block arc",
+      donut: "donut",
+      noSmoking: "no smoking",
+      rightArrow: "right arrow",
+      leftArrow: "left arrow",
+      upArrow: "up arrow",
+      downArrow: "down arrow",
+      stripedRightArrow: "striped right arrow",
+      notchedRightArrow: "notched right arrow",
+      bentUpArrow: "bent up arrow",
+      leftRightArrow: "left right arrow",
+      upDownArrow: "up down arrow",
+      leftUpArrow: "left up arrow",
+      leftRightUpArrow: "left right up arrow",
+      quadArrow: "quad arrow",
+      callout1: "callout",
+      callout2: "callout 2",
+      callout3: "callout 3",
+      accentCallout1: "accent callout",
+      accentCallout2: "accent callout 2",
+      accentCallout3: "accent callout 3",
+      borderCallout1: "border callout",
+      borderCallout2: "border callout 2",
+      borderCallout3: "border callout 3",
+      accentBorderCallout1: "accent border callout",
+      accentBorderCallout2: "accent border callout 2",
+      accentBorderCallout3: "accent border callout 3",
+      ribbon: "ribbon",
+      ribbon2: "ribbon 2",
+      verticalScroll: "vertical scroll",
+      horizontalScroll: "horizontal scroll",
+      wave: "wave",
+      doubleWave: "double wave",
     };
 
-    return shapeTypes[preset] || preset || 'shape';
+    return shapeTypes[preset] || preset || "shape";
   }
 
   /**
@@ -215,37 +216,37 @@ export class ShapeParser extends BaseParser {
    */
   static parseFill(spPr: XMLNode, style: XMLNode | null = null): FillInfo {
     // First check for direct SRGB colors in spPr (highest priority)
-    const solidFill = this.safeGet(spPr, 'solidFill');
+    const solidFill = BaseParser.safeGet(spPr, "solidFill");
     if (solidFill) {
       return {
-        type: 'solid',
+        type: "solid",
         color: this.parseColor(solidFill),
-        opacity: this.parseOpacity(solidFill)
+        opacity: this.parseOpacity(solidFill),
       };
     }
 
     // Gradient fill
-    const gradFill = this.safeGet(spPr, 'gradFill');
+    const gradFill = BaseParser.safeGet(spPr, "gradFill");
     if (gradFill) {
       return this.parseGradientFill(gradFill);
     }
 
     // Pattern fill
-    const pattFill = this.safeGet(spPr, 'pattFill');
+    const pattFill = BaseParser.safeGet(spPr, "pattFill");
     if (pattFill) {
       return {
-        type: 'pattern',
+        type: "pattern",
         color: this.parseColor(pattFill),
-        opacity: 1
+        opacity: 1,
       };
     }
 
     // No fill
-    if (this.safeGet(spPr, 'noFill')) {
+    if (BaseParser.safeGet(spPr, "noFill")) {
       return {
-        type: 'none',
-        color: 'transparent',
-        opacity: 0
+        type: "none",
+        color: "transparent",
+        opacity: 0,
       };
     }
 
@@ -257,9 +258,9 @@ export class ShapeParser extends BaseParser {
 
     // Default fill
     return {
-      type: 'solid',
-      color: '#FFFFFF',
-      opacity: 1
+      type: "solid",
+      color: "#FFFFFF",
+      opacity: 1,
     };
   }
 
@@ -271,32 +272,32 @@ export class ShapeParser extends BaseParser {
    */
   static parseBorder(spPr: XMLNode, style: XMLNode | null = null): BorderInfo {
     // First check for direct border/line definitions in spPr
-    const ln = this.safeGet(spPr, 'ln');
+    const ln = BaseParser.safeGet(spPr, "ln");
     if (!ln) {
       // Try to get border from style element as fallback
       if (style) {
         const styleBorder = this.parseBorderFromStyle(style);
         if (styleBorder) return styleBorder;
       }
-      
+
       return {
-        type: 'none',
-        color: 'transparent',
+        type: "none",
+        color: "transparent",
         width: 0,
-        style: 'none'
+        style: "none",
       };
     }
 
     // Line width (in EMUs)
-    const width = ln.$ && ln.$w ? this.emuToPixels(parseInt(ln.$w)) : 1;
-    
+    const width = ln.$ && ln.$w ? emuToPixels(parseInt(ln.$w)) : 1;
+
     // Line style
-    const compound = ln.$ && ln.$cmpd || 'sng';
-    const cap = ln.$ && ln.$cap || 'flat';
-    
+    const compound = (ln.$ && ln.$cmpd) || "sng";
+    const cap = (ln.$ && ln.$cap) || "flat";
+
     // Line color
-    let color = '#000000';
-    const solidFill = this.safeGet(ln, 'solidFill');
+    let color = "#000000";
+    const solidFill = BaseParser.safeGet(ln, "solidFill");
     if (solidFill) {
       color = this.parseColor(solidFill);
     }
@@ -305,12 +306,12 @@ export class ShapeParser extends BaseParser {
     const dashStyle = this.parseDashStyle(ln);
 
     return {
-      type: 'solid',
+      type: "solid",
       color: color,
       width: width,
       style: dashStyle,
       cap: cap,
-      compound: compound
+      compound: compound,
     };
   }
 
@@ -320,18 +321,25 @@ export class ShapeParser extends BaseParser {
    * @returns CSS border-style value
    */
   static parseDashStyle(ln: XMLNode): string {
-    const prstDash = this.safeGet(ln, 'prstDash.$val');
-    if (!prstDash) return 'solid';
+    const prstDash = BaseParser.safeGet(ln, "prstDash.$val");
+    if (!prstDash) return "solid";
 
     switch (prstDash) {
-      case 'dash': return 'dashed';
-      case 'dashDot': return 'dashed';
-      case 'dot': return 'dotted';
-      case 'lgDash': return 'dashed';
-      case 'lgDashDot': return 'dashed';
-      case 'lgDashDotDot': return 'dashed';
-      case 'solid':
-      default: return 'solid';
+      case "dash":
+        return "dashed";
+      case "dashDot":
+        return "dashed";
+      case "dot":
+        return "dotted";
+      case "lgDash":
+        return "dashed";
+      case "lgDashDot":
+        return "dashed";
+      case "lgDashDotDot":
+        return "dashed";
+      case "solid":
+      default:
+        return "solid";
     }
   }
 
@@ -343,33 +351,33 @@ export class ShapeParser extends BaseParser {
   static parseGradientFill(gradFill: XMLNode): FillInfo {
     // For now, return the first gradient stop color
     // In the future, this could return full gradient information
-    const gsLst = this.safeGet(gradFill, 'gsLst.gs');
+    const gsLst = BaseParser.safeGet(gradFill, "gsLst.gs");
     if (gsLst && Array.isArray(gsLst) && gsLst.length > 0) {
       const firstStop = gsLst[0];
-      const solidFill = this.safeGet(firstStop, 'solidFill');
+      const solidFill = BaseParser.safeGet(firstStop, "solidFill");
       if (solidFill) {
         return {
-          type: 'gradient',
+          type: "gradient",
           color: this.parseColor(solidFill),
-          opacity: this.parseOpacity(solidFill)
+          opacity: this.parseOpacity(solidFill),
         };
       }
     } else if (gsLst) {
       // Handle case where gsLst.gs is not an array
-      const solidFill = this.safeGet(gsLst, 'solidFill');
+      const solidFill = BaseParser.safeGet(gsLst, "solidFill");
       if (solidFill) {
         return {
-          type: 'gradient',
+          type: "gradient",
           color: this.parseColor(solidFill),
-          opacity: this.parseOpacity(solidFill)
+          opacity: this.parseOpacity(solidFill),
         };
       }
     }
 
     return {
-      type: 'gradient',
-      color: '#FFFFFF',
-      opacity: 1
+      type: "gradient",
+      color: "#FFFFFF",
+      opacity: 1,
     };
   }
 
@@ -391,24 +399,28 @@ export class ShapeParser extends BaseParser {
    */
   static parseEffects(spPr: XMLNode): EffectsInfo {
     const effects: EffectsInfo = {
-      effects: []
+      effects: [],
     };
 
     // Outer shadow
-    const outerShdw = this.safeGet(spPr, 'effectLst.outerShdw');
+    const outerShdw = BaseParser.safeGet(spPr, "effectLst.outerShdw");
     if (outerShdw) {
-      const blur = outerShdw.$blurRad ? this.emuToPixels(parseInt(outerShdw.$blurRad)) : 0;
-      const distance = outerShdw.$dist ? this.emuToPixels(parseInt(outerShdw.$dist)) : 0;
+      const blur = outerShdw.$blurRad
+        ? emuToPixels(parseInt(outerShdw.$blurRad))
+        : 0;
+      const distance = outerShdw.$dist
+        ? emuToPixels(parseInt(outerShdw.$dist))
+        : 0;
       const direction = outerShdw.$dir ? parseInt(outerShdw.$dir) / 60000 : 0; // Convert to degrees
-      
-      effects.boxShadow = `${distance * Math.cos(direction * Math.PI / 180)}px ${distance * Math.sin(direction * Math.PI / 180)}px ${blur}px rgba(0,0,0,0.3)`;
-      effects.effects.push('shadow');
+
+      effects.boxShadow = `${distance * Math.cos((direction * Math.PI) / 180)}px ${distance * Math.sin((direction * Math.PI) / 180)}px ${blur}px rgba(0,0,0,0.3)`;
+      effects.effects.push("shadow");
     }
 
     // Glow
-    const glow = this.safeGet(spPr, 'effectLst.glow');
+    const glow = BaseParser.safeGet(spPr, "effectLst.glow");
     if (glow) {
-      effects.effects.push('glow');
+      effects.effects.push("glow");
     }
 
     return effects;
@@ -432,34 +444,34 @@ export class ShapeParser extends BaseParser {
    */
   static parseFillFromStyle(style: XMLNode): FillInfo | null {
     // Look for fill reference in style
-    const fillRef = this.safeGet(style, 'fillRef');
+    const fillRef = BaseParser.safeGet(style, "fillRef");
     if (fillRef) {
       // Get the color from the scheme color or override
-      const schemeClr = this.safeGet(fillRef, 'schemeClr');
-      const srgbClr = this.safeGet(fillRef, 'srgbClr');
-      
+      const schemeClr = BaseParser.safeGet(fillRef, "schemeClr");
+      const srgbClr = BaseParser.safeGet(fillRef, "srgbClr");
+
       if (srgbClr && srgbClr.$val) {
         return {
-          type: 'solid',
-          color: '#' + srgbClr.$val,
-          opacity: 1
+          type: "solid",
+          color: "#" + srgbClr.$val,
+          opacity: 1,
         };
       }
-      
+
       // Handle scheme colors - basic mapping
       if (schemeClr && schemeClr.$val) {
         const color = this.parseSchemeColor(schemeClr.$val);
-        
+
         if (color) {
           return {
-            type: 'solid',
+            type: "solid",
             color: color,
-            opacity: 1
+            opacity: 1,
           };
         }
       }
     }
-    
+
     return null;
   }
 
@@ -470,48 +482,48 @@ export class ShapeParser extends BaseParser {
    */
   static parseBorderFromStyle(style: XMLNode): BorderInfo | null {
     // Look for line reference in style
-    const lnRef = this.safeGet(style, 'lnRef');
+    const lnRef = BaseParser.safeGet(style, "lnRef");
     if (lnRef) {
       // Use safe default: only create borders for explicit color definitions
       // If there's no explicit color, treat as no border
       // Get the color from the scheme color or override
-      const schemeClr = this.safeGet(lnRef, 'schemeClr');
-      const srgbClr = this.safeGet(lnRef, 'srgbClr');
-      
+      const schemeClr = BaseParser.safeGet(lnRef, "schemeClr");
+      const srgbClr = BaseParser.safeGet(lnRef, "srgbClr");
+
       // Only create borders for explicit RGB colors (most reliable)
       if (srgbClr && srgbClr.$val) {
         return {
-          type: 'solid',
-          color: '#' + srgbClr.$val,
+          type: "solid",
+          color: "#" + srgbClr.$val,
           width: 1, // Default width
-          style: 'solid'
+          style: "solid",
         };
       }
-      
+
       // For scheme colors, use safe default of no border unless it's a very clear case
       // This avoids theme interpretation issues
       if (schemeClr && schemeClr.$val) {
         // Only create borders for explicit dark colors that are clearly intended as borders
-        if (schemeClr.$val === 'dk1' || schemeClr.$val === 'tx1') {
+        if (schemeClr.$val === "dk1" || schemeClr.$val === "tx1") {
           return {
-            type: 'solid',
-            color: '#000000',
+            type: "solid",
+            color: "#000000",
             width: 1,
-            style: 'solid'
+            style: "solid",
           };
         }
-        
+
         // For all other scheme colors (including accent colors), use safe default of no border
         // This prevents theme interpretation issues
         return {
-          type: 'none',
-          color: 'transparent',
+          type: "none",
+          color: "transparent",
           width: 0,
-          style: 'none'
+          style: "none",
         };
       }
     }
-    
+
     return null;
   }
 
@@ -522,24 +534,25 @@ export class ShapeParser extends BaseParser {
    * @returns modified hex color
    */
   static applyShade(color: string, shadeVal: number): string {
-    if (!color || !color.startsWith('#')) return color;
-    
+    if (!color || !color.startsWith("#")) return color;
+
     // Convert shade value from PowerPoint format (50000 = 50%) to percentage
     const shadePercent = Math.min(100, Math.max(0, shadeVal / 1000)) / 100;
-    
+
     // Convert hex to RGB
     const hex = color.slice(1);
     const r = parseInt(hex.substring(0, 2), 16);
     const g = parseInt(hex.substring(2, 4), 16);
     const b = parseInt(hex.substring(4, 6), 16);
-    
+
     // Apply shade (darken by reducing each component)
     const shadedR = Math.round(r * (1 - shadePercent));
     const shadedG = Math.round(g * (1 - shadePercent));
     const shadedB = Math.round(b * (1 - shadePercent));
-    
+
     // Convert back to hex
-    const toHex = (n: number) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0');
+    const toHex = (n: number) =>
+      Math.max(0, Math.min(255, n)).toString(16).padStart(2, "0");
     return `#${toHex(shadedR)}${toHex(shadedG)}${toHex(shadedB)}`.toUpperCase();
   }
 
@@ -551,63 +564,22 @@ export class ShapeParser extends BaseParser {
   static parseSchemeColor(scheme: string): string | null {
     // Default Office scheme color mappings
     const schemeColors: Record<string, string> = {
-      'accent1': '#4472C4', // Blue
-      'accent2': '#E7E6E6', // Light Gray
-      'accent3': '#A5A5A5', // Gray
-      'accent4': '#FFC000', // Orange
-      'accent5': '#5B9BD5', // Light Blue
-      'accent6': '#70AD47', // Green
-      'bg1': '#FFFFFF',     // White
-      'bg2': '#F2F2F2',     // Light Gray
-      'tx1': '#000000',     // Black
-      'tx2': '#44546A',     // Dark Blue
-      'dk1': '#000000',     // Black
-      'dk2': '#44546A',     // Dark Blue
-      'lt1': '#FFFFFF',     // White
-      'lt2': '#F2F2F2'      // Light Gray
+      accent1: "#4472C4", // Blue
+      accent2: "#E7E6E6", // Light Gray
+      accent3: "#A5A5A5", // Gray
+      accent4: "#FFC000", // Orange
+      accent5: "#5B9BD5", // Light Blue
+      accent6: "#70AD47", // Green
+      bg1: "#FFFFFF", // White
+      bg2: "#F2F2F2", // Light Gray
+      tx1: "#000000", // Black
+      tx2: "#44546A", // Dark Blue
+      dk1: "#000000", // Black
+      dk2: "#44546A", // Dark Blue
+      lt1: "#FFFFFF", // White
+      lt2: "#F2F2F2", // Light Gray
     };
-    
+
     return schemeColors[scheme] || null;
-  }
-
-  /**
-   * Safely get a nested property from an object
-   * @param obj - Object to query
-   * @param path - Dot-separated path to property
-   * @returns the property value or null
-   */
-  static safeGet(obj: any, path: string): any {
-    if (!obj) return null;
-
-    const parts = path.split('.');
-    let current = obj;
-
-    for (const part of parts) {
-      if (current == null || typeof current !== 'object') {
-        return null;
-      }
-
-      // Handle array access or object property
-      if (part.includes('[') && part.includes(']')) {
-        // Array access like 'items[0]'
-        const [prop, indexStr] = part.split('[');
-        const index = parseInt(indexStr.replace(']', ''));
-        current = current[prop];
-        
-        if (Array.isArray(current) && index >= 0 && index < current.length) {
-          current = current[index];
-        } else {
-          return null;
-        }
-      } else if (part.startsWith('$')) {
-        // Attribute access
-        current = current[part];
-      } else {
-        // Regular property access
-        current = current[part];
-      }
-    }
-
-    return current;
   }
 }

@@ -2,21 +2,22 @@
   "metadata": {
     "name": "simple-shape",
     "description": "Basic geometric shape from PowerPoint",
-    "downloadedAt": "2025-08-31T06:45:35.132Z",
+    "downloadedAt": "2025-09-03T17:28:10.262Z",
     "size": 4219,
     "contentType": "application/octet-stream",
     "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=7b278b8c-0c5b-4785-ad7d-0f5711b9bd5b&DC=GEU7&pkey=4568ec4f-90a8-4227-87dc-9ec5e93ee121&wdwaccluster=GEU7&DataType=shape"
   },
   "components": [
     {
-      "id": "text-1756622735132-0",
+      "id": "TextBox 1",
       "type": "text",
+      "content": "HELLO EDITH ROSE ISNT THIS MAGICAL",
       "x": 58,
       "y": 306,
       "width": 1019,
       "height": 68,
       "rotation": 0,
-      "content": "HELLO EDITH ROSE ISNT THIS MAGICAL",
+      "slideIndex": 1,
       "style": {
         "fontSize": 36,
         "fontFamily": "Arial",
@@ -26,25 +27,53 @@
         "color": "#E97132",
         "backgroundColor": "transparent",
         "textAlign": "left",
-        "opacity": 1
+        "opacity": 1,
+        "rotation": 0
+      },
+      "textRuns": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "HELLO EDITH ROSE ISNT THIS MAGICAL",
+                "marks": [
+                  {
+                    "type": "bold"
+                  },
+                  {
+                    "type": "textStyle",
+                    "attrs": {
+                      "fontSize": "36pt"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       },
       "metadata": {
-        "isTitle": true,
+        "namespace": "a",
+        "isTextBox": true,
+        "originalFormat": "normalized",
         "paragraphCount": 1,
-        "hasMultipleRuns": false,
-        "shapeType": "rect"
+        "hasMultipleRuns": false
       },
-      "slideIndex": 0
+      "zIndex": 0
     },
     {
-      "id": "text-1756622735132-1",
+      "id": "TextBox 4",
       "type": "text",
+      "content": "TEXT",
       "x": 109,
       "y": 41,
       "width": 288,
       "height": 139,
       "rotation": 0,
-      "content": "TEXT",
+      "slideIndex": 1,
       "style": {
         "fontSize": 80,
         "fontFamily": "Arial",
@@ -54,15 +83,39 @@
         "color": "#4EA72E",
         "backgroundColor": "transparent",
         "textAlign": "left",
-        "opacity": 1
+        "opacity": 1,
+        "rotation": 0
+      },
+      "textRuns": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "TEXT",
+                "marks": [
+                  {
+                    "type": "textStyle",
+                    "attrs": {
+                      "fontSize": "80pt"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       },
       "metadata": {
-        "isTitle": true,
+        "namespace": "a",
+        "isTextBox": true,
+        "originalFormat": "normalized",
         "paragraphCount": 1,
-        "hasMultipleRuns": false,
-        "shapeType": "rect"
+        "hasMultipleRuns": false
       },
-      "slideIndex": 0
+      "zIndex": 1
     }
   ],
   "componentCount": 2,

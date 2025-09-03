@@ -271,7 +271,7 @@ export class PowerPointParser extends BaseParser {
         if (width > 50000 || height > 50000) {
           console.warn('🚨 Slide dimensions appear to be in EMU, not pixels:', { width, height });
         } else {
-          console.log('✅ Slide dimensions validated as pixels:', { width, height });
+          // Slide dimensions validated as pixels
         }
       }
 

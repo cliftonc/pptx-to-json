@@ -10,7 +10,7 @@ vi.mock('node-fetch', () => ({
 }))
 
 import fetch from 'node-fetch'
-import { PowerPointClipboardProcessor } from '../../src/processors/PowerPointClipboardProcessor.js'
+import { PowerPointClipboardProcessor } from '../../src/processors/PowerPointClipboardProcessor.ts'
 
 const mockFetch = vi.mocked(fetch)
 
@@ -67,11 +67,11 @@ describe('PowerPointClipboardProcessor', () => {
       await expect(processor.parseClipboardBuffer(123)).rejects.toThrow('Input must be a Uint8Array or ArrayBuffer')
     })
 
-    it('should return empty array for non-ZIP buffer', async () => {
+    it('should return empty slides for non-ZIP buffer', async () => {
       // Create a buffer that doesn't have ZIP signature
       const nonZipBuffer = Buffer.from('This is not a ZIP file')
       const result = await processor.parseClipboardBuffer(nonZipBuffer)
-      expect(result).toEqual([])
+      expect(result).toEqual({ slides: [], totalComponents: 0, format: 'unknown' })
     })
 
     it('should detect ZIP signature correctly', async () => {
@@ -83,13 +83,21 @@ describe('PowerPointClipboardProcessor', () => {
       mockBuffer2Json.mockResolvedValue({ 'test-file.xml': {} })
       
       const mockParseJson = vi.spyOn(processor.powerPointParser, 'parseJson')
-      mockParseJson.mockResolvedValue([
-        { id: 'test-1', type: 'shape', content: 'Test Shape' }
-      ])
+      mockParseJson.mockResolvedValue({
+        slides: [{
+          components: [
+            { id: 'test-1', type: 'shape', content: 'Test Shape' }
+          ]
+        }],
+        totalComponents: 1,
+        format: 'powerpoint'
+      })
       
       const result = await processor.parseClipboardBuffer(zipBuffer)
-      expect(result).toHaveLength(1)
-      expect(result[0]).toHaveProperty('type', 'shape')
+      expect(result.slides).toHaveLength(1)
+      expect(result.slides[0].components).toHaveLength(1)
+      expect(result.slides[0].components[0]).toHaveProperty('type', 'shape')
+      expect(result.totalComponents).toBe(1)
       expect(mockBuffer2Json).toHaveBeenCalledWith(zipBuffer)
       expect(mockParseJson).toHaveBeenCalled()
     })
@@ -200,7 +208,12 @@ describe('PowerPointClipboardProcessor', () => {
         { id: 'test-1', type: 'shape', content: 'Test Shape' },
         { id: 'test-2', type: 'text', content: 'Test Text' }
       ]
-      const mockParseClipboardBuffer = vi.spyOn(processor, 'parseClipboardBuffer').mockResolvedValue(mockComponents)
+      const mockParseResult = {
+        slides: [{ components: mockComponents }],
+        totalComponents: 2,
+        format: 'powerpoint'
+      }
+      const mockParseClipboardBuffer = vi.spyOn(processor, 'parseClipboardBuffer').mockResolvedValue(mockParseResult)
       
       // Mock fetch to return our buffer
       mockFetch.mockResolvedValue({
@@ -224,15 +237,10 @@ describe('PowerPointClipboardProcessor', () => {
         contentType: 'application/octet-stream',
         size: 6,
         slides: [{
-          slideIndex: 0,
-          slideNumber: 1,
-          components: mockComponents,
-          metadata: {
-            name: 'Clipboard Paste',
-            componentCount: 2
-          }
+          components: mockComponents
         }],
         slideCount: 1,
+        slideDimensions: undefined,
         isPowerPoint: true,
         debug: expect.objectContaining({
           componentCount: 2,
@@ -279,13 +287,13 @@ describe('PowerPointClipboardProcessor Edge Cases', () => {
     it('should handle empty buffer', async () => {
       const emptyBuffer = Buffer.alloc(0)
       const result = await processor.parseClipboardBuffer(emptyBuffer)
-      expect(result).toEqual([])
+      expect(result).toEqual({ slides: [], totalComponents: 0, format: 'unknown' })
     })
 
     it('should handle buffer with partial ZIP signature', async () => {
       const partialZipBuffer = Buffer.from([0x50, 0x4B]) // Only first 2 bytes
       const result = await processor.parseClipboardBuffer(partialZipBuffer)
-      expect(result).toEqual([])
+      expect(result).toEqual({ slides: [], totalComponents: 0, format: 'unknown' })
     })
 
     it('should handle very large buffer metadata', async () => {
@@ -303,10 +311,14 @@ describe('PowerPointClipboardProcessor Edge Cases', () => {
       
       // Mock both the PPTX parser and PowerPoint parser
       vi.spyOn(processor.pptxParser, 'buffer2json').mockResolvedValue({})
-      vi.spyOn(processor.powerPointParser, 'parseJson').mockResolvedValue([])
+      vi.spyOn(processor.powerPointParser, 'parseJson').mockResolvedValue({
+        slides: [],
+        totalComponents: 0,
+        format: 'unknown'
+      })
       
       const result = await processor.parseClipboardBuffer(largeBuffer)
-      expect(result).toEqual([])
+      expect(result).toEqual({ slides: [], totalComponents: 0, format: 'unknown' })
     })
   })
 
@@ -330,7 +342,7 @@ describe('PowerPointClipboardProcessor Edge Cases', () => {
       
       suspiciousUrls.forEach((url, index) => {
         const result = processor.validateUrl(url)
-        console.log(`Testing suspicious URL ${index}: ${url} -> ${result}`)
+        // Testing suspicious URL
         expect(result).toBe(false)
       })
     })
