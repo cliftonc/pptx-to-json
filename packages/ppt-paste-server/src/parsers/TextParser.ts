@@ -3,7 +3,8 @@
  */
 
 import { BaseParser } from './BaseParser.js';
-import { TextComponent, XMLNode, TextRun } from '../types/index.js';
+import { TextComponent, XMLNode, TextRun, ComponentStyle } from '../types/index.js';
+import { TextBodyNode, ParagraphNode, RunNode } from '../types/xml-nodes.js';
 
 // Rich text node types for TLDraw compatibility
 interface TextNode {
@@ -39,9 +40,9 @@ interface RichTextDoc {
 
 // Normalized text component structure
 interface NormalizedTextComponent {
-  textBody: XMLNode;
-  spPr: XMLNode;
-  nvSpPr: XMLNode;
+  textBody?: XMLNode;
+  spPr?: XMLNode;
+  nvSpPr?: XMLNode;
   namespace?: string;
 }
 
@@ -73,24 +74,54 @@ export class TextParser extends BaseParser {
 
     // Extract rich text structure using existing method and flatten to TextRun[]
     const richTextDoc = this.extractRichTextContent(textBody);
-    // Flatten paragraphs into simple TextRun[] for downstream consumers
-    const richTextContent: TextRun[] = [];
+
+    // Build flattened TextRun[] while preserving spacing heuristics & style mapping
+    const flattenedRuns: TextRun[] = [];
+    const addRun = (text: string, marks?: Mark[]) => {
+      if (text === '') return;
+      const style: Partial<ComponentStyle> = {};
+      if (marks) {
+        for (const m of marks) {
+          if (m.type === 'bold') style.fontWeight = 'bold';
+          if (m.type === 'italic') style.fontStyle = 'italic';
+          if (m.type === 'textStyle' && m.attrs?.fontSize) {
+            const num = parseFloat(String(m.attrs.fontSize).replace(/pt$/,'').trim());
+            if (!Number.isNaN(num)) style.fontSize = num;
+          }
+        }
+      }
+      flattenedRuns.push({ text, style: Object.keys(style).length ? style : undefined });
+    };
+
     if (richTextDoc && Array.isArray(richTextDoc.content)) {
       for (const node of richTextDoc.content) {
         if (node.type === 'paragraph') {
-          for (const tn of node.content) {
-            const runText = this.asString((tn as any).text, '');
-            if (runText !== '') {
-              richTextContent.push({ text: runText, style: tn.marks ? {} : undefined });
+          const paraRuns = (node as Paragraph).content;
+          for (let i = 0; i < paraRuns.length; i++) {
+            const tn = paraRuns[i] as any;
+            const runText = this.asString(tn.text, '');
+            addRun(runText, tn.marks);
+            const next = paraRuns[i+1] as any;
+            if (next && next.type === 'text' && this.shouldAddSpaceBetweenRuns({ text: runText }, { text: this.asString(next.text, '') })) {
+              // Only add explicit space run if not already a single space node inserted
+              if (runText !== ' ' && this.asString(next.text,'') !== ' ') {
+                flattenedRuns.push({ text: ' ' });
+              }
             }
           }
         } else if (node.type === 'bulletList') {
           for (const li of node.content) {
             for (const para of li.content) {
-              for (const tn of para.content) {
-                const runText = this.asString((tn as any).text, '');
-                if (runText !== '') {
-                  richTextContent.push({ text: runText, style: tn.marks ? {} : undefined });
+              const paraRuns = para.content;
+              for (let i = 0; i < paraRuns.length; i++) {
+                const tn = paraRuns[i] as any;
+                const runText = this.asString(tn.text, '');
+                addRun(runText, tn.marks);
+                const next = paraRuns[i+1] as any;
+                if (next && next.type === 'text' && this.shouldAddSpaceBetweenRuns({ text: runText }, { text: this.asString(next.text, '') })) {
+                  if (runText !== ' ' && this.asString(next.text,'') !== ' ') {
+                    flattenedRuns.push({ text: ' ' });
+                  }
                 }
               }
             }
@@ -98,6 +129,9 @@ export class TextParser extends BaseParser {
         }
       }
     }
+
+    // Final spacing pass to ensure no missing spaces between word runs
+    const richTextContent = this.fixSpacingInTextRuns(flattenedRuns);
 
     // Extract positioning from spPr (namespace-agnostic since we stripped them)
     const xfrm = this.getNode(spPr, 'xfrm');
@@ -154,15 +188,41 @@ export class TextParser extends BaseParser {
         opacity: 1,
         rotation: transform.rotation || 0
       },
-      textRuns: richTextContent,
+      // Restore original property name: richText (regression fix)
+      richText: richTextDoc as any,
       metadata: {
         namespace,
         isTextBox,
         originalFormat: 'normalized',
         paragraphCount: paragraphsArray.length,
-        hasMultipleRuns: paragraphsArray.some(p => Array.isArray(p['r']))
+        hasMultipleRuns: paragraphsArray.some(p => Array.isArray(p['r'])),
+        flattenedRuns: richTextContent
       }
     };
+  }
+
+  /**
+   * Return paragraphs array (typed) from a textBody-like node.
+   */
+  private static getParagraphs(textBody: XMLNode | TextBodyNode): (ParagraphNode | XMLNode)[] {
+    const raw = (textBody as any)?.p;
+    if (!raw) return [];
+    return Array.isArray(raw) ? raw : [raw];
+  }
+
+  /**
+   * Collect runs (including fields) from a paragraph.
+   */
+  static extractRuns(paragraph: ParagraphNode | XMLNode): RunNode[] {
+    if (!paragraph || typeof paragraph !== 'object') return [];
+    const runs: any[] = [];
+    const r = (paragraph as any).r;
+    const fld = (paragraph as any).fld;
+    if (Array.isArray(r)) runs.push(...r);
+    else if (r) runs.push(r);
+    if (Array.isArray(fld)) runs.push(...fld);
+    else if (fld) runs.push(fld);
+    return runs.filter(Boolean) as RunNode[];
   }
 
   /**
@@ -170,41 +230,30 @@ export class TextParser extends BaseParser {
    * @param textBody - PowerPoint textBody element
    * @returns Extracted text content
    */
-  static extractTextContent(textBody: XMLNode): string {
+  static extractTextContent(textBody: XMLNode | TextBodyNode): string {
     // Namespaces are already stripped
-    const paragraphs = this.getNode(textBody, 'p') ?? this.safeGet(textBody, 'p', []);
-    const paragraphsArray = Array.isArray(paragraphs) ? paragraphs : [paragraphs];
-    
+    const paragraphsArray = this.getParagraphs(textBody);
     const allText: string[] = [];
-    
     for (const paragraph of paragraphsArray) {
-      let paragraphText = '';
-      
-      // Extract text from runs
-      const runs = paragraph?.['r'];
-      if (runs) {
-        const runsArray = Array.isArray(runs) ? runs : [runs];
-        for (const run of runsArray) {
-          const text = this.getString(run, 't', '');
-          paragraphText += text;
+      const runsArray = this.extractRuns(paragraph).map(r => ({ text: this.getString(r, 't', '') } as TextRun)).filter(r => r.text !== '');
+      if (!runsArray.length) continue;
+      let paragraphText = runsArray[0].text;
+      for (let i = 1; i < runsArray.length; i++) {
+        const prev = runsArray[i-1].text;
+        const curr = runsArray[i].text;
+        const prevLast = prev.slice(-1);
+        const currFirst = curr[0];
+        const isLetterPair = /[A-Za-z]/.test(prevLast) && /[A-Za-z]/.test(currFirst);
+        const isNumberBoundary = /[0-9]/.test(prevLast) || /[0-9]/.test(currFirst);
+        if (isLetterPair && !isNumberBoundary) {
+          paragraphText += ' ';
         }
+        paragraphText += curr;
       }
-      
-      // Extract text from fields
-      const fields = paragraph?.['fld'];
-      if (fields) {
-        const fieldsArray = Array.isArray(fields) ? fields : [fields];
-        for (const field of fieldsArray) {
-          const text = this.getString(field, 't', '');
-          paragraphText += text;
-        }
-      }
-      
       if (paragraphText.trim()) {
         allText.push(paragraphText.trim());
       }
     }
-    
     return allText.join('\n\n');
   }
 
@@ -213,12 +262,10 @@ export class TextParser extends BaseParser {
    * @param textBody - PowerPoint textBody element
    * @returns Rich text structure compatible with TLDraw
    */
-  static extractRichTextContent(textBody: XMLNode): RichTextDoc {
+  static extractRichTextContent(textBody: XMLNode | TextBodyNode): RichTextDoc {
     // Namespaces are already stripped
-    const paragraphs = this.getNode(textBody, 'p') ?? this.safeGet(textBody, 'p', []);
-    const paragraphsArray = Array.isArray(paragraphs) ? paragraphs : [paragraphs];
-    const lstStyle = this.getNode(textBody, 'lstStyle') ?? this.safeGet(textBody, 'lstStyle');
-    
+    const paragraphsArray = this.getParagraphs(textBody);
+    const lstStyle = this.getNode(textBody as any, 'lstStyle') ?? this.safeGet(textBody as any, 'lstStyle');
     // Create simple paragraph structure - TLDraw handles bullets at paragraph level
     return this.createParagraphStructure(paragraphsArray, lstStyle);
   }
@@ -229,7 +276,7 @@ export class TextParser extends BaseParser {
    * @param lstStyle - PowerPoint list style
    * @returns Rich text structure with paragraphs containing bulletLists
    */
-  static createParagraphStructure(paragraphsArray: XMLNode[], lstStyle: XMLNode): RichTextDoc {
+  static createParagraphStructure(paragraphsArray: (XMLNode | ParagraphNode)[], lstStyle: XMLNode): RichTextDoc {
     const content: Array<Paragraph | BulletList> = [];
     let currentBulletItems: ListItem[] = [];
     
@@ -248,30 +295,17 @@ export class TextParser extends BaseParser {
       const paragraph = paragraphsArray[paragraphIndex];
       const paragraphContent: TextNode[] = [];
       
-      // Extract text content from runs (namespaces already stripped)
-      const runs = paragraph?.['r'];
-      if (runs) {
-        const runsArray = Array.isArray(runs) ? runs : [runs];
-        const validRuns = runsArray.filter(run => {
-          const text = this.getString(run, 't', '');
-          return text !== '';
-        });
-        
-        for (let i = 0; i < validRuns.length; i++) {
-          const run = validRuns[i];
-          const text = this.getString(run, 't', '');
-          const rPr = this.getNode(run, 'rPr');
-          
-          const textNode = this.createTextNode(text, rPr);
-          paragraphContent.push(textNode);
-          
-          // Add space between valid runs (except for the last run)
-          if (i < validRuns.length - 1) {
-            paragraphContent.push({
-              type: 'text',
-              text: ' '
-            });
-          }
+      // Extract text content from runs + fields (namespaces already stripped)
+      const runsArray = this.extractRuns(paragraph);
+      const validRuns = runsArray.filter(run => this.getString(run, 't', '') !== '');
+      for (let i = 0; i < validRuns.length; i++) {
+        const run = validRuns[i];
+        const text = this.getString(run, 't', '');
+        const rPr = this.getNode(run, 'rPr');
+        const textNode = this.createTextNode(text, rPr);
+        paragraphContent.push(textNode);
+        if (i < validRuns.length - 1) {
+          paragraphContent.push({ type: 'text', text: ' ' });
         }
       }
       

@@ -30,7 +30,7 @@
         "opacity": 1,
         "rotation": -36
       },
-      "textRuns": {
+      "richText": {
         "type": "doc",
         "content": [
           {

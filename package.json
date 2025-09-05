@@ -11,6 +11,7 @@
     "preview": "pnpm --filter worker start",
     "test": "pnpm -r test -- --run",
     "type-check": "pnpm --filter ppt-paste-server type-check && pnpm --filter ppt-paste-parser type-check",
+    "typecheck:strict": "tsc -p packages/ppt-paste-server/tsconfig.strict.json --noEmit && tsc -p packages/ppt-paste-parser/tsconfig.strict.json --noEmit",
     "log-bin": "cd packages/ppt-paste-server && node scripts/log-paste-bin.js"
   },
   "devDependencies": {

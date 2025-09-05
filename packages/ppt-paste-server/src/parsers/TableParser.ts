@@ -137,23 +137,11 @@ export class TableParser extends BaseParser {
    */
   static extractCellText(txBody: XMLNode | null | undefined): string {
     if (!txBody) return "";
-
     try {
-      const paragraphsArray = BaseParser.getArray(txBody, "p", []);
-      const textParts: string[] = [];
-
-      for (const paragraph of paragraphsArray) {
-        const runsArray = BaseParser.getArray(paragraph, "r", []);
-        for (const run of runsArray) {
-          const textVal = BaseParser.getString(run, "t", "").trim();
-          if (textVal) textParts.push(textVal);
-        }
-        // Also check for direct text at paragraph level
-        const directText = BaseParser.getString(paragraph, "t", "").trim();
-        if (directText) textParts.push(directText);
-      }
-
-      return textParts.join(" ").trim();
+      // Reuse TextParser logic to ensure consistent bullet / spacing handling (bullets ignored inside tables for now)
+      const { TextParser } = require('./TextParser.js');
+      const text = TextParser.extractTextContent(txBody);
+      return (text || '').trim();
     } catch (error) {
       console.error("Error extracting cell text:", error);
       return "";

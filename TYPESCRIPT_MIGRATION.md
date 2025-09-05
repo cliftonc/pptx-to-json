@@ -120,7 +120,126 @@ The entire PowerPoint parsing system now has:
 - ✅ Test and script files intentionally kept as .js for compatibility
 
 ## Final Status: ✅ MIGRATION 100% COMPLETE
+
+## Phase 2: Enforcing Strict Mode
+
+### Goal
+Elevate all server/parser packages to full TypeScript `strict` compliance (and related strictness flags) while keeping the public API stable.
+
+### Current Strictness Snapshot (Baseline)
+- `packages/ppt-paste-server`: `strict` disabled (tsconfig.strict.json prepared). Client run with strict config produced 0 compile errors, but many implicit anys remain hidden.
+- `packages/ppt-paste-parser`: `strict` disabled (needs a strict overlay config).
+- `apps/worker/client`: Already `strict: true` plus additional lint-style compiler options; serves as reference.
+- `apps/worker/worker.ts`: No package-level tsconfig; implicitly compiled by parent build.
+
+### Explicit `any` Baseline (Key Files)
+(Representative; counts to be automated in Phase 1 execution.)
+- `BaseParser.ts`: helper signatures & coercion utilities (`isBufferLike(obj: any)`, `safeGet(obj: any, ...)`, etc.)
+- `PowerPointParser.ts`: factory parameters (`textComponent: any`, `imageComponent: any`, relationship/media maps). 
+- `normalized.ts`: normalized element `data: any` plus numerous `any` placeholders for XML subtrees.
+
+### Strict Mode Risks / Hotspots
+- Dynamic XML tree traversal (fast-xml-parser output) currently untyped → introduces many `any` escapes.
+- Relationship/media maps typed as `Record<string, any>`; consumers assume shapes; narrowing required.
+- Generic component construction relies on structural assumptions not yet captured in types (e.g., presence of `spPr.ext.off`).
+
+### Strategy (Incremental, Low-Churn)
+1. Containment Layer: Convert broad external surface `any` usages to `unknown` inside utility layer, forcing explicit narrowing at call sites.
+2. Introduce Thin Domain Types: Define small structural interfaces (e.g., `XfrmNode`, `OffsetNode`, `ExtentNode`, `BlipFillNode`, `RunNode`, `ParagraphNode`). Only required fields included.
+3. Refine Normalized Types: Replace selected `any` with newly introduced minimal interfaces where used by parsers; keep escape hatches as `unknown` with doc comments.
+4. Parser Signatures: Replace `parseUnified*Component(element: any, ...)` with concrete discriminated normalized element types (`NormalizedTextElement`, etc.).
+5. Relationship & Media Maps: Add `RelationshipEntry`, `MediaFileEntry` types and use `Record<string, RelationshipEntry>`; update accessors.
+6. Utility Hardening: Change `safeGet` return to `unknown`; create specialized wrappers (`getString`, `getNumber`, etc.) that narrow from `unknown`.
+7. Remove `allowJs` in server package (migration complete) to prevent regression.
+8. Introduce `tsconfig.strict.json` for parser package mirroring server strict overlay.
+9. Add repo script: `typecheck:strict` running both strict overlays (`tsc -p .../tsconfig.strict.json --noEmit`).
+10. Flip Base `strict: true` after zero error run using overlays; remove overlays when stable (optional) or keep as contract tests.
+
+### Acceptance Criteria
+- Zero TypeScript errors with `strict: true` in both core packages.
+- Explicit `any` count reduced to < 5 (justified with comments or unavoidable interop).
+- No breaking changes to exported public component types or parsed JSON structure.
+- New helper types documented inline.
+
+### Metrics to Track (Add Section Updates as We Progress)
+- COUNT_explicit_any (server): baseline TBD → target < 5.
+- COUNT_explicit_any (parser): baseline TBD → target < 3.
+- COUNT_unknown (expected temporary rise) – should decline after domain types land.
+
+### Implementation Phases
+1. Baseline & Containment (unknown conversions, domain skeleton types, parser signature tightening for text & shape). 
+2. Media & Table/Video Refinement (image/table/video normalized element typing + relationship/media maps). 
+3. Utility Convergence (safeGet → unknown, callers updated, remove residual implicit anys). 
+4. Strict Overlay Activation (introduce parser strict tsconfig, CI/script). 
+5. Final Flip (set `strict: true` in primary tsconfig files, shrink overlays or keep as lint). 
+
+### Potential Follow-Ups (Post Strict)
+- Introduce ESLint with type-aware rules for further safety.
+- Code generation for XML node narrow interfaces from sample PPTX to reduce manual drift.
+- Add zIndex ordering invariant test (per slide ascending) under `test/unit`.
+
+---
+
 All source files have been successfully migrated to TypeScript with proper module exports and build configuration.
+
+## Recent Strictness Progress (Phase 2 – Steps C & D)
+
+### Changes Implemented
+- Added `RelationshipGraph` and `MediaFiles` aliases in `normalized.ts` and replaced prior `Record<string, any>` / `Record<string, Uint8Array>` usages in `PowerPointParser`.
+- Tightened `parseUnified*Component` method signatures to consume these new aliases (image/table/video already migrated; shape/table/video placeholders updated for future relationship/media usage).
+- Introduced minimal `R2BucketLike` interface and replaced `r2Storage?: any` with `r2Storage?: R2BucketLike | null` across parser coordination and image/video parsing paths.
+- Added `@cloudflare/workers-types` (tsconfig for worker) plus lightweight ambient fallbacks for `R2Bucket` / `Fetcher` to ensure Worker compiles in isolation.
+- Reworked error responses in `worker.ts` to avoid Hono status typing friction by returning manual `Response` objects.
+- Added `apps/worker/tsconfig.json` with WebWorker lib + workers types.
+
+### Metrics (Informal Snapshot)
+- Parser coordination layer eliminated several `any` parameters (relationships/media + r2Storage) → replaced with domain aliases and interface.
+- No increase in public API `PowerPointComponent` surface `any` usage.
+- Remaining broad `any` usage concentrated in XML tree fields (`data`, `spPr`, `style`, etc.) pending domain shape introduction.
+
+### Next Targets
+1. Introduce minimal structural XML node interfaces for high-frequency access patterns (xfrm/off/ext, runs, paragraphs).
+2. Convert `safeGet` return path to `unknown` and enforce typed accessor helpers in call sites (incremental).
+3. Narrow `mediaFiles` value type to a discriminated union (e.g., `{ kind: 'image' | 'video'; data: Uint8Array; contentType?: string }`).
+4. Add explicit counts script (optional) to log `explicit any` occurrences for regression tracking.
+
+### Status
+Phase 2 progressing: relationship/media & storage abstraction hardened without breaking API.
+
+## Phase 3A: XML Node Layer (Minimal Structural Types)
+
+### Goals
+Introduce thin structural interfaces for the highest-frequency XML access patterns to enable incremental narrowing without destabilizing dynamic parsing logic.
+
+### Implemented
+- Added `src/types/xml-nodes.ts` with: `OffsetNode`, `ExtentNode`, `TransformNode`, `RunNode`, `ParagraphNode`, `TextBodyNode`, `TableCellNode`.
+- Added type guards: `isTransformNode`, `isTextBodyNode`, `isParagraphArray`, `isRunArray`.
+- Updated `BaseParser.parseTransform` to early-return for non-object and tolerate partial shapes.
+- Refactored `TextParser`:
+  - Added `getParagraphs` (internal) and `extractRuns` helper consolidating runs + fields.
+  - Rewrote `extractTextContent` and `createParagraphStructure` to use helpers (uniform handling, reduced duplication).
+  - Maintained spacing semantics and bullet detection behavior (no functional change intended).
+- Updated `TableParser.extractCellText` to delegate to `TextParser.extractTextContent` for consistent run/field handling.
+
+### Not Changed (Intentional)
+- `safeGet` still returns `any` (will shift to `unknown` in a later containment phase).
+- No exhaustive typing of all XML subtree variants to avoid churn before measuring remaining implicit anys.
+- Bullet inference logic unchanged—only internal run harvesting refactored.
+
+### Rationale
+Provides a stable seam for future tightening (e.g., `safeGet -> unknown`) while proving that thin interfaces reduce repetition (notably in text extraction) without requiring broad rewrites.
+
+### Next Steps (Planned)
+1. Convert `safeGet` return type to `unknown` and force callers through typed coercion helpers.
+2. Introduce relationship/media discriminated unions (image vs video vs other assets) to narrow consumer logic.
+3. Add metrics script to count explicit `any` and track decline across phases.
+4. Extend structural types incrementally (e.g., `BlipFillNode`, `LinePropsNode`) only when repeated field access emerges.
+5. Activate strict overlay with `safeGet` hardening and ensure zero-error state before flipping base configs.
+
+### Inventory Snapshot (safeGet Call Sites)
+Current high-traffic parser safeGet usages (baseline before unknown conversion) span Text, Image, Video, and Base parser helpers (32 references enumerated during Phase 3A implementation).
+
+---
 
 ## Parsing Invariants (Post-Migration)
 The parser architecture now guarantees the following for every returned `PowerPointComponent`:

@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "noImplicitThis": true,
+    "strictBindCallApply": true,
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*"]
+}

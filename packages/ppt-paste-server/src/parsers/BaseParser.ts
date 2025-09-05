@@ -117,7 +117,14 @@ export class BaseParser {
    * @param xfrm - Transform object from PowerPoint
    * @returns transform data
    */
-  static parseTransform(xfrm: XMLNode | null | undefined): TransformInfo {
+  static parseTransform(xfrm: XMLNode | import('../types/xml-nodes.js').TransformNode | null | undefined): TransformInfo {
+    // Early return with defaults if not an object
+    if (!xfrm || typeof xfrm !== 'object') {
+      return { x: 0, y: 0, width: 0, height: 0, rotation: 0 };
+    }
+
+    // We purposely tolerate loosely shaped objects; perform presence checks guardedly
+
     const result: TransformInfo = {
       x: 0,
       y: 0,

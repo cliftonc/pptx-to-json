@@ -3,6 +3,9 @@ import { PowerPointClipboardProcessor } from 'ppt-paste-server';
 import type { Context } from 'hono';
 
 // Cloudflare Worker environment types
+interface R2Bucket { put(key: string, value: ArrayBuffer | Uint8Array | string, options?: any): Promise<any>; get(key: string): Promise<any>; head?(key: string): Promise<any>; }
+interface Fetcher { fetch(input: RequestInfo | URL | string, init?: RequestInit): Promise<Response>; }
+
 interface Env {
   PPTX_STORAGE: R2Bucket;
   ASSETS: Fetcher;
@@ -68,12 +71,12 @@ app.post('/api/upload-pptx', async (c: HonoContext) => {
     const file = formData.get('file') as File;
     
     if (!file) {
-      return c.json({ error: 'No file provided' } as ErrorResponse, 400);
+      return new Response(JSON.stringify({ error: 'No file provided' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
     
     // Validate file type
     if (!file.name.toLowerCase().endsWith('.pptx')) {
-      return c.json({ error: 'Only PPTX files are allowed' } as ErrorResponse, 400);
+      return new Response(JSON.stringify({ error: 'Only PPTX files are allowed' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
     
     // Generate unique file ID
@@ -107,10 +110,10 @@ app.post('/api/upload-pptx', async (c: HonoContext) => {
     
   } catch (error) {
     console.error('❌ Upload error:', error);
-    return c.json({ 
+    return new Response(JSON.stringify({ 
       error: 'Upload failed', 
       message: (error as Error).message 
-    } as ErrorResponse, 500);
+    }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 });
 
@@ -121,7 +124,7 @@ app.get('/api/process-pptx/:fileId', async (c: HonoContext) => {
     const debug = c.req.query('debug') === 'true';
     
     if (!fileId) {
-      return c.json({ error: 'File ID is required' } as ErrorResponse, 400);
+      return new Response(JSON.stringify({ error: 'File ID is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
     
     const fileName = `${fileId}.pptx`;
@@ -130,7 +133,7 @@ app.get('/api/process-pptx/:fileId', async (c: HonoContext) => {
     const object = await c.env.PPTX_STORAGE.get(fileName);
     
     if (!object) {
-      return c.json({ error: 'File not found' } as ErrorResponse, 404);
+      return new Response(JSON.stringify({ error: 'File not found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
     }
     
     // Get file buffer
@@ -201,7 +204,7 @@ app.get('/api/proxy-powerpoint-clipboard', async (c: HonoContext) => {
     const debug = c.req.query('debug') === 'true';
     
     if (!url) {
-      return c.json({ error: 'URL parameter is required' } as ErrorResponse, 400);
+      return new Response(JSON.stringify({ error: 'URL parameter is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
     
     if (debug) {
@@ -219,23 +222,23 @@ app.get('/api/proxy-powerpoint-clipboard', async (c: HonoContext) => {
     
     // Handle specific error types
     if ((error as Error).message.includes('Only Microsoft Office URLs are allowed')) {
-      return c.json({ error: (error as Error).message } as ErrorResponse, 403);
+      return new Response(JSON.stringify({ error: (error as Error).message }), { status: 403, headers: { 'Content-Type': 'application/json' } });
     }
     
     if ((error as Error).message.includes('Microsoft API error')) {
       const statusMatch = (error as Error).message.match(/(\d+)/);
       const status = statusMatch ? parseInt(statusMatch[1]) : 500;
-      return c.json({ 
+      return new Response(JSON.stringify({ 
         error: 'Microsoft API error',
         message: (error as Error).message
-      } as ErrorResponse, status);
+      }), { status, headers: { 'Content-Type': 'application/json' } });
     }
     
-    return c.json({ 
+    return new Response(JSON.stringify({ 
       error: 'Proxy server error', 
       message: (error as Error).message,
       stack: (error as Error).stack
-    } as ErrorResponse, 500);
+    }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 });
 
@@ -245,12 +248,12 @@ app.get('/api/images/:filename', async (c: HonoContext) => {
     const filename = c.req.param('filename');
     
     if (!filename) {
-      return c.json({ error: 'Filename is required' } as ErrorResponse, 400);
+      return new Response(JSON.stringify({ error: 'Filename is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
     
     // Validate filename format (hash.extension)
     if (!/^[a-f0-9]{64}\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(filename)) {
-      return c.json({ error: 'Invalid filename format' } as ErrorResponse, 400);
+      return new Response(JSON.stringify({ error: 'Invalid filename format' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
     
     const imagePath = `images/${filename}`;
@@ -278,10 +281,10 @@ app.get('/api/images/:filename', async (c: HonoContext) => {
     
   } catch (error) {
     console.error('❌ Image serving error:', error);
-    return c.json({ 
+    return new Response(JSON.stringify({ 
       error: 'Failed to serve image', 
       message: (error as Error).message 
-    } as ErrorResponse, 500);
+    }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 });
 

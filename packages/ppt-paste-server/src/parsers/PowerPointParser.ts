@@ -11,11 +11,17 @@ import { VideoParser } from './VideoParser.js';
 import { BaseParser } from './BaseParser.js';
 import type { PowerPointComponent } from '../types/index.js';
 
-import { isTextElement, isShapeElement, isImageElement, isTableElement, isVideoElement } from '../types/normalized.js';
+import { isTextElement, isShapeElement, isImageElement, isTableElement, isVideoElement, type NormalizedTextElement, type NormalizedShapeElement, type NormalizedImageElement, type NormalizedTableElement, type NormalizedVideoElement, type MediaFiles, type RelationshipGraph } from '../types/normalized.js';
+
+interface R2BucketLike {
+  put?(key: string, value: any, options?: any): Promise<any> | any;
+  get?(key: string): Promise<any> | any;
+  head?(key: string): Promise<any> | any;
+}
 
 interface ParseOptions {
   debug?: boolean;
-  r2Storage?: any;
+  r2Storage?: R2BucketLike | null;
 }
 
 interface SlideMetadata {
@@ -286,7 +292,7 @@ export class PowerPointParser extends BaseParser {
    * Parse unified text component from normalized data
    */
   private async parseUnifiedTextComponent(
-    textComponent: any,
+    textComponent: NormalizedTextElement,
     componentIndex: number,
     slideIndex: number,
     zIndex: number,
@@ -305,9 +311,9 @@ export class PowerPointParser extends BaseParser {
    * Parse unified shape component from normalized data
    */
   private async parseUnifiedShapeComponent(
-    shapeComponent: any,
-    _relationships: any,
-    _mediaFiles: any,
+    shapeComponent: NormalizedShapeElement,
+    _relationships: RelationshipGraph,
+    _mediaFiles: MediaFiles,
     componentIndex: number,
     relSlideIndex: number,
     zIndex: number,
@@ -326,13 +332,13 @@ export class PowerPointParser extends BaseParser {
    * Parse unified image component from normalized data
    */
   private async parseUnifiedImageComponent(
-    imageComponent: any,
-    relationships: any,
-    mediaFiles: any,
+    imageComponent: NormalizedImageElement,
+    relationships: RelationshipGraph,
+    mediaFiles: MediaFiles,
     componentIndex: number,
     relSlideIndex: number,
     zIndex: number,
-    options: { debug?: boolean; r2Storage?: any } = {}
+    options: { debug?: boolean; r2Storage?: R2BucketLike | null } = {}
   ): Promise<PowerPointComponent | null> {
     const { debug = false, r2Storage = null } = options;
     try {
@@ -347,9 +353,9 @@ export class PowerPointParser extends BaseParser {
    * Parse unified table component from normalized data
    */
   private async parseUnifiedTableComponent(
-    tableComponent: any,
-    _relationships: any,
-    _mediaFiles: any,
+    tableComponent: NormalizedTableElement,
+    _relationships: RelationshipGraph,
+    _mediaFiles: MediaFiles,
     componentIndex: number,
     relSlideIndex: number,
     zIndex: number,
@@ -368,13 +374,13 @@ export class PowerPointParser extends BaseParser {
    * Parse unified video component from normalized data
    */
   private async parseUnifiedVideoComponent(
-    videoComponent: any, 
-    _relationships: any, 
-    _mediaFiles: any, 
+    videoComponent: NormalizedVideoElement, 
+    _relationships: RelationshipGraph,
+    _mediaFiles: MediaFiles,
     componentIndex: number, 
     relSlideIndex: number, 
     zIndex: number,
-    options: { debug?: boolean; r2Storage?: any } = {}
+    options: { debug?: boolean; r2Storage?: R2BucketLike | null } = {}
   ): Promise<PowerPointComponent | null> {
     const { debug = false, r2Storage = null } = options;
     try {

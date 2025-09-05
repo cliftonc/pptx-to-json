@@ -110,11 +110,14 @@ export function isImageElement(el: NormalizedElement): el is NormalizedImageElem
 export function isTableElement(el: NormalizedElement): el is NormalizedTableElement { return el.type === 'table'; }
 export function isVideoElement(el: NormalizedElement): el is NormalizedVideoElement { return el.type === 'video'; }
 
+export type RelationshipGraph = Record<string, unknown>;
+export type MediaFiles = Record<string, Uint8Array>;
+
 export interface NormalizedResult {
   format: NormalizedFormat;
   slides: NormalizedSlide[];
   slideDimensions?: { width: number; height: number };
-  mediaFiles: Record<string, any>;
-  relationships: Record<string, any>;
+  mediaFiles: MediaFiles;
+  relationships: RelationshipGraph;
   slideLayoutRelationships?: Record<string, string>;
 }

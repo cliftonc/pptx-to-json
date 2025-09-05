@@ -63,7 +63,7 @@ export interface ComponentStyle {
 // Text-specific component
 export interface TextComponent extends PowerPointComponentBase {
   type: 'text';
-  textRuns?: TextRun[];
+  richText?: any; // TipTap-style document structure (was mistakenly named textRuns during regression)
 }
 
 // A fallback any component
