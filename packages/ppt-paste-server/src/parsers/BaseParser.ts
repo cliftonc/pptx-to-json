@@ -388,18 +388,128 @@ export class BaseParser {
    * @param defaultValue - Default value if path doesn't exist
    * @returns value or default
    */
-  static safeGet<T = any>(
-    obj: any,
-    path: string,
-    defaultValue: T | null = null,
-  ): T | null {
+  /**
+   * Type-guard: check if a value looks like an XML node object
+   */
+  static isXMLNode(v: any): v is XMLNode {
+    return v !== null && typeof v === 'object' && !Array.isArray(v);
+  }
+
+  /**
+   * Type-guard: simple string detector (handles fast-xml-parser text nodes)
+   */
+  static isString(v: any): v is string {
+    return typeof v === 'string' || (v && typeof v._ === 'string') || (v && typeof v.$val === 'string');
+  }
+
+  /**
+   * Coerce a value to a safe string. Handles several XML node shapes used by the
+   * parser (direct string, `{ _: string }`, `{ $val: string }`). Falls back to
+   * the provided `fallback` when conversion is not possible.
+   */
+  static asString(v: any, fallback: string = ''): string {
+    if (typeof v === 'string') return v;
+    if (v && typeof v._ === 'string') return v._;
+    if (v && typeof v.$val === 'string') return v.$val;
+    if (v === undefined || v === null) return fallback;
     try {
-      return (
-        path.split(".").reduce((current, key) => current?.[key], obj) ??
-        defaultValue
-      );
-    } catch (error) {
-      return defaultValue;
+      return String(v);
+    } catch (_err) {
+      return fallback;
     }
+  }
+
+  /**
+   * Coerce a value to a safe integer number. Handles numeric strings and
+   * `{ $val: string }` wrappers. Returns `fallback` when conversion fails.
+   */
+  static asNumber(v: any, fallback: number = 0): number {
+    if (typeof v === 'number' && !Number.isNaN(v)) return v;
+    if (typeof v === 'string' && v.trim() !== '') {
+      const parsed = parseInt(v, 10);
+      if (!Number.isNaN(parsed)) return parsed;
+    }
+    if (v && typeof v.$val === 'string') {
+      const parsed = parseInt(v.$val, 10);
+      if (!Number.isNaN(parsed)) return parsed;
+    }
+    return fallback;
+  }
+
+  /**
+   * Safe attribute access
+   * @param obj - Object to access
+   * @param path - Dot-notation path
+   * @param defaultValue - Default value if path doesn't exist
+   * @returns value or default
+   */
+  static safeGet(obj: any, path: string, defaultValue?: any): any {
+    try {
+      const val = path.split('.').reduce((current: any, key: string) => current?.[key], obj);
+      if (val === undefined || val === null) {
+        return defaultValue !== undefined ? defaultValue : null;
+      }
+      return val;
+    } catch (error) {
+      return defaultValue !== undefined ? defaultValue : null;
+    }
+  }
+
+  /**
+   * Typed helper: get an XML node at the given path or return `defaultValue`.
+   */
+  static getNode(obj: any, path: string, defaultValue: XMLNode | null = null): XMLNode | null {
+    const val = this.safeGet(obj, path, undefined);
+    if (val === undefined || val === null) return defaultValue;
+    if (this.isXMLNode(val)) return val as XMLNode;
+    return defaultValue;
+  }
+
+  /**
+   * Typed helper: get a string at the given path and coerce it safely.
+   */
+  static getString(obj: any, path: string, fallback: string = ''): string {
+    const val = this.safeGet(obj, path, undefined);
+    return this.asString(val, fallback);
+  }
+
+  /**
+   * Typed helper: get a number at the given path and coerce it safely.
+   */
+  static getNumber(obj: any, path: string, fallback: number = 0): number {
+    const val = this.safeGet(obj, path, undefined);
+    return this.asNumber(val, fallback);
+  }
+
+  /**
+   * Typed helper: get an array at the given path. If the value is a single object,
+   * it will be wrapped in an array. Returns `fallback` when missing.
+   */
+  static getArray(obj: any, path: string, fallback: any[] = []): any[] {
+    const val = this.safeGet(obj, path, undefined);
+    if (val === undefined || val === null) return fallback;
+    return Array.isArray(val) ? val : [val];
+  }
+
+  /**
+   * Typed helper: get a boolean-like value at the given path and coerce it.
+   */
+  static getBoolean(obj: any, path: string, fallback: boolean = false): boolean {
+    const val = this.safeGet(obj, path, undefined);
+    if (val === undefined || val === null) return fallback;
+    if (typeof val === 'boolean') return val;
+    if (typeof val === 'number') return val === 1;
+    if (typeof val === 'string') {
+      const s = val.trim().toLowerCase();
+      if (s === '1' || s === 'true' || s === 'yes') return true;
+      if (s === '0' || s === 'false' || s === 'no') return false;
+      return fallback;
+    }
+    if (val && typeof val.$val === 'string') {
+      const s = val.$val.trim().toLowerCase();
+      if (s === '1' || s === 'true' || s === 'yes') return true;
+      if (s === '0' || s === 'false' || s === 'no') return false;
+    }
+    return fallback;
   }
 }

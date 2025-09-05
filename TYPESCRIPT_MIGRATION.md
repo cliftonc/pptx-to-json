@@ -121,3 +121,13 @@ The entire PowerPoint parsing system now has:
 
 ## Final Status: ✅ MIGRATION 100% COMPLETE
 All source files have been successfully migrated to TypeScript with proper module exports and build configuration.
+
+## Parsing Invariants (Post-Migration)
+The parser architecture now guarantees the following for every returned `PowerPointComponent`:
+- `slideIndex` (number, zero-based) is always present and set at creation time inside the specialized parser (Text/Shape/Image/Table/Video)
+- `zIndex` (number) is always present and represents relative stacking order within a slide
+- No post-hoc mutation of parsed component objects by `PowerPointParser` to add indices
+- Fallback ordering (when normalized `slide.elements` is absent) assigns `zIndex` sequentially based on discovery order
+- `slideIndex` passed into specialized parsers is always zero-based; relationship lookups also use zero-based indices
+
+Regression tests enforce the presence and numeric nature of `slideIndex` and `zIndex` (`indices-required.test.ts`). Future component types MUST set both fields before returning.

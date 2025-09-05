@@ -31,6 +31,7 @@ interface ParsedSlideData {
   slides: Array<{
     components: PowerPointComponent[];
     slideNumber?: number;
+    slideIndex: number;
   }>;
   totalComponents: number;
   format: string;
@@ -51,6 +52,7 @@ interface ProcessClipboardUrlResult {
   slides: Array<{
     components: PowerPointComponent[];
     slideNumber?: number;
+    slideIndex: number;
   }>;
   slideCount: number;
   slideDimensions?: {

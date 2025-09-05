@@ -1,12 +1,16 @@
 /**
  * TypeScript type definitions for PowerPoint parsing
+ *
+ * These types are intentionally conservative to make a staged migration
+ * to stricter TypeScript easier. `XMLNode` remains permissive while
+ * component shapes are expressed as discriminated unions.
  */
 
 // Component types that can be parsed from PowerPoint
-export type ComponentType = 'text' | 'shape' | 'image' | 'table' | 'video' | 'unknown';
+export type ComponentType = 'text' | 'shape' | 'image' | 'table' | 'video' | 'any';
 
-// Base component structure - matches client interface for compatibility
-export interface PowerPointComponent {
+// Shared base component properties
+export interface PowerPointComponentBase {
   id: string;
   type: ComponentType;
   content?: string;
@@ -17,9 +21,18 @@ export interface PowerPointComponent {
   rotation?: number;
   style?: ComponentStyle;
   metadata?: Record<string, any>;
-  slideIndex?: number;
-  zIndex?: number;
+  slideIndex: number;
+  zIndex: number;
 }
+
+// Discriminated component union exported as the primary type
+export type PowerPointComponent =
+  | TextComponent
+  | ShapeComponent
+  | ImageComponent
+  | TableComponent
+  | VideoComponent
+  | UnknownComponent;
 
 // Style information for components
 export interface ComponentStyle {
@@ -30,58 +43,63 @@ export interface ComponentStyle {
   fontStyle?: string;
   textAlign?: string;
   color?: string;
-  
+
   // Border properties
   borderWidth?: number;
   borderStyle?: string;
   borderColor?: string;
-  
+
   // Fill properties
   fillColor?: string;
   fillOpacity?: number;
-  
+
   // Transform properties
   rotation?: number;
-  
+
   // Additional styling
   [key: string]: any;
 }
 
 // Text-specific component
-export interface TextComponent extends PowerPointComponent {
+export interface TextComponent extends PowerPointComponentBase {
   type: 'text';
-  textRuns?: any; // Rich text document structure - flexible for different formats
+  textRuns?: TextRun[];
+}
+
+// A fallback any component
+export interface UnknownComponent extends PowerPointComponentBase {
+  type: 'any';
 }
 
 // Text run with individual styling
 export interface TextRun {
   text: string;
-  style?: ComponentStyle;
+  style?: Partial<ComponentStyle>;
 }
 
 // Shape-specific component
-export interface ShapeComponent extends PowerPointComponent {
+export interface ShapeComponent extends PowerPointComponentBase {
   type: 'shape';
   shapeType?: string;
-  geometry?: string;
+  geometry?: GeometryInfo | null;
 }
 
 // Image-specific component
-export interface ImageComponent extends PowerPointComponent {
+export interface ImageComponent extends PowerPointComponentBase {
   type: 'image';
   src?: string;
   alt?: string;
 }
 
 // Table-specific component
-export interface TableComponent extends PowerPointComponent {
+export interface TableComponent extends PowerPointComponentBase {
   type: 'table';
   rows?: TableRow[];
   columns?: number;
 }
 
 // Video-specific component
-export interface VideoComponent extends PowerPointComponent {
+export interface VideoComponent extends PowerPointComponentBase {
   type: 'video';
   url?: string;
   thumbnailSrc?: string;
@@ -109,10 +127,8 @@ export interface ParserConfig {
   debugMode?: boolean;
 }
 
-// Raw XML node types (from fast-xml-parser)
-export interface XMLNode {
-  [key: string]: any;
-}
+// Raw XML node type (permissive for now to avoid cascading errors)
+export type XMLNode = Record<string, any>;
 
 // Processing context passed between parsers
 export interface ProcessingContext {

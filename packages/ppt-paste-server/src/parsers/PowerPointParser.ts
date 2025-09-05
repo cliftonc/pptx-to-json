@@ -11,6 +11,8 @@ import { VideoParser } from './VideoParser.js';
 import { BaseParser } from './BaseParser.js';
 import type { PowerPointComponent } from '../types/index.js';
 
+import { isTextElement, isShapeElement, isImageElement, isTableElement, isVideoElement } from '../types/normalized.js';
+
 interface ParseOptions {
   debug?: boolean;
   r2Storage?: any;
@@ -28,8 +30,8 @@ interface SlideMetadata {
 }
 
 interface ParsedSlide {
-  slideIndex: number;
-  slideNumber: number;
+  slideIndex: number; // zero-based index used internally
+  slideNumber: number; // 1-based slide number surfaced to callers
   components: PowerPointComponent[];
   metadata: SlideMetadata;
 }
@@ -37,7 +39,7 @@ interface ParsedSlide {
 interface ParsedResult {
   slides: ParsedSlide[];
   totalComponents: number;
-  format: string;
+  format: string; // 'pptx' | 'clipboard'
   slideDimensions?: {
     width: number;
     height: number;
@@ -89,90 +91,84 @@ export class PowerPointParser extends BaseParser {
           for (const element of slide.elements) {
             let component: PowerPointComponent | null = null;
             
-            if (element.type === 'text') {
+            if (isTextElement(element)) {
               component = await this.parseUnifiedTextComponent(
-                element, 
-                normalized.relationships,
-                normalized.mediaFiles,
+                element,
                 globalComponentIndex++,
-                slideNumber - 1, // Use 0-based index for relationships
+                slideNumber - 1,
+                element.zIndex,
                 { debug }
               );
-            } else if (element.type === 'shape') {
+            } else if (isShapeElement(element)) {
               component = await this.parseUnifiedShapeComponent(
                 element,
                 normalized.relationships,
-                normalized.mediaFiles, 
+                normalized.mediaFiles,
                 globalComponentIndex++,
-                slideNumber - 1, // Use 0-based index for relationships
+                slideNumber - 1, // relationships index
+                element.zIndex,
                 { debug }
               );
-            } else if (element.type === 'image') {
+            } else if (isImageElement(element)) {
               component = await this.parseUnifiedImageComponent(
                 element,
                 normalized.relationships,
                 normalized.mediaFiles,
                 globalComponentIndex++,
-                slideNumber - 1, // Use 0-based index for relationships
+                slideNumber - 1, // relationships index
+                element.zIndex,
                 { debug, r2Storage }
               );
-            } else if (element.type === 'table') {
+            } else if (isTableElement(element)) {
               component = await this.parseUnifiedTableComponent(
                 element,
                 normalized.relationships,
                 normalized.mediaFiles,
                 globalComponentIndex++,
-                slideNumber - 1, // Use 0-based index for relationships
+                slideNumber - 1,
+                element.zIndex,
                 { debug }
               );
-            } else if (element.type === 'video') {
+            } else if (isVideoElement(element)) {
               component = await this.parseUnifiedVideoComponent(
                 element,
                 normalized.relationships,
                 normalized.mediaFiles,
                 globalComponentIndex++,
-                slideNumber - 1, // Use 0-based index for relationships
+                slideNumber - 1,
+                element.zIndex,
                 { debug, r2Storage }
               );
             }
             
-            if (component) {
-              // Fix the slideIndex to show the actual slide number (not the relationship index)
-              (component as any).slideIndex = slideNumber;
-              (component as any).zIndex = element.zIndex; // Add z-index information
-              
-              // Validate component coordinates are in pixel range
-              const coords = component as any; // All components have these properties
-              if (coords.x > 50000 || coords.y > 50000 || coords.width > 50000 || coords.height > 50000) {
-                console.warn('🚨 Component coordinates may be in EMU, not pixels:', {
-                  type: component.type,
-                  x: coords.x,
-                  y: coords.y,
-                  width: coords.width,
-                  height: coords.height
-                });
+              if (component) {
+                const coords = component as any;
+                if (coords.x > 50000 || coords.y > 50000 || coords.width > 50000 || coords.height > 50000) {
+                  console.warn('🚨 Component coordinates may be in EMU, not pixels:', {
+                    type: component.type,
+                    x: coords.x,
+                    y: coords.y,
+                    width: coords.width,
+                    height: coords.height
+                  });
+                }
+                slideComponents.push(component);
+                components.push(component);
+                localComponentIndex++;
               }
-              
-              slideComponents.push(component);
-              components.push(component);
-              localComponentIndex++;
-            }
           }
         } else {
           // Fallback to old method if ordered elements not available
           // Process text components
           for (const textComponent of slide.text) {
             const component = await this.parseUnifiedTextComponent(
-              textComponent, 
-              normalized.relationships,
-              normalized.mediaFiles,
+              textComponent,
               globalComponentIndex++,
-              slideNumber - 1, // Use 0-based index for relationships
+              slideNumber,
+              localComponentIndex, // fallback zIndex based on order
               { debug }
             );
             if (component) {
-              // Fix the slideIndex to show the actual slide number (not the relationship index)
-              (component as any).slideIndex = slideNumber;
               slideComponents.push(component);
               components.push(component);
               localComponentIndex++;
@@ -186,12 +182,11 @@ export class PowerPointParser extends BaseParser {
               normalized.relationships,
               normalized.mediaFiles, 
               globalComponentIndex++,
-              slideNumber - 1, // Use 0-based index for relationships
+              slideNumber - 1, // relationships index for media lookup
+              localComponentIndex,
               { debug }
             );
             if (component) {
-              // Fix the slideIndex to show the actual slide number (not the relationship index)
-              (component as any).slideIndex = slideNumber;
               slideComponents.push(component);
               components.push(component);
               localComponentIndex++;
@@ -205,17 +200,17 @@ export class PowerPointParser extends BaseParser {
               normalized.relationships,
               normalized.mediaFiles,
               globalComponentIndex++,
-              slideNumber - 1, // Use 0-based index for relationships
+              slideNumber - 1,
+              localComponentIndex,
               { debug, r2Storage }
             );
             if (component) {
-              // Fix the slideIndex to show the actual slide number (not the relationship index)
-              (component as any).slideIndex = slideNumber;
               slideComponents.push(component);
               components.push(component);
               localComponentIndex++;
             }
           }
+
           
           // Process video components
           for (const videoComponent of slide.videos) {
@@ -224,12 +219,11 @@ export class PowerPointParser extends BaseParser {
               normalized.relationships,
               normalized.mediaFiles,
               globalComponentIndex++,
-              slideNumber - 1, // Use 0-based index for relationships
+              slideNumber - 1,
+              localComponentIndex,
               { debug, r2Storage }
             );
             if (component) {
-              // Fix the slideIndex to show the actual slide number (not the relationship index)
-              (component as any).slideIndex = slideNumber;
               slideComponents.push(component);
               components.push(component);
               localComponentIndex++;
@@ -292,16 +286,15 @@ export class PowerPointParser extends BaseParser {
    * Parse unified text component from normalized data
    */
   private async parseUnifiedTextComponent(
-    textComponent: any, 
-    relationships: any, 
-    mediaFiles: any, 
-    componentIndex: number, 
-    slideIndex: number, 
+    textComponent: any,
+    componentIndex: number,
+    slideIndex: number,
+    zIndex: number,
     options: { debug?: boolean } = {}
   ): Promise<PowerPointComponent | null> {
     const { debug = false } = options;
     try {
-      return await TextParser.parseFromNormalized(textComponent, componentIndex, slideIndex);
+      return await TextParser.parseFromNormalized(textComponent, componentIndex, slideIndex, zIndex);
     } catch (error) {
       if (debug) console.warn(`⚠️ Failed to parse text component:`, error);
       return null;
@@ -312,16 +305,17 @@ export class PowerPointParser extends BaseParser {
    * Parse unified shape component from normalized data
    */
   private async parseUnifiedShapeComponent(
-    shapeComponent: any, 
-    relationships: any, 
-    mediaFiles: any, 
-    componentIndex: number, 
-    slideIndex: number, 
+    shapeComponent: any,
+    _relationships: any,
+    _mediaFiles: any,
+    componentIndex: number,
+    relSlideIndex: number,
+    zIndex: number,
     options: { debug?: boolean } = {}
   ): Promise<PowerPointComponent | null> {
     const { debug = false } = options;
     try {
-      return await ShapeParser.parseFromNormalized(shapeComponent, componentIndex, slideIndex);
+      return await ShapeParser.parseFromNormalized(shapeComponent, componentIndex, relSlideIndex, zIndex);
     } catch (error) {
       if (debug) console.warn(`⚠️ Failed to parse shape component:`, error);
       return null;
@@ -332,16 +326,17 @@ export class PowerPointParser extends BaseParser {
    * Parse unified image component from normalized data
    */
   private async parseUnifiedImageComponent(
-    imageComponent: any, 
-    relationships: any, 
-    mediaFiles: any, 
-    componentIndex: number, 
-    slideIndex: number, 
+    imageComponent: any,
+    relationships: any,
+    mediaFiles: any,
+    componentIndex: number,
+    relSlideIndex: number,
+    zIndex: number,
     options: { debug?: boolean; r2Storage?: any } = {}
   ): Promise<PowerPointComponent | null> {
     const { debug = false, r2Storage = null } = options;
     try {
-      return await ImageParser.parseFromNormalized(imageComponent, relationships, mediaFiles, componentIndex, slideIndex, r2Storage);
+      return await ImageParser.parseFromNormalized(imageComponent, relationships, mediaFiles, componentIndex, relSlideIndex, zIndex, r2Storage);
     } catch (error) {
       if (debug) console.warn(`⚠️ Failed to parse image component:`, error);
       return null;
@@ -352,16 +347,17 @@ export class PowerPointParser extends BaseParser {
    * Parse unified table component from normalized data
    */
   private async parseUnifiedTableComponent(
-    tableComponent: any, 
-    relationships: any, 
-    mediaFiles: any, 
-    componentIndex: number, 
-    slideIndex: number, 
+    tableComponent: any,
+    _relationships: any,
+    _mediaFiles: any,
+    componentIndex: number,
+    relSlideIndex: number,
+    zIndex: number,
     options: { debug?: boolean } = {}
   ): Promise<PowerPointComponent | null> {
     const { debug = false } = options;
     try {
-      return await TableParser.parseFromNormalized(tableComponent, componentIndex, slideIndex);
+      return await TableParser.parseFromNormalized(tableComponent, componentIndex, relSlideIndex, zIndex);
     } catch (error) {
       if (debug) console.warn(`⚠️ Failed to parse table component:`, error);
       return null;
@@ -373,15 +369,16 @@ export class PowerPointParser extends BaseParser {
    */
   private async parseUnifiedVideoComponent(
     videoComponent: any, 
-    relationships: any, 
-    mediaFiles: any, 
+    _relationships: any, 
+    _mediaFiles: any, 
     componentIndex: number, 
-    slideIndex: number, 
+    relSlideIndex: number, 
+    zIndex: number,
     options: { debug?: boolean; r2Storage?: any } = {}
   ): Promise<PowerPointComponent | null> {
     const { debug = false, r2Storage = null } = options;
     try {
-      return await VideoParser.parseFromNormalized(videoComponent, relationships, mediaFiles, componentIndex, slideIndex, r2Storage);
+      return await VideoParser.parseFromNormalized(videoComponent, _relationships, _mediaFiles, componentIndex, relSlideIndex, zIndex, r2Storage);
     } catch (error) {
       if (debug) console.warn(`⚠️ Failed to parse video component:`, error);
       return null;

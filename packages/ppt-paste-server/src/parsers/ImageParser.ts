@@ -31,6 +31,7 @@ export class ImageParser extends BaseParser {
     mediaFiles: Record<string, Uint8Array>,
     componentIndex: number,
     slideIndex: number,
+    zIndex: number,
     r2Storage: any = null,
   ): Promise<ImageComponent | null> {
     const { data, spPr, nvPicPr, blipFill, namespace } = imageComponent;
@@ -42,18 +43,15 @@ export class ImageParser extends BaseParser {
     }
 
     // Extract positioning from spPr (namespaces already stripped)
-    const xfrm = BaseParser.safeGet(spPr, "xfrm");
+    const xfrm = BaseParser.getNode(spPr, "xfrm");
     const transform = ImageParser.parseTransform(xfrm);
 
     // Extract component info from nvPicPr
-    const cNvPr = BaseParser.safeGet(nvPicPr, "cNvPr");
-    const componentName =
-      BaseParser.safeGet(cNvPr, "$name") || `image-${componentIndex}`;
-    const description = BaseParser.safeGet(cNvPr, "$descr") || "";
+    const componentName = BaseParser.getString(nvPicPr, "cNvPr.$name", `image-${componentIndex}`);
+    const description = BaseParser.getString(nvPicPr, "cNvPr.$descr", "");
 
     // Extract image reference from blipFill (namespaces already stripped)
-    const blip = BaseParser.safeGet(blipFill, "blip");
-    const relationshipId = BaseParser.safeGet(blip, "embed");
+    const relationshipId = BaseParser.getString(blipFill, "blip.embed", "");
 
     // Find the actual image file using relationships
     let imageDataUrl: string | null = null;
@@ -87,6 +85,7 @@ export class ImageParser extends BaseParser {
       y: transform.y,
       width: transform.width,
       height: transform.height,
+      slideIndex,
       style: {
         rotation: transform.rotation || 0,
         fillOpacity: effects.opacity,
@@ -94,6 +93,7 @@ export class ImageParser extends BaseParser {
       },
       src: imageDataUrl || "",
       alt: description || componentName,
+      zIndex,
       metadata: {
         namespace,
         name: componentName,
@@ -120,7 +120,6 @@ export class ImageParser extends BaseParser {
       return null;
     }
 
-    // Find the correct relationship file (drawing1.xml.rels for clipboard format)
     const relFile = Object.keys(relationships).find(
       (key) => key.includes("_rels") && key.includes("drawing"),
     );
@@ -129,38 +128,36 @@ export class ImageParser extends BaseParser {
       return null;
     }
 
-    // Look for the specific relationship ID
-    const rels = relationships[relFile];
-    let relationshipData = null;
+    const relationshipArray = BaseParser.getArray(
+      relationships[relFile],
+      "Relationships.Relationship",
+      [],
+    );
 
-    // Handle different relationship file structures
-    if (rels.Relationships && rels.Relationships.Relationship) {
-      const relationshipArray = Array.isArray(rels.Relationships.Relationship)
-        ? rels.Relationships.Relationship
-        : [rels.Relationships.Relationship];
-
-      relationshipData = relationshipArray.find(
-        (rel: any) => rel.$Id === relationshipId,
-      );
-    }
+    const relationshipData = relationshipArray.find(
+      (rel: any) =>
+        BaseParser.asString(rel?.$Id, "") ===
+        BaseParser.asString(relationshipId, ""),
+    );
 
     if (!relationshipData) {
       return null;
     }
 
-    // Resolve the target path
-    let mediaPath = relationshipData.$Target;
+    let mediaPath = BaseParser.asString(relationshipData.$Target, "");
     if (mediaPath.startsWith("../")) {
       mediaPath = `clipboard/${mediaPath.slice(3)}`;
     }
 
-    // Find the actual media file
     const mediaFile = mediaFiles[mediaPath];
     if (mediaFile) {
       return {
         data: mediaFile,
         type: this.getImageTypeFromPath(mediaPath),
-        size: mediaFile.length || 0,
+        size:
+          (mediaFile as any).byteLength ||
+          (mediaFile as any).length ||
+          0,
       };
     }
 
@@ -240,16 +237,19 @@ export class ImageParser extends BaseParser {
       // First try the current slide's relationship file
       if (relationships[currentSlideRelFile]) {
         const relsData =
-          BaseParser.safeGet(
+          (BaseParser.safeGet(
             relationships[currentSlideRelFile],
             "Relationships.Relationship",
-          ) || [];
+            [],
+          ) as any) || [];
         const rels = Array.isArray(relsData) ? relsData : [relsData];
-        const rel = rels.find((r: any) => r && r.$Id === rId);
+        const rel = rels.find((r: any) =>
+          BaseParser.asString(r?.$Id, "") === BaseParser.asString(rId, ""),
+        );
 
         if (rel) {
-          const target = rel.$Target;
-          let mediaPath: string;
+          const target = BaseParser.asString(rel?.$Target, "");
+          let mediaPath: string = "";
 
           if (target.startsWith("../")) {
             // PPTX format: ../media/image1.png -> ppt/media/image1.png
@@ -268,7 +268,7 @@ export class ImageParser extends BaseParser {
                 r2Storage,
               ),
               type: ImageParser.getImageType(target),
-              size: mediaFile.length || 0,
+              size: (mediaFile as any).length || 0,
               dimensions: ImageParser.getImageDimensions(mediaFile),
             };
           }
@@ -286,16 +286,19 @@ export class ImageParser extends BaseParser {
       for (const relFile of masterAndLayoutRelFiles) {
         if (relationships[relFile]) {
           const relsData =
-            BaseParser.safeGet(
+            (BaseParser.safeGet(
               relationships[relFile],
               "Relationships.Relationship",
-            ) || [];
+              [],
+            ) as any) || [];
           const rels = Array.isArray(relsData) ? relsData : [relsData];
-          const rel = rels.find((r: any) => r && r.$Id === rId);
+          const rel = rels.find((r: any) =>
+            BaseParser.asString(r?.$Id, "") === BaseParser.asString(rId, ""),
+          );
 
           if (rel) {
-            const target = rel.$Target;
-            let mediaPath: string;
+            const target = BaseParser.asString(rel?.$Target, "");
+            let mediaPath: string = "";
 
             if (target.startsWith("../")) {
               // PPTX format: ../media/image1.png -> ppt/media/image1.png
@@ -316,7 +319,7 @@ export class ImageParser extends BaseParser {
                   r2Storage,
                 ),
                 type: ImageParser.getImageType(target),
-                size: mediaFile.length || 0,
+                size: (mediaFile as any).length || 0,
                 dimensions: ImageParser.getImageDimensions(mediaFile),
               };
             }
@@ -343,16 +346,19 @@ export class ImageParser extends BaseParser {
     for (const relFile of relFiles) {
       if (relationships[relFile]) {
         const relsData =
-          BaseParser.safeGet(
+          (BaseParser.safeGet(
             relationships[relFile],
             "Relationships.Relationship",
-          ) || [];
+            [],
+          ) as any) || [];
         const rels = Array.isArray(relsData) ? relsData : [relsData];
-        const rel = rels.find((r: any) => r && r.$Id === rId);
+        const rel = rels.find((r: any) =>
+          BaseParser.asString(r?.$Id, "") === BaseParser.asString(rId, ""),
+        );
 
         if (rel) {
-          const target = rel.$Target;
-          let mediaPath: string;
+          const target = BaseParser.asString(rel?.$Target, "");
+          let mediaPath: string = "";
 
           if (target.startsWith("../")) {
             // Check if we're dealing with clipboard or PPTX format based on relationship file path
@@ -376,7 +382,7 @@ export class ImageParser extends BaseParser {
                 r2Storage,
               ),
               type: ImageParser.getImageType(target),
-              size: mediaFile.length || 0,
+              size: (mediaFile as any).length || 0,
               dimensions: ImageParser.getImageDimensions(mediaFile),
             };
           }
@@ -552,9 +558,12 @@ export class ImageParser extends BaseParser {
     const blip = BaseParser.safeGet(blipFill, "blip");
     if (blip) {
       // Look for alpha modulation
-      const alphaModFix = BaseParser.safeGet(blip, "alphaModFix.$amt");
+      const alphaModFix = BaseParser.asNumber(
+        BaseParser.safeGet(blip, "alphaModFix.$amt"),
+        0,
+      );
       if (alphaModFix) {
-        effects.opacity = parseInt(alphaModFix) / 100000; // PowerPoint uses 100000 = 100%
+        effects.opacity = alphaModFix / 100000; // PowerPoint uses 100000 = 100%
       }
 
       // Grayscale effect
@@ -581,8 +590,8 @@ export class ImageParser extends BaseParser {
   static parseCropping(
     blipFill: XMLNode | null | undefined,
   ): ImageCroppingInfo {
-    const srcRect = BaseParser.safeGet(blipFill, "srcRect.$");
-    if (!srcRect) {
+    const srcRect = BaseParser.safeGet(blipFill, "srcRect.$", null) as any;
+    if (!srcRect || !BaseParser.isXMLNode(srcRect)) {
       return {
         left: 0,
         top: 0,
@@ -594,11 +603,13 @@ export class ImageParser extends BaseParser {
 
     // PowerPoint uses percentages * 1000 (e.g., 10000 = 10%)
     return {
-      left: srcRect.l ? parseInt(srcRect.l) / 1000 : 0,
-      top: srcRect.t ? parseInt(srcRect.t) / 1000 : 0,
-      right: srcRect.r ? parseInt(srcRect.r) / 1000 : 0,
-      bottom: srcRect.b ? parseInt(srcRect.b) / 1000 : 0,
-      isCropped: !!(srcRect.l || srcRect.t || srcRect.r || srcRect.b),
+      left: BaseParser.asNumber(srcRect.l, 0) / 1000,
+      top: BaseParser.asNumber(srcRect.t, 0) / 1000,
+      right: BaseParser.asNumber(srcRect.r, 0) / 1000,
+      bottom: BaseParser.asNumber(srcRect.b, 0) / 1000,
+      isCropped: !!(
+        srcRect.l || srcRect.t || srcRect.r || srcRect.b
+      ),
     };
   }
 

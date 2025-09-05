@@ -26,6 +26,7 @@ export class VideoParser extends BaseParser {
     mediaFiles: Record<string, Uint8Array>,
     componentIndex: number,
     slideIndex: number,
+    zIndex: number,
     r2Storage: any = null,
   ): Promise<VideoComponent | null> {
     const { data, spPr, nvPicPr, blipFill, namespace, relationshipId } =
@@ -36,20 +37,20 @@ export class VideoParser extends BaseParser {
     }
 
     // Extract positioning from spPr (namespaces already stripped)
-    const xfrm = BaseParser.safeGet(spPr, "xfrm");
+    const xfrm = BaseParser.getNode(spPr, "xfrm");
     const transform = VideoParser.parseTransform(xfrm);
 
     // Extract component info from nvPicPr
-    const cNvPr = BaseParser.safeGet(nvPicPr, "cNvPr");
+    const cNvPr = BaseParser.getNode(nvPicPr, "cNvPr");
     const componentName =
-      BaseParser.safeGet(cNvPr, "$name") || `video-${componentIndex}`;
-    const description = BaseParser.safeGet(cNvPr, "$descr") || "";
+      BaseParser.getString(cNvPr, "$name", `video-${componentIndex}`);
+    const description = BaseParser.getString(cNvPr, "$descr", "");
 
     // Extract video reference from nvPr
-    const nvPr = BaseParser.safeGet(nvPicPr, "nvPr");
-    const videoFile = BaseParser.safeGet(nvPr, "videoFile");
+    const nvPr = BaseParser.getNode(nvPicPr, "nvPr");
+    const videoFile = BaseParser.getNode(nvPr, "videoFile");
     const videoRelationshipId =
-      relationshipId || BaseParser.safeGet(videoFile, "$link");
+      relationshipId || BaseParser.getString(videoFile, "$link", "");
 
     // Find the video URL using relationships
     let videoUrl: string | null = null;
@@ -193,6 +194,8 @@ export class VideoParser extends BaseParser {
       y: transform.y,
       width: transform.width,
       height: transform.height,
+      slideIndex,
+      zIndex,
       style: {
         rotation: transform.rotation || 0,
       },

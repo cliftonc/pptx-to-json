@@ -9,55 +9,9 @@ import { PPTXParser } from '../processors/PPTXParser.js';
 import { DEFAULT_SLIDE_WIDTH_PX, DEFAULT_SLIDE_HEIGHT_PX } from '../utils/constants.js';
 import { BaseParser } from './BaseParser.js';
 
-interface NormalizedElement {
-  type: 'text' | 'shape' | 'image' | 'table' | 'video';
-  zIndex: number;
-  namespace: 'p' | 'a';
-  element: string;
-  data: any;
-  spPr?: any;
-  nvSpPr?: any;
-  nvPicPr?: any;
-  blipFill?: any;
-  style?: any;
-  textBody?: any;
-  graphicData?: any;
-  nvGraphicFramePr?: any;
-  isLayoutElement?: boolean;
-  isMasterElement?: boolean;
-  isBackgroundElement?: boolean;
-  relationshipId?: string;
-  txBody?: any;
-}
-
-interface NormalizedSlide {
-  slideFile: string;
-  slideNumber?: number;
-  format: string;
-  shapes: any[];
-  images: any[];
-  text: any[];
-  videos: any[];
-  elements: NormalizedElement[];
-  layoutFile?: string;
-  masterFile?: string | null;
-  layoutElementCount?: number;
-  masterElementCount?: number;
-  rawSpTree?: any;
-  rawCanvas?: any;
-}
-
-interface NormalizedResult {
-  format: string;
-  slides: NormalizedSlide[];
-  slideDimensions?: {
-    width: number;
-    height: number;
-  };
-  mediaFiles: Record<string, any>;
-  relationships: Record<string, any>;
-  slideLayoutRelationships?: Record<string, string>;
-}
+import type { NormalizedElement, NormalizedSlide, NormalizedResult } from '../types/normalized.js';
+/* Inlined NormalizedElement/Slide/Result interfaces removed.
+   Using shared types from ../types/normalized.ts */
 
 export class PowerPointNormalizer {
   

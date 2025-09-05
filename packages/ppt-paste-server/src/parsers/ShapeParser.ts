@@ -26,32 +26,35 @@ export class ShapeParser extends BaseParser {
     shapeComponent: NormalizedShapeComponent,
     componentIndex: number,
     slideIndex: number,
+    zIndex: number,
   ): Promise<ShapeComponent | null> {
-    const { data, spPr, nvSpPr, namespace, style } = shapeComponent;
+    const { spPr, nvSpPr, namespace, style } = shapeComponent;
 
     if (!spPr) {
       throw new Error("No spPr found in normalized shape component");
     }
 
     // Extract positioning from spPr (namespaces already stripped)
-    const xfrm = BaseParser.safeGet(spPr, "xfrm");
+    const xfrm = BaseParser.getNode(spPr, "xfrm");
     const transform = ShapeParser.parseTransform(xfrm);
 
     // Skip if shape has no dimensions
     if (transform.width === 0 && transform.height === 0) return null;
 
-    // Parse shape geometry using existing method
+    // Parse shape geometry
     const geometry = ShapeParser.parseGeometry(spPr);
-    const shapeType = geometry ? geometry.type : "rectangle";
+    const shapeType = geometry.type;
 
     // Extract component info from nvSpPr
-    const cNvPr = BaseParser.safeGet(nvSpPr, "cNvPr");
-    const componentName =
-      BaseParser.safeGet(cNvPr, "$name") || `shape-${componentIndex}`;
+    const componentName = BaseParser.getString(
+      nvSpPr,
+      "cNvPr.$name",
+      `shape-${componentIndex}`,
+    );
 
     // Parse styling from spPr and style data
-    const fill = ShapeParser.parseFill(spPr, style);
-    const border = ShapeParser.parseBorder(spPr, style);
+    const fill = ShapeParser.parseFill(spPr, style || null);
+    const border = ShapeParser.parseBorder(spPr, style || null);
     const effects = ShapeParser.parseEffects(spPr);
 
     return {
@@ -64,6 +67,7 @@ export class ShapeParser extends BaseParser {
       height: transform.height,
       rotation: transform.rotation || 0,
       slideIndex,
+      zIndex,
       style: {
         fillColor: fill.color,
         borderColor: border.color,
@@ -74,7 +78,7 @@ export class ShapeParser extends BaseParser {
         ...effects,
       },
       shapeType: geometry.type,
-      geometry: geometry.preset || geometry.type,
+      geometry: geometry,
       metadata: {
         namespace,
         geometry,
@@ -93,10 +97,9 @@ export class ShapeParser extends BaseParser {
    * @returns geometry info
    */
   static parseGeometry(spPr: XMLNode): GeometryInfo {
-    // Check for preset geometry
-    const prstGeom = BaseParser.safeGet(spPr, "prstGeom");
+    const prstGeom = BaseParser.getNode(spPr, "prstGeom");
     if (prstGeom) {
-      const preset = prstGeom.$prst;
+      const preset = BaseParser.getString(prstGeom, "$prst", "rect");
       return {
         type: this.getShapeTypeName(preset),
         preset: preset,
@@ -104,8 +107,7 @@ export class ShapeParser extends BaseParser {
       };
     }
 
-    // Check for custom geometry
-    const custGeom = BaseParser.safeGet(spPr, "custGeom");
+    const custGeom = BaseParser.getNode(spPr, "custGeom");
     if (custGeom) {
       return {
         type: "custom",
@@ -215,8 +217,7 @@ export class ShapeParser extends BaseParser {
    * @returns fill information
    */
   static parseFill(spPr: XMLNode, style: XMLNode | null = null): FillInfo {
-    // First check for direct SRGB colors in spPr (highest priority)
-    const solidFill = BaseParser.safeGet(spPr, "solidFill");
+    const solidFill = BaseParser.getNode(spPr, "solidFill");
     if (solidFill) {
       return {
         type: "solid",
@@ -225,14 +226,12 @@ export class ShapeParser extends BaseParser {
       };
     }
 
-    // Gradient fill
-    const gradFill = BaseParser.safeGet(spPr, "gradFill");
+    const gradFill = BaseParser.getNode(spPr, "gradFill");
     if (gradFill) {
       return this.parseGradientFill(gradFill);
     }
 
-    // Pattern fill
-    const pattFill = BaseParser.safeGet(spPr, "pattFill");
+    const pattFill = BaseParser.getNode(spPr, "pattFill");
     if (pattFill) {
       return {
         type: "pattern",
@@ -241,8 +240,7 @@ export class ShapeParser extends BaseParser {
       };
     }
 
-    // No fill
-    if (BaseParser.safeGet(spPr, "noFill")) {
+    if (BaseParser.getNode(spPr, "noFill")) {
       return {
         type: "none",
         color: "transparent",
@@ -250,13 +248,11 @@ export class ShapeParser extends BaseParser {
       };
     }
 
-    // Try to get fill from style element as fallback
     if (style) {
       const styleFill = this.parseFillFromStyle(style);
       if (styleFill) return styleFill;
     }
 
-    // Default fill
     return {
       type: "solid",
       color: "#FFFFFF",
@@ -271,15 +267,12 @@ export class ShapeParser extends BaseParser {
    * @returns border information
    */
   static parseBorder(spPr: XMLNode, style: XMLNode | null = null): BorderInfo {
-    // First check for direct border/line definitions in spPr
-    const ln = BaseParser.safeGet(spPr, "ln");
+    const ln = BaseParser.getNode(spPr, "ln");
     if (!ln) {
-      // Try to get border from style element as fallback
       if (style) {
         const styleBorder = this.parseBorderFromStyle(style);
         if (styleBorder) return styleBorder;
       }
-
       return {
         type: "none",
         color: "transparent",
@@ -288,21 +281,16 @@ export class ShapeParser extends BaseParser {
       };
     }
 
-    // Line width (in EMUs)
     const width = ln.$ && ln.$w ? emuToPixels(parseInt(ln.$w)) : 1;
-
-    // Line style
     const compound = (ln.$ && ln.$cmpd) || "sng";
     const cap = (ln.$ && ln.$cap) || "flat";
 
-    // Line color
     let color = "#000000";
-    const solidFill = BaseParser.safeGet(ln, "solidFill");
+    const solidFill = BaseParser.getNode(ln, "solidFill");
     if (solidFill) {
       color = this.parseColor(solidFill);
     }
 
-    // Dash pattern
     const dashStyle = this.parseDashStyle(ln);
 
     return {
@@ -321,7 +309,7 @@ export class ShapeParser extends BaseParser {
    * @returns CSS border-style value
    */
   static parseDashStyle(ln: XMLNode): string {
-    const prstDash = BaseParser.safeGet(ln, "prstDash.$val");
+    const prstDash = BaseParser.getString(ln, "prstDash.$val", "");
     if (!prstDash) return "solid";
 
     switch (prstDash) {
@@ -349,22 +337,10 @@ export class ShapeParser extends BaseParser {
    * @returns gradient information
    */
   static parseGradientFill(gradFill: XMLNode): FillInfo {
-    // For now, return the first gradient stop color
-    // In the future, this could return full gradient information
-    const gsLst = BaseParser.safeGet(gradFill, "gsLst.gs");
-    if (gsLst && Array.isArray(gsLst) && gsLst.length > 0) {
-      const firstStop = gsLst[0];
-      const solidFill = BaseParser.safeGet(firstStop, "solidFill");
-      if (solidFill) {
-        return {
-          type: "gradient",
-          color: this.parseColor(solidFill),
-          opacity: this.parseOpacity(solidFill),
-        };
-      }
-    } else if (gsLst) {
-      // Handle case where gsLst.gs is not an array
-      const solidFill = BaseParser.safeGet(gsLst, "solidFill");
+    const gradientStops = BaseParser.getArray(gradFill, "gsLst.gs", []);
+    if (gradientStops.length > 0) {
+      const firstStop = gradientStops[0];
+      const solidFill = BaseParser.getNode(firstStop, "solidFill");
       if (solidFill) {
         return {
           type: "gradient",
@@ -387,8 +363,6 @@ export class ShapeParser extends BaseParser {
    * @returns opacity (0-1)
    */
   static parseOpacity(fill: XMLNode): number {
-    // Alpha values in PowerPoint are often in the color definition
-    // This is a simplified implementation
     return 1;
   }
 
@@ -402,23 +376,18 @@ export class ShapeParser extends BaseParser {
       effects: [],
     };
 
-    // Outer shadow
-    const outerShdw = BaseParser.safeGet(spPr, "effectLst.outerShdw");
+    const outerShdw = BaseParser.getNode(spPr, "effectLst.outerShdw");
     if (outerShdw) {
-      const blur = outerShdw.$blurRad
-        ? emuToPixels(parseInt(outerShdw.$blurRad))
-        : 0;
-      const distance = outerShdw.$dist
-        ? emuToPixels(parseInt(outerShdw.$dist))
-        : 0;
-      const direction = outerShdw.$dir ? parseInt(outerShdw.$dir) / 60000 : 0; // Convert to degrees
+      const blur = BaseParser.getNumber(outerShdw, "$blurRad", 0);
+      const distance = BaseParser.getNumber(outerShdw, "$dist", 0);
+      const directionUnits = BaseParser.getNumber(outerShdw, "$dir", 0);
+      const direction = directionUnits / 60000;
 
-      effects.boxShadow = `${distance * Math.cos((direction * Math.PI) / 180)}px ${distance * Math.sin((direction * Math.PI) / 180)}px ${blur}px rgba(0,0,0,0.3)`;
+      effects.boxShadow = `${distance * Math.cos((direction * Math.PI) / 180)}px ${distance * Math.sin((direction * Math.PI) / 180)}px ${emuToPixels(blur)}px rgba(0,0,0,0.3)`;
       effects.effects.push("shadow");
     }
 
-    // Glow
-    const glow = BaseParser.safeGet(spPr, "effectLst.glow");
+    const glow = BaseParser.getNode(spPr, "effectLst.glow");
     if (glow) {
       effects.effects.push("glow");
     }
@@ -432,8 +401,6 @@ export class ShapeParser extends BaseParser {
    * @returns simplified path information
    */
   static parseCustomGeometry(custGeom: XMLNode): any[] {
-    // This is a complex topic - for now return empty array
-    // In the future, this could parse path commands
     return [];
   }
 
@@ -443,25 +410,21 @@ export class ShapeParser extends BaseParser {
    * @returns fill information or null
    */
   static parseFillFromStyle(style: XMLNode): FillInfo | null {
-    // Look for fill reference in style
-    const fillRef = BaseParser.safeGet(style, "fillRef");
+    const fillRef = BaseParser.getNode(style, "fillRef");
     if (fillRef) {
-      // Get the color from the scheme color or override
-      const schemeClr = BaseParser.safeGet(fillRef, "schemeClr");
-      const srgbClr = BaseParser.safeGet(fillRef, "srgbClr");
+      const schemeClr = BaseParser.getNode(fillRef, "schemeClr");
+      const srgbClr = BaseParser.getNode(fillRef, "srgbClr");
 
-      if (srgbClr && srgbClr.$val) {
+      if (srgbClr && (srgbClr as any).$val) {
         return {
           type: "solid",
-          color: "#" + srgbClr.$val,
+          color: "#" + (srgbClr as any).$val,
           opacity: 1,
         };
       }
 
-      // Handle scheme colors - basic mapping
-      if (schemeClr && schemeClr.$val) {
-        const color = this.parseSchemeColor(schemeClr.$val);
-
+      if (schemeClr && (schemeClr as any).$val) {
+        const color = this.parseSchemeColor((schemeClr as any).$val);
         if (color) {
           return {
             type: "solid",
@@ -481,30 +444,23 @@ export class ShapeParser extends BaseParser {
    * @returns border information or null
    */
   static parseBorderFromStyle(style: XMLNode): BorderInfo | null {
-    // Look for line reference in style
-    const lnRef = BaseParser.safeGet(style, "lnRef");
+    const lnRef = BaseParser.getNode(style, "lnRef");
     if (lnRef) {
-      // Use safe default: only create borders for explicit color definitions
-      // If there's no explicit color, treat as no border
-      // Get the color from the scheme color or override
-      const schemeClr = BaseParser.safeGet(lnRef, "schemeClr");
-      const srgbClr = BaseParser.safeGet(lnRef, "srgbClr");
+      const schemeClr = BaseParser.getNode(lnRef, "schemeClr");
+      const srgbClr = BaseParser.getNode(lnRef, "srgbClr");
 
-      // Only create borders for explicit RGB colors (most reliable)
-      if (srgbClr && srgbClr.$val) {
+      if (srgbClr && (srgbClr as any).$val) {
         return {
           type: "solid",
-          color: "#" + srgbClr.$val,
-          width: 1, // Default width
-          style: "solid",
+            color: "#" + (srgbClr as any).$val,
+            width: 1,
+            style: "solid",
         };
       }
 
-      // For scheme colors, use safe default of no border unless it's a very clear case
-      // This avoids theme interpretation issues
-      if (schemeClr && schemeClr.$val) {
-        // Only create borders for explicit dark colors that are clearly intended as borders
-        if (schemeClr.$val === "dk1" || schemeClr.$val === "tx1") {
+      if (schemeClr && (schemeClr as any).$val) {
+        const val = (schemeClr as any).$val;
+        if (val === "dk1" || val === "tx1") {
           return {
             type: "solid",
             color: "#000000",
@@ -512,9 +468,6 @@ export class ShapeParser extends BaseParser {
             style: "solid",
           };
         }
-
-        // For all other scheme colors (including accent colors), use safe default of no border
-        // This prevents theme interpretation issues
         return {
           type: "none",
           color: "transparent",
@@ -535,22 +488,14 @@ export class ShapeParser extends BaseParser {
    */
   static applyShade(color: string, shadeVal: number): string {
     if (!color || !color.startsWith("#")) return color;
-
-    // Convert shade value from PowerPoint format (50000 = 50%) to percentage
     const shadePercent = Math.min(100, Math.max(0, shadeVal / 1000)) / 100;
-
-    // Convert hex to RGB
     const hex = color.slice(1);
     const r = parseInt(hex.substring(0, 2), 16);
     const g = parseInt(hex.substring(2, 4), 16);
     const b = parseInt(hex.substring(4, 6), 16);
-
-    // Apply shade (darken by reducing each component)
     const shadedR = Math.round(r * (1 - shadePercent));
     const shadedG = Math.round(g * (1 - shadePercent));
     const shadedB = Math.round(b * (1 - shadePercent));
-
-    // Convert back to hex
     const toHex = (n: number) =>
       Math.max(0, Math.min(255, n)).toString(16).padStart(2, "0");
     return `#${toHex(shadedR)}${toHex(shadedG)}${toHex(shadedB)}`.toUpperCase();
@@ -562,22 +507,21 @@ export class ShapeParser extends BaseParser {
    * @returns hex color or null
    */
   static parseSchemeColor(scheme: string): string | null {
-    // Default Office scheme color mappings
     const schemeColors: Record<string, string> = {
-      accent1: "#4472C4", // Blue
-      accent2: "#E7E6E6", // Light Gray
-      accent3: "#A5A5A5", // Gray
-      accent4: "#FFC000", // Orange
-      accent5: "#5B9BD5", // Light Blue
-      accent6: "#70AD47", // Green
-      bg1: "#FFFFFF", // White
-      bg2: "#F2F2F2", // Light Gray
-      tx1: "#000000", // Black
-      tx2: "#44546A", // Dark Blue
-      dk1: "#000000", // Black
-      dk2: "#44546A", // Dark Blue
-      lt1: "#FFFFFF", // White
-      lt2: "#F2F2F2", // Light Gray
+      accent1: "#4472C4",
+      accent2: "#E7E6E6",
+      accent3: "#A5A5A5",
+      accent4: "#FFC000",
+      accent5: "#5B9BD5",
+      accent6: "#70AD47",
+      bg1: "#FFFFFF",
+      bg2: "#F2F2F2",
+      tx1: "#000000",
+      tx2: "#44546A",
+      dk1: "#000000",
+      dk2: "#44546A",
+      lt1: "#FFFFFF",
+      lt2: "#F2F2F2",
     };
 
     return schemeColors[scheme] || null;

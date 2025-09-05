@@ -27,6 +27,7 @@ export class TableParser extends BaseParser {
     tableComponent: NormalizedTableComponent,
     componentIndex: number,
     slideIndex: number,
+    zIndex: number,
   ): Promise<TableComponent | null> {
     const { graphicData, spPr, nvGraphicFramePr, namespace } = tableComponent;
 
@@ -47,15 +48,19 @@ export class TableParser extends BaseParser {
     const transform = this.parseTransform(spPr); // spPr is actually xfrm for graphicFrame
 
     // Extract component info from nvGraphicFramePr
-    const cNvPr = BaseParser.safeGet(nvGraphicFramePr, "cNvPr");
-    const componentName =
-      BaseParser.safeGet(cNvPr, "$name") || `table-${componentIndex}`;
+    const componentName = BaseParser.getString(
+      nvGraphicFramePr,
+      "cNvPr.$name",
+      `table-${componentIndex}`,
+    );
 
     // Calculate table dimensions
     const { rows, cols } = this.getTableDimensions(tableData);
 
     return {
       id: componentName,
+      slideIndex,
+      zIndex,
       type: "table",
       content: `Table (${rows} rows × ${cols} columns)`,
       x: transform.x,
@@ -94,43 +99,31 @@ export class TableParser extends BaseParser {
   static extractTableData(graphicData: XMLNode): string[][] {
     try {
       // The table structure is: graphicData -> tbl (namespace stripped already)
-      const table = BaseParser.safeGet(graphicData, "tbl");
-      if (!table) {
-        console.warn("No table element found in graphicData");
-        return [];
+    const table = BaseParser.getNode(graphicData, "tbl");
+    if (!table) {
+      console.warn("No table element found in graphicData");
+      return [];
+    }
+
+    const rowsArray = BaseParser.getArray(table, "tr", []);
+    const tableData: string[][] = [];
+
+    for (const row of rowsArray) {
+      const cellsArray = BaseParser.getArray(row, "tc", []);
+      const rowData: string[] = [];
+
+      for (const cell of cellsArray) {
+        const txBody = BaseParser.getNode(cell, "txBody");
+        const cellText = this.extractCellText(txBody);
+        rowData.push(cellText);
       }
 
-      // Get table rows - should be 'tr' (namespace stripped)
-      const rows = BaseParser.safeGet(table, "tr");
-      if (!rows) {
-        console.warn("No table rows found");
-        return [];
+      if (rowData.length > 0) {
+        tableData.push(rowData);
       }
+    }
 
-      const rowsArray = Array.isArray(rows) ? rows : [rows];
-      const tableData: string[][] = [];
-
-      for (const row of rowsArray) {
-        // Get table cells - should be 'tc' (namespace stripped)
-        const cells = BaseParser.safeGet(row, "tc");
-        if (!cells) continue;
-
-        const cellsArray = Array.isArray(cells) ? cells : [cells];
-        const rowData: string[] = [];
-
-        for (const cell of cellsArray) {
-          // Extract text from cell - look for txBody (namespace stripped)
-          const txBody = BaseParser.safeGet(cell, "txBody");
-          const cellText = this.extractCellText(txBody);
-          rowData.push(cellText);
-        }
-
-        if (rowData.length > 0) {
-          tableData.push(rowData);
-        }
-      }
-
-      return tableData;
+    return tableData;
     } catch (error) {
       console.error("Error extracting table data:", error);
       return [];
@@ -146,33 +139,18 @@ export class TableParser extends BaseParser {
     if (!txBody) return "";
 
     try {
-      // Get paragraphs (namespace stripped, so just 'p')
-      const paragraphs = BaseParser.safeGet(txBody, "p");
-      if (!paragraphs) return "";
-
-      const paragraphsArray = Array.isArray(paragraphs)
-        ? paragraphs
-        : [paragraphs];
+      const paragraphsArray = BaseParser.getArray(txBody, "p", []);
       const textParts: string[] = [];
 
       for (const paragraph of paragraphsArray) {
-        // Get runs (namespace stripped, so just 'r')
-        const runs = BaseParser.safeGet(paragraph, "r");
-        if (runs) {
-          const runsArray = Array.isArray(runs) ? runs : [runs];
-          for (const run of runsArray) {
-            const text = BaseParser.safeGet(run, "t");
-            if (text && typeof text === "string") {
-              textParts.push(text.trim());
-            }
-          }
+        const runsArray = BaseParser.getArray(paragraph, "r", []);
+        for (const run of runsArray) {
+          const textVal = BaseParser.getString(run, "t", "").trim();
+          if (textVal) textParts.push(textVal);
         }
-
-        // Also check for direct text in paragraph
-        const directText = BaseParser.safeGet(paragraph, "t");
-        if (directText && typeof directText === "string") {
-          textParts.push(directText.trim());
-        }
+        // Also check for direct text at paragraph level
+        const directText = BaseParser.getString(paragraph, "t", "").trim();
+        if (directText) textParts.push(directText);
       }
 
       return textParts.join(" ").trim();

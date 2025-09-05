@@ -3,7 +3,7 @@
  */
 
 import { BaseParser } from './BaseParser.js';
-import { TextComponent, XMLNode, ProcessingContext } from '../types/index.js';
+import { TextComponent, XMLNode, TextRun } from '../types/index.js';
 
 // Rich text node types for TLDraw compatibility
 interface TextNode {
@@ -55,9 +55,10 @@ export class TextParser extends BaseParser {
    * @returns Parsed text component
    */
   static async parseFromNormalized(
-    textComponent: NormalizedTextComponent, 
-    componentIndex: number, 
-    slideIndex: number
+    textComponent: NormalizedTextComponent,
+    componentIndex: number,
+    slideIndex: number,
+    zIndex: number
   ): Promise<TextComponent | null> {
     const { textBody, spPr, nvSpPr, namespace } = textComponent;
     
@@ -66,23 +67,49 @@ export class TextParser extends BaseParser {
     }
 
     // Extract text content using existing method
-    const textContent = this.extractTextContent(textBody);
+    const textContentRaw = this.extractTextContent(textBody);
+    const textContent = this.asString(textContentRaw, '');
     if (!textContent.trim()) return null;
 
-    // Extract rich text structure using existing method
-    const richTextContent = this.extractRichTextContent(textBody);
+    // Extract rich text structure using existing method and flatten to TextRun[]
+    const richTextDoc = this.extractRichTextContent(textBody);
+    // Flatten paragraphs into simple TextRun[] for downstream consumers
+    const richTextContent: TextRun[] = [];
+    if (richTextDoc && Array.isArray(richTextDoc.content)) {
+      for (const node of richTextDoc.content) {
+        if (node.type === 'paragraph') {
+          for (const tn of node.content) {
+            const runText = this.asString((tn as any).text, '');
+            if (runText !== '') {
+              richTextContent.push({ text: runText, style: tn.marks ? {} : undefined });
+            }
+          }
+        } else if (node.type === 'bulletList') {
+          for (const li of node.content) {
+            for (const para of li.content) {
+              for (const tn of para.content) {
+                const runText = this.asString((tn as any).text, '');
+                if (runText !== '') {
+                  richTextContent.push({ text: runText, style: tn.marks ? {} : undefined });
+                }
+              }
+            }
+          }
+        }
+      }
+    }
 
     // Extract positioning from spPr (namespace-agnostic since we stripped them)
-    const xfrm = this.safeGet(spPr, 'xfrm');
-    const transform = this.parseTransform(xfrm);
+    const xfrm = this.getNode(spPr, 'xfrm');
+    const transform = this.parseTransform(xfrm as any);
 
     // Extract component info from nvSpPr
-    const cNvPr = this.safeGet(nvSpPr, 'cNvPr');
-    const componentName = this.safeGet(cNvPr, '$name') || `text-${componentIndex}`;
-    const isTextBox = !!this.safeGet(nvSpPr, 'cNvSpPr.$txBox');
+    const cNvPr = this.getNode(nvSpPr, 'cNvPr');
+    const componentName = this.getString(cNvPr, '$name', `text-${componentIndex}`);
+    const isTextBox = this.getBoolean(nvSpPr, 'cNvSpPr.$txBox', false);
 
     // Extract dominant font styling using existing method
-    const paragraphs = this.safeGet(textBody, 'p', []);
+    const paragraphs = this.getNode(textBody, 'p') ?? this.safeGet(textBody, 'p', []);
     const paragraphsArray = Array.isArray(paragraphs) ? paragraphs : [paragraphs];
     let dominantFont = { family: 'Arial', size: 18, weight: 'normal', style: 'normal', color: '#000000', decoration: 'none' };
     
@@ -91,9 +118,9 @@ export class TextParser extends BaseParser {
       if (paragraph?.['r']) {
         const runs = Array.isArray(paragraph['r']) ? paragraph['r'] : [paragraph['r']];
         for (const run of runs) {
-          const text = this.safeGet(run, 't');
-          if (text && text.trim()) {
-            const rPr = this.safeGet(run, 'rPr');
+          const text = this.getString(run, 't', '');
+          if (text.trim()) {
+            const rPr = this.getNode(run, 'rPr');
             if (rPr) {
               dominantFont = this.parseFont(rPr);
               break;
@@ -114,6 +141,7 @@ export class TextParser extends BaseParser {
       height: transform.height,
       rotation: transform.rotation || 0,
       slideIndex,
+      zIndex,
       style: {
         fontSize: dominantFont.size,
         fontFamily: dominantFont.family,
@@ -144,7 +172,7 @@ export class TextParser extends BaseParser {
    */
   static extractTextContent(textBody: XMLNode): string {
     // Namespaces are already stripped
-    const paragraphs = this.safeGet(textBody, 'p', []);
+    const paragraphs = this.getNode(textBody, 'p') ?? this.safeGet(textBody, 'p', []);
     const paragraphsArray = Array.isArray(paragraphs) ? paragraphs : [paragraphs];
     
     const allText: string[] = [];
@@ -157,7 +185,7 @@ export class TextParser extends BaseParser {
       if (runs) {
         const runsArray = Array.isArray(runs) ? runs : [runs];
         for (const run of runsArray) {
-          const text = this.safeGet(run, 't', '');
+          const text = this.getString(run, 't', '');
           paragraphText += text;
         }
       }
@@ -167,7 +195,7 @@ export class TextParser extends BaseParser {
       if (fields) {
         const fieldsArray = Array.isArray(fields) ? fields : [fields];
         for (const field of fieldsArray) {
-          const text = this.safeGet(field, 't', '');
+          const text = this.getString(field, 't', '');
           paragraphText += text;
         }
       }
@@ -187,9 +215,9 @@ export class TextParser extends BaseParser {
    */
   static extractRichTextContent(textBody: XMLNode): RichTextDoc {
     // Namespaces are already stripped
-    const paragraphs = this.safeGet(textBody, 'p', []);
+    const paragraphs = this.getNode(textBody, 'p') ?? this.safeGet(textBody, 'p', []);
     const paragraphsArray = Array.isArray(paragraphs) ? paragraphs : [paragraphs];
-    const lstStyle = this.safeGet(textBody, 'lstStyle');
+    const lstStyle = this.getNode(textBody, 'lstStyle') ?? this.safeGet(textBody, 'lstStyle');
     
     // Create simple paragraph structure - TLDraw handles bullets at paragraph level
     return this.createParagraphStructure(paragraphsArray, lstStyle);
@@ -204,7 +232,6 @@ export class TextParser extends BaseParser {
   static createParagraphStructure(paragraphsArray: XMLNode[], lstStyle: XMLNode): RichTextDoc {
     const content: Array<Paragraph | BulletList> = [];
     let currentBulletItems: ListItem[] = [];
-    let hasPendingBullets = false;
     
     const flushBullets = () => {
       if (currentBulletItems.length > 0) {
@@ -214,7 +241,6 @@ export class TextParser extends BaseParser {
           content: currentBulletItems
         });
         currentBulletItems = [];
-        hasPendingBullets = false;
       }
     };
     
@@ -227,14 +253,14 @@ export class TextParser extends BaseParser {
       if (runs) {
         const runsArray = Array.isArray(runs) ? runs : [runs];
         const validRuns = runsArray.filter(run => {
-          const text = this.safeGet(run, 't', '');
-          return text !== null && text !== undefined && text !== '';
+          const text = this.getString(run, 't', '');
+          return text !== '';
         });
         
         for (let i = 0; i < validRuns.length; i++) {
           const run = validRuns[i];
-          const text = this.safeGet(run, 't', '');
-          const rPr = this.safeGet(run, 'rPr');
+          const text = this.getString(run, 't', '');
+          const rPr = this.getNode(run, 'rPr');
           
           const textNode = this.createTextNode(text, rPr);
           paragraphContent.push(textNode);
@@ -262,7 +288,7 @@ export class TextParser extends BaseParser {
             content: paragraphContent
           }]
         });
-        hasPendingBullets = true;
+
       } else {
         // This is regular text - flush any pending bullets first
         flushBullets();
@@ -299,38 +325,38 @@ export class TextParser extends BaseParser {
     totalParagraphs: number = 1
   ): boolean {
     // Namespaces already stripped
-    const pPr = this.safeGet(paragraph, 'pPr');
+      const pPr = this.getNode(paragraph, 'pPr') ?? this.safeGet(paragraph, 'pPr');
     
     // Method 1: Check if paragraph explicitly disables bullets
-    if (pPr) {
-      const buNone = this.safeGet(pPr, 'buNone');
-      if (buNone !== null && buNone !== undefined) {
-        return false; // Explicitly no bullets
+      if (pPr) {
+        const buNone = this.getNode(pPr, 'buNone') ?? this.safeGet(pPr, 'buNone');
+        if (buNone !== null && buNone !== undefined) {
+          return false; // Explicitly no bullets
+        }
       }
-    }
     
     // Method 2: Check paragraph properties directly for bullet characters
-    if (pPr) {
-      const buChar = this.safeGet(pPr, 'buChar');
-      const buAutoNum = this.safeGet(pPr, 'buAutoNum');
-      
-      // Handle both patterns:
-      // - Clipboard format: buChar exists and has content (e.g., "•")
-      // - PPTX format: buChar exists but may be empty string for non-bullets
-      if (buChar) {
-        const buCharValue = this.safeGet(buChar, '$val') || this.safeGet(buChar, '_') || buChar;
-        // If buChar has a non-empty value, it's a bullet
-        if (buCharValue && buCharValue.toString().trim() !== '') {
+      if (pPr) {
+        const buChar = this.getNode(pPr, 'buChar') ?? this.safeGet(pPr, 'buChar');
+        const buAutoNum = this.getNode(pPr, 'buAutoNum') ?? this.safeGet(pPr, 'buAutoNum');
+        
+        // Handle both patterns:
+        // - Clipboard format: buChar exists and has content (e.g., "•")
+        // - PPTX format: buChar exists but may be empty string for non-bullets
+        if (buChar) {
+          const buCharValue = this.getString(buChar, '$val', '') || this.getString(buChar, '_', '') || this.getString(buChar, '');
+          // If buChar has a non-empty value, it's a bullet
+          if (buCharValue.trim() !== '') {
+            return true;
+          }
+          // If buChar exists but is empty, it explicitly disables bullets (PPTX pattern)
+          return false;
+        }
+        
+        if (buAutoNum) {
           return true;
         }
-        // If buChar exists but is empty, it explicitly disables bullets (PPTX pattern)
-        return false;
       }
-      
-      if (buAutoNum) {
-        return true;
-      }
-    }
     
     // Method 3: Inherit from lstStyle if paragraph has no explicit bullet configuration
     if (lstStyle && typeof lstStyle === 'object') {
@@ -344,15 +370,15 @@ export class TextParser extends BaseParser {
       );
       
       if (!hasBulletProperties) {
-        const lvl1pPr = this.safeGet(lstStyle, 'lvl1pPr');
+        const lvl1pPr = this.getNode(lstStyle, 'lvl1pPr') ?? this.safeGet(lstStyle, 'lvl1pPr');
         if (lvl1pPr) {
-          const buChar = this.safeGet(lvl1pPr, 'buChar');
-          const buAutoNum = this.safeGet(lvl1pPr, 'buAutoNum');
+          const buChar = this.getNode(lvl1pPr, 'buChar') ?? this.safeGet(lvl1pPr, 'buChar');
+          const buAutoNum = this.getNode(lvl1pPr, 'buAutoNum') ?? this.safeGet(lvl1pPr, 'buAutoNum');
           
           // Apply same logic to parent style
           if (buChar) {
-            const buCharValue = this.safeGet(buChar, '$val') || this.safeGet(buChar, '_') || buChar;
-            if (buCharValue && buCharValue.toString().trim() !== '') {
+            const buCharValue = this.getString(buChar, '$val', '') || this.getString(buChar, '_', '') || this.getString(buChar, '');
+            if (buCharValue.trim() !== '') {
               return true; // Inherit bullets from style
             }
             return false; // Parent style explicitly disables bullets
@@ -394,10 +420,10 @@ export class TextParser extends BaseParser {
    * @returns Text node with marks and attributes
    */
   static createTextNode(text: string, rPr: XMLNode | null): TextNode {
-    const textString = String(text);
+    const textString = this.asString(text, '');
     
     // Ensure we never create empty text nodes (but allow spaces)
-    if (!textString || textString === '') {
+    if (textString === '') {
       throw new Error('Cannot create empty text node - TLDraw does not allow empty text nodes');
     }
     
@@ -410,19 +436,21 @@ export class TextParser extends BaseParser {
       const marks: Mark[] = [];
       
       // Bold formatting
-      if (this.safeGet(rPr, '$b') === 1 || this.safeGet(rPr, '$b') === '1') {
+      const b = this.getBoolean(rPr, '$b', false);
+      if (b) {
         marks.push({ type: 'bold' });
       }
       
       // Italic formatting
-      if (this.safeGet(rPr, '$i') === 1 || this.safeGet(rPr, '$i') === '1') {
+      const i = this.getBoolean(rPr, '$i', false);
+      if (i) {
         marks.push({ type: 'italic' });
       }
       
       // Font size using TipTap textStyle format
-      const fontSize = this.safeGet(rPr, '$sz');
-      if (fontSize) {
-        const fontSizeInPt = this.fontSizeToPoints(fontSize);
+      const fontSizeNum = this.getNumber(rPr, '$sz', 0);
+      if (fontSizeNum > 0) {
+        const fontSizeInPt = this.fontSizeToPoints(fontSizeNum);
         marks.push({
           type: 'textStyle',
           attrs: {
