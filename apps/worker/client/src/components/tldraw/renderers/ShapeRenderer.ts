@@ -37,7 +37,7 @@ export async function renderShapeComponent(
   const isBackgroundShape = (component.x === 0 && component.y === 0 && 
                             (component.content?.includes("Background") ||
                              component.id?.includes("Background") ||
-                             component.zIndex < -100)) && 
+                             (component.zIndex != null && component.zIndex < -100))) && 
                            frameDimensions;
 
   let shapeX = component.x || 0;

@@ -19,7 +19,7 @@ export async function renderImageComponent(
   const isBackgroundImage = (component.x === 0 && component.y === 0 && 
                             (component.content?.includes("Background") ||
                              component.id?.includes("Background") ||
-                             component.zIndex < -100)) && 
+                             (component.zIndex != null && component.zIndex < -100))) && 
                            frameDimensions;
   
   const scale = 1
