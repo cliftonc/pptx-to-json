@@ -95,6 +95,71 @@ export class PowerPointNormalizer {
       // Extract slide elements
       const slideElements = this.extractOrderedElements(spTree);
       
+      // Check for slide-specific background
+      const slideBackground = cSld['bg'];
+      if (slideBackground) {
+        const bgPr = slideBackground['bgPr'] || slideBackground;
+        const blipFill = bgPr && (bgPr['blipFill'] || bgPr['a:blipFill']);
+        
+        console.log(`🔍 Slide ${slideNumber} background check:`, {
+          hasBackground: !!slideBackground,
+          hasBgPr: !!bgPr,
+          hasBlipFill: !!blipFill,
+          bgPrKeys: bgPr ? Object.keys(bgPr) : [],
+          slideFile
+        });
+        
+        // Determine if this is an image background or shape background
+        if (blipFill) {
+          // Create an image background element
+          const backgroundElement: NormalizedElement = {
+            type: 'image',
+            namespace: 'p',
+            element: 'pic',
+            data: {
+              nvPicPr: {
+                cNvPr: {
+                  $id: -500,
+                  $name: 'Slide Background Image'
+                }
+              },
+              blipFill,
+              spPr: {
+                xfrm: {
+                  off: { $x: 0, $y: 0 },
+                  ext: { $cx: 9144000, $cy: 6858000 } // Full slide dimensions
+                }
+              },
+              isBackground: true
+            },
+            zIndex: -500,
+            isBackgroundElement: true,
+            blipFill // Add blipFill as direct property for easier access
+          };
+          slideElements.push(backgroundElement);
+        } else {
+          // Create a shape background element (solid color, gradient, etc.)
+          const backgroundElement: NormalizedElement = {
+            type: 'shape',
+            namespace: 'p',
+            element: 'sp',
+            data: {
+              nvSpPr: {
+                cNvPr: {
+                  $id: -500,
+                  $name: 'Slide Background'
+                }
+              },
+              spPr: bgPr,
+              isBackground: true
+            },
+            zIndex: -500,
+            isBackgroundElement: true
+          };
+          slideElements.push(backgroundElement);
+        }
+      }
+      
       // Get layout elements for this slide
       const layoutFile = slideLayoutRelationships[slideFile];
       let layoutElements: NormalizedElement[] = [];

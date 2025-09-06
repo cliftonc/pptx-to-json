@@ -216,6 +216,7 @@ export class ImageParser extends BaseParser {
     slideIndex: number | null = null,
     r2Storage: any = null,
   ): Promise<ImageInfo> {
+    
     if (!rId) {
       return {
         url: null,
