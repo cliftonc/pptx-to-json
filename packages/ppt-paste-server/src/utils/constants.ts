@@ -69,6 +69,20 @@ export function emuToPoints(emu: number): number {
 }
 
 /**
+ * Convert pixels to EMU (English Metric Units)
+ * Used when creating synthetic XML elements with proper dimensions
+ * @param pixels - pixel value
+ * @returns EMU value rounded to integer
+ */
+export function pixelsToEmu(pixels: number): number {
+  if (typeof pixels !== 'number' || isNaN(pixels)) {
+    console.warn('Invalid pixel value provided to pixelsToEmu:', pixels);
+    return 0;
+  }
+  return Math.round(pixels / EMU_TO_PIXELS);
+}
+
+/**
  * Validate that a coordinate value is in pixel range (not EMU)
  * EMU values are typically very large (> 100000), pixels are smaller
  * @param value - coordinate value to check

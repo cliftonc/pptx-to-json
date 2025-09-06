@@ -224,7 +224,7 @@ async function drawComponentsInFrame(
         await renderTextComponent(component, index, frameX, frameY, editor, slideIndex, frameId)
         break
       case 'shape':
-        await renderShapeComponent(component, index, frameX, frameY, editor, slideIndex, frameId, colorMapping || new Map())
+        await renderShapeComponent(component, index, frameX, frameY, editor, slideIndex, frameId, colorMapping || new Map(), frameDimensions)
         break
       case 'image':
         await renderImageComponent(component, index, frameX, frameY, editor, slideIndex, frameId, frameDimensions)

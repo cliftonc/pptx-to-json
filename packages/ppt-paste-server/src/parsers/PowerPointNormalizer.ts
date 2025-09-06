@@ -6,7 +6,7 @@
  */
 
 import { PPTXParser } from '../processors/PPTXParser.js';
-import { DEFAULT_SLIDE_WIDTH_PX, DEFAULT_SLIDE_HEIGHT_PX } from '../utils/constants.js';
+import { DEFAULT_SLIDE_WIDTH_PX, DEFAULT_SLIDE_HEIGHT_PX, pixelsToEmu } from '../utils/constants.js';
 import { BaseParser } from './BaseParser.js';
 
 import type { NormalizedElement, NormalizedSlide, NormalizedResult } from '../types/normalized.js';
@@ -127,7 +127,7 @@ export class PowerPointNormalizer {
               spPr: {
                 xfrm: {
                   off: { $x: 0, $y: 0 },
-                  ext: { $cx: 9144000, $cy: 6858000 } // Full slide dimensions
+                  ext: { $cx: pixelsToEmu(slideDimensions.width), $cy: pixelsToEmu(slideDimensions.height) } // Use actual slide dimensions
                 }
               },
               isBackground: true
@@ -168,7 +168,7 @@ export class PowerPointNormalizer {
       
       if (layoutFile) {
         // Get layout elements
-        const rawLayoutElements = pptxParser.getSlideLayoutElements(json, layoutFile);
+        const rawLayoutElements = pptxParser.getSlideLayoutElements(json, layoutFile, slideDimensions);
         
         // Convert layout elements to the same structure as slide elements
         layoutElements = rawLayoutElements.map(layoutEl => {
@@ -181,7 +181,7 @@ export class PowerPointNormalizer {
         masterFile = layoutMasterRelationships[layoutFile];
         
         if (masterFile) {
-          const rawMasterElements = pptxParser.getSlideMasterElements(json, masterFile);
+          const rawMasterElements = pptxParser.getSlideMasterElements(json, masterFile, slideDimensions);
           
           // Convert master elements to the same structure as slide elements
           masterElements = rawMasterElements.map(masterEl => {

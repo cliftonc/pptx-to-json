@@ -25,24 +25,52 @@ export async function renderShapeComponent(
   slideIndex: number,
   frameId: string | null,
   colorMapping: Map<string, TLDrawColor>,
+  frameDimensions?: { width: number; height: number }
 ) {
   const shapeId = createShapeId(
     createComponentShapeId("shape", slideIndex, component.id || index),
   );
 
   const scale = 1;
+  
+  // Detect if this is a background shape
+  const isBackgroundShape = (component.x === 0 && component.y === 0 && 
+                            (component.content?.includes("Background") ||
+                             component.id?.includes("Background") ||
+                             component.zIndex < -100)) && 
+                           frameDimensions;
+
+  let shapeX = component.x || 0;
+  let shapeY = component.y || 0;
+  let width = (component.width || 100) * scale;
+  let height = (component.height || 100) * scale;
+
+  // For background shapes, scale to fill the entire frame
+  if (isBackgroundShape && frameDimensions) {
+    const scaleX = frameDimensions.width / width;
+    const scaleY = frameDimensions.height / height;
+    const shapeScale = Math.max(scaleX, scaleY); // Use larger scale to ensure full coverage
+    
+    width = Math.round(width * shapeScale);
+    height = Math.round(height * shapeScale);
+    
+    // Center the scaled background shape
+    if (width > frameDimensions.width) {
+      shapeX = -(width - frameDimensions.width) / 2;
+    }
+    if (height > frameDimensions.height) {
+      shapeY = -(height - frameDimensions.height) / 2;
+    }
+  }
 
   const { x, y } = calculateFrameRelativePosition(
-    component.x || 0,
-    component.y || 0,
+    shapeX,
+    shapeY,
     frameX,
     frameY,
     scale,
     !!frameId,
   );
-
-  const width = (component.width || 100) * scale;
-  const height = (component.height || 100) * scale;
 
   // Map colors using exact hex values
   const fillColor = getTldrawColorForHex(

@@ -10,6 +10,7 @@
 import JSZip from 'jszip';
 import { 
   emuToPixels, 
+  pixelsToEmu,
   DEFAULT_SLIDE_WIDTH_PX, 
   DEFAULT_SLIDE_HEIGHT_PX, 
   DEFAULT_SLIDE_WIDTH_EMU,
@@ -369,7 +370,7 @@ export class PPTXParser {
   /**
    * Extract layout elements from a slide layout file
    */
-  getSlideLayoutElements(json: PPTXJson, layoutFile: string): LayoutElement[] {
+  getSlideLayoutElements(json: PPTXJson, layoutFile: string, slideDimensions?: { width: number; height: number }): LayoutElement[] {
     if (!json[layoutFile]) {
       return [];
     }
@@ -389,7 +390,7 @@ export class PPTXParser {
       // First, check for background elements (both namespaced and non-namespaced)
       const bg = cSld['p:bg'] || cSld['bg'];
       if (bg) {
-        const bgElement = this.extractBackgroundElement(bg, zIndex--);
+        const bgElement = this.extractBackgroundElement(bg, zIndex--, slideDimensions);
         if (bgElement) {
           bgElement.isLayoutElement = true;
           elements.push(bgElement);
@@ -514,7 +515,7 @@ export class PPTXParser {
   /**
    * Extract master elements from a slide master file
    */
-  getSlideMasterElements(json: PPTXJson, masterFile: string): LayoutElement[] {
+  getSlideMasterElements(json: PPTXJson, masterFile: string, slideDimensions?: { width: number; height: number }): LayoutElement[] {
     if (!json[masterFile]) {
       console.log(`❌ Master file not found: ${masterFile}`);
       return [];
@@ -543,7 +544,7 @@ export class PPTXParser {
       // First, check for background elements (both namespaced and non-namespaced)
       const bg = cSld['p:bg'] || cSld['bg'];
       if (bg) {
-        const bgElement = this.extractBackgroundElement(bg, zIndex--);
+        const bgElement = this.extractBackgroundElement(bg, zIndex--, slideDimensions);
         if (bgElement) {
           bgElement.isMasterElement = true;
           elements.push(bgElement);
@@ -624,7 +625,7 @@ export class PPTXParser {
   /**
    * Extract background element from p:bg structure
    */
-  private extractBackgroundElement(bg: XMLNode, zIndex: number): LayoutElement | null {
+  private extractBackgroundElement(bg: XMLNode, zIndex: number, slideDimensions?: { width: number; height: number }): LayoutElement | null {
     try {
       console.log('🔍 Extracting background element:', JSON.stringify(bg, null, 2));
       // Check for background properties (already namespace-stripped)
@@ -674,6 +675,10 @@ export class PPTXParser {
               }
             };
             
+            // Calculate background dimensions in EMUs
+            const widthEmu = slideDimensions ? pixelsToEmu(slideDimensions.width) : DEFAULT_SLIDE_WIDTH_EMU;
+            const heightEmu = slideDimensions ? pixelsToEmu(slideDimensions.height) : DEFAULT_SLIDE_HEIGHT_EMU;
+            
             return {
               type: 'image',
               data: {
@@ -686,9 +691,9 @@ export class PPTXParser {
                 blipFill: structuredBlipFill,
                 spPr: {
                   xfrm: {
-                    // Full slide dimensions (standard PowerPoint size in EMUs)
+                    // Use actual slide dimensions converted to EMUs
                     off: { $x: 0, $y: 0 },
-                    ext: { $cx: DEFAULT_SLIDE_WIDTH_EMU, $cy: DEFAULT_SLIDE_HEIGHT_EMU }
+                    ext: { $cx: widthEmu, $cy: heightEmu }
                   }
                 },
                 isBackground: true,
@@ -714,6 +719,10 @@ export class PPTXParser {
       });
       
       if (solidFill || gradFill || pattFill) {
+        // Calculate background dimensions in EMUs
+        const widthEmu = slideDimensions ? pixelsToEmu(slideDimensions.width) : DEFAULT_SLIDE_WIDTH_EMU;
+        const heightEmu = slideDimensions ? pixelsToEmu(slideDimensions.height) : DEFAULT_SLIDE_HEIGHT_EMU;
+        
         return {
           type: 'shape',
           data: {
@@ -725,9 +734,9 @@ export class PPTXParser {
             },
             spPr: {
               xfrm: {
-                // Full slide dimensions
+                // Use actual slide dimensions converted to EMUs
                 off: { $x: 0, $y: 0 },
-                ext: { $cx: DEFAULT_SLIDE_WIDTH_EMU, $cy: DEFAULT_SLIDE_HEIGHT_EMU }
+                ext: { $cx: widthEmu, $cy: heightEmu }
               },
               solidFill: solidFill,
               gradFill: gradFill,
