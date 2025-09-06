@@ -28,6 +28,8 @@ export interface PowerPointComponent {
 export interface PowerPointSlide {
   slideIndex: number;
   slideNumber: number;
+  layoutId?: string; // Reference to layout
+  background?: PowerPointComponent; // Slide-specific background
   components: PowerPointComponent[];
   metadata?: {
     name?: string;
@@ -44,6 +46,9 @@ export interface ParsedContent {
   isPowerPoint: boolean;
   slides: PowerPointSlide[]; // Always use slides array now
   slideDimensions?: { width: number; height: number };
+  masters?: Record<string, any>;
+  layouts?: Record<string, any>;
+  theme?: any;
 }
 
 export interface EnhancedPowerPointComponent extends PowerPointComponent {
@@ -180,7 +185,7 @@ const parseHtmlTableData = (html: string): PowerPointComponent[] => {
 };
 
 // Call the proxy server to get parsed PowerPoint data as slides
-const fetchParsedPowerPointData = async (clipboardBytesUrl: string): Promise<{ slides: PowerPointSlide[]; slideDimensions?: { width: number; height: number } }> => {
+const fetchParsedPowerPointData = async (clipboardBytesUrl: string): Promise<{ slides: PowerPointSlide[]; slideDimensions?: { width: number; height: number }; masters?: Record<string, any>; layouts?: Record<string, any>; theme?: any }> => {
   try {
     console.log('🔗 Fetching PowerPoint data via proxy:', clipboardBytesUrl.substring(0, 100) + '...');
     
@@ -203,7 +208,11 @@ const fetchParsedPowerPointData = async (clipboardBytesUrl: string): Promise<{ s
       type: data.type,
       slideCount: data.slides?.length || 0,
       componentCount: data.debug?.componentCount || 0,
-      isPowerPoint: data.isPowerPoint
+      isPowerPoint: data.isPowerPoint,
+      hasMasters: !!data.masters,
+      hasLayouts: !!data.layouts,
+      masterKeys: data.masters ? Object.keys(data.masters) : [],
+      layoutKeys: data.layouts ? Object.keys(data.layouts) : []
     });
     
     if (data.type === 'powerpoint' && data.slides) {
@@ -233,7 +242,10 @@ const fetchParsedPowerPointData = async (clipboardBytesUrl: string): Promise<{ s
       
       return {
         slides: data.slides,
-        slideDimensions: data.slideDimensions
+        slideDimensions: data.slideDimensions,
+        masters: data.masters,
+        layouts: data.layouts,
+        theme: data.theme
       };
     }
     
@@ -267,6 +279,9 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
       const formats: ClipboardData[] = [];
       let slides: PowerPointSlide[] = [];
       let slideDimensions: { width: number; height: number } | undefined;
+      let masters: Record<string, any> | undefined;
+      let layouts: Record<string, any> | undefined;
+      let theme: any;
       
       // Get all available formats
       const types = Array.from(clipboardData.types);
@@ -311,6 +326,9 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
           const result = await fetchParsedPowerPointData(clipboardBytesUrl);
           slides = result.slides;
           slideDimensions = result.slideDimensions;
+          masters = result.masters;
+          layouts = result.layouts;
+          theme = result.theme;
           
           if (slides.length > 0) {
             const totalComponents = slides.reduce((sum, slide) => sum + slide.components.length, 0);
@@ -402,7 +420,10 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
           formats,
           isPowerPoint,
           slides,
-          slideDimensions
+          slideDimensions,
+          masters,
+          layouts,
+          theme
         });
       }
 
@@ -477,7 +498,10 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
           formats: [{ type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', data: file.name }],
           isPowerPoint: processResult.isPowerPoint,
           slides: processResult.slides || [],
-          slideDimensions: processResult.slideDimensions
+          slideDimensions: processResult.slideDimensions,
+          masters: processResult.masters,
+          layouts: processResult.layouts,
+          theme: processResult.theme
         });
       }
 

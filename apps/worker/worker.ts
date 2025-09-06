@@ -35,28 +35,6 @@ interface UploadResponse {
   processUrl: string;
 }
 
-interface ProcessResponse {
-  type: string;
-  source: string;
-  fileId: string;
-  metadata: {
-    originalName: string;
-    uploadedAt?: string;
-    size: number;
-  };
-  slides: any[];
-  slideCount: number;
-  slideDimensions?: {
-    width: number;
-    height: number;
-  };
-  isPowerPoint: boolean;
-  debug: {
-    componentCount: number;
-    componentTypes: Record<string, number>;
-    slideCount: number;
-  };
-}
 
 interface ErrorResponse {
   error: string;
@@ -149,19 +127,6 @@ app.get('/api/process-pptx/:fileId', async (c: HonoContext) => {
     const clipboardProcessor = new PowerPointClipboardProcessor(fetch.bind(globalThis), c.env.PPTX_STORAGE);
     const result = await clipboardProcessor.parseClipboardBuffer(uint8Array, { debug });
     
-    const slides = result.slides;
-    const slideDimensions = result.slideDimensions;
-    let totalComponents = 0;
-    const componentTypes: Record<string, number> = {};
-    
-    // Calculate component type statistics from all slides
-    slides.forEach(slide => {
-      totalComponents += slide.components.length;
-      slide.components.forEach(comp => {
-        componentTypes[comp.type] = (componentTypes[comp.type] || 0) + 1;
-      });
-    });
-    
     // Get file metadata
     const metadata = {
       originalName: object.customMetadata?.originalName || 'Unknown',
@@ -169,20 +134,15 @@ app.get('/api/process-pptx/:fileId', async (c: HonoContext) => {
       size: buffer.byteLength
     };
     
-    const response: ProcessResponse = {
+    // Just return what we got with minimal additions
+    const response = {
+      ...result,
       type: 'powerpoint',
-      source: 'uploaded_file',
+      source: 'uploaded_file', 
       fileId,
       metadata,
-      slides: slides,
-      slideCount: slides.length,
-      slideDimensions: slideDimensions,
-      isPowerPoint: totalComponents > 0,
-      debug: {
-        componentCount: totalComponents,
-        componentTypes,
-        slideCount: slides.length
-      }
+      slideCount: result.slides.length,
+      isPowerPoint: result.totalComponents > 0
     };
     
     return c.json(response);

@@ -12,6 +12,7 @@
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "@tiptap/core": "2.26.1",
+    "@tiptap/extension-color": "2.26.1",
     "@tiptap/extension-font-family": "2.26.1",
     "@tiptap/extension-table": "2.26.1",
     "@tiptap/extension-table-cell": "2.26.1",

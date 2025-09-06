@@ -17,9 +17,12 @@ interface TldrawCanvasProps {
   components: PowerPointComponent[]
   slides?: PowerPointSlide[]
   slideDimensions?: { width: number; height: number }
+  masters?: Record<string, any>
+  layouts?: Record<string, any>
+  theme?: any
 }
 
-export default function TldrawCanvas({ components, slides, slideDimensions }: TldrawCanvasProps) {
+export default function TldrawCanvas({ components, slides, slideDimensions, masters, layouts, theme }: TldrawCanvasProps) {
   const editorRef = useRef<Editor | null>(null)
   
   // Slideshow management
@@ -95,10 +98,10 @@ export default function TldrawCanvas({ components, slides, slideDimensions }: Tl
     editorRef.current = editor
     
     if (slides && slides.length > 0) {
-      drawSlides(slides, editor, slideDimensions)
+      drawSlides(slides, editor, slideDimensions, masters, layouts, theme)
     } else if (components && components.length > 0) {
       // Legacy fallback
-      drawComponents(components, editor)
+      drawComponents(components, editor, theme)
     }
   }
 
@@ -106,10 +109,10 @@ export default function TldrawCanvas({ components, slides, slideDimensions }: Tl
   useEffect(() => {
     if (editorRef.current) {
       if (slides && slides.length > 0) {
-        drawSlides(slides, editorRef.current, slideDimensions)
+        drawSlides(slides, editorRef.current, slideDimensions, masters, layouts, theme)
       } else if (components && components.length > 0) {
         // Legacy fallback for components-only data
-        drawComponents(components, editorRef.current)
+        drawComponents(components, editorRef.current, theme)
       }
     }
   }, [slides, components, slideDimensions])

@@ -186,6 +186,18 @@ button:focus-visible {
   overflow-x: auto;    
 }
 
+/* Fix for blurry text rendering in TLDraw */
+.tl-shape[data-shape-type="text"],
+.tl-shape[data-shape-type="text"] *,
+.tl-text-content,
+.tl-text-content * {
+  -webkit-font-smoothing: subpixel-antialiased !important;
+  -moz-osx-font-smoothing: auto !important;
+  text-rendering: geometricPrecision !important;
+  text-shadow: none !important;
+  filter: none !important;
+}
+
 /* Column resize handle */
 .tableWrapper table .column-resize-handle, .tldraw-table .column-resize-handle {
   background-color: rgba(100, 150, 255, 1);

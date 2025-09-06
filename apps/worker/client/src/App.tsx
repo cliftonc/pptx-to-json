@@ -38,7 +38,10 @@ function App() {
         slides: data.slides,
         slideDimensions: data.slideDimensions,
         isPowerPoint: data.isPowerPoint,
-        availableFormats: data.formats.map(f => f.type)
+        availableFormats: data.formats.map(f => f.type),
+        masters: data.masters,
+        layouts: data.layouts,
+        theme: data.theme
       });
     } else if (data.isPowerPoint) {
       // PowerPoint was detected but no components returned
@@ -420,7 +423,10 @@ function App() {
         <TldrawCanvas 
           components={[]} // No longer used, components are in slides
           slides={structuredData?.slides || []}
-          slideDimensions={structuredData?.slideDimensions} 
+          slideDimensions={structuredData?.slideDimensions}
+          masters={structuredData?.masters}
+          layouts={structuredData?.layouts}
+          theme={structuredData?.theme}
         />
       </div>
 

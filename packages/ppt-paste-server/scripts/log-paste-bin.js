@@ -103,6 +103,10 @@ async function logPasteBinary() {
 
     // Debug: Output full parsed JSON immediately if debug mode is enabled
     if (debugMode) {
+      console.log('\n🐛 DEBUG: Masters:')
+      console.log(JSON.stringify(result.masters, null, 2))
+      console.log('\n🐛 DEBUG: Layouts:')
+      console.log(JSON.stringify(result.layouts, null, 2))
       console.log('\n🐛 DEBUG: Full parsed JSON output:')
       console.log(JSON.stringify(truncateForLogging(components), null, 2))
     }

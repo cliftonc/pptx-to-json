@@ -32,7 +32,11 @@ interface ParsedSlideData {
     components: PowerPointComponent[];
     slideNumber?: number;
     slideIndex: number;
+    layoutId?: string;
+    background?: PowerPointComponent;
   }>;
+  masters: Record<string, any>;
+  layouts: Record<string, any>;
   totalComponents: number;
   format: string;
   slideDimensions?: {
@@ -53,7 +57,11 @@ interface ProcessClipboardUrlResult {
     components: PowerPointComponent[];
     slideNumber?: number;
     slideIndex: number;
+    layoutId?: string;
+    background?: PowerPointComponent;
   }>;
+  masters: Record<string, any>;
+  layouts: Record<string, any>;
   slideCount: number;
   slideDimensions?: {
     width: number;
@@ -224,7 +232,7 @@ export class PowerPointClipboardProcessor {
     
     if (!isZip) {
       if (debug) console.warn('⚠️ Buffer does not appear to be a ZIP file');
-      return { slides: [], totalComponents: 0, format: 'unknown' };
+      return { slides: [], masters: {}, layouts: {}, totalComponents: 0, format: 'unknown' };
     }
 
     if (debug) console.log('📦 Detected ZIP file (Office Open XML)! Parsing...');
@@ -286,6 +294,8 @@ export class PowerPointClipboardProcessor {
         contentType: fetchResult.contentType,
         size: fetchResult.size,
         slides: slides,
+        masters: result.masters,
+        layouts: result.layouts,
         slideCount: slides.length,
         slideDimensions: slideDimensions,
         isPowerPoint: totalComponents > 0,

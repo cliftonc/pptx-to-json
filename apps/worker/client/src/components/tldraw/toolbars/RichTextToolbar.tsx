@@ -44,6 +44,7 @@ export function RichTextToolbar() {
 
   const currentFontFamily = textEditor?.getAttributes('textStyle').fontFamily ?? 'DEFAULT'
   const currentFontSize = textEditor?.getAttributes('textStyle').fontSize ?? 'DEFAULT'
+  const currentColor = textEditor?.getAttributes('textStyle').color ?? '#000000'
 
   // Table helper functions
   const insertTable = () => {
@@ -116,6 +117,42 @@ export function RichTextToolbar() {
           </option>
         ))}
       </select>
+      
+      {/* Text Color Picker */}
+      <input
+        type="color"
+        value={currentColor}
+        onPointerDown={stopEventPropagation}
+        onChange={(e) => {
+          textEditor?.chain().focus().setColor(e.target.value).run()
+        }}
+        title="Text Color"
+        style={{ 
+          width: '30px', 
+          height: '30px',
+          padding: '2px',
+          border: '1px solid #ccc',
+          borderRadius: '3px',
+          cursor: 'pointer',
+          marginLeft: '8px'
+        }}
+      />
+      <button
+        onPointerDown={stopEventPropagation}
+        onClick={() => textEditor?.chain().focus().unsetColor().run()}
+        title="Remove Color"
+        style={{ 
+          padding: '6px 8px', 
+          border: '1px solid #ccc', 
+          borderRadius: '3px', 
+          background: '#fff', 
+          cursor: 'pointer',
+          fontSize: '12px',
+          marginLeft: '4px'
+        }}
+      >
+        Clear
+      </button>
       
       {/* Table Controls - Show insert button always, other controls only when in table */}
       <div style={{ display: 'flex', gap: '4px', borderLeft: '1px solid #e0e0e0', paddingLeft: '8px', marginLeft: '8px' }}>

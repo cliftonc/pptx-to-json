@@ -1,6 +1,7 @@
 import { tipTapDefaultExtensions, defaultAddFontsFromNode, type TLTextOptions } from '@tldraw/tldraw'
 import FontFamily from '@tiptap/extension-font-family'
 import { TextStyle } from '@tiptap/extension-text-style'
+import { Color } from '@tiptap/extension-color'
 import { FontSize } from '../extensions/FontSizeExtension'
 import { 
   TableExtension, 
@@ -18,7 +19,8 @@ export const textOptions: Partial<TLTextOptions> = {
       ...tipTapDefaultExtensions, 
       FontFamily, 
       FontSize, 
-      TextStyle,       
+      TextStyle,
+      Color,       
       TableExtension,
       TableRowExtension,
       TableCellExtension,

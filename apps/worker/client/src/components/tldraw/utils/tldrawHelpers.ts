@@ -90,10 +90,19 @@ export function hasRichTextFontSize(richTextData: any): boolean {
 }
 
 /**
- * Determines the appropriate fill type for a shape
+ * Determines the appropriate fill type for a shape based on background color and opacity
  */
-export function determineFillType(backgroundColor: string | undefined): 'solid' | 'none' {
-  return backgroundColor && backgroundColor !== 'transparent' ? 'solid' : 'none'
+export function determineFillType(backgroundColor: string | undefined, opacity?: number): 'fill' | 'semi' | 'none' {
+  if (!backgroundColor || backgroundColor === 'transparent') {
+    return 'none'
+  }
+  
+  // If opacity is less than 1, use semi-transparent fill
+  if (opacity !== undefined && opacity < 1 && opacity > 0) {
+    return 'semi'
+  }
+  
+  return 'fill'
 }
 
 /**
