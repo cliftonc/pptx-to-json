@@ -54,6 +54,24 @@ export interface TransformInfo {
 }
 
 export class BaseParser {
+  // Static theme colors - set once per document parsing session
+  private static currentThemeColors: Record<string, string> | undefined;
+
+  /**
+   * Set the current theme colors for this parsing session
+   * @param themeColors - Theme colors from extracted theme data
+   */
+  static setThemeColors(themeColors: Record<string, string> | undefined) {
+    this.currentThemeColors = themeColors;
+  }
+
+  /**
+   * Clear theme colors (call after parsing session)
+   */
+  static clearThemeColors() {
+    this.currentThemeColors = undefined;
+  }
+
   /**
    * Convert PowerPoint font size units to points
    * PowerPoint uses hundreds of a point (1 point = 100 units)
@@ -85,10 +103,17 @@ export class BaseParser {
       if (lastClr) return `#${lastClr}`;
     }
 
-    // Scheme color (theme colors) - map to reasonable defaults
+    // Scheme color (theme colors) - use static theme colors if available, fallback to defaults
     if (colorDef["schemeClr"]) {
       const val = colorDef["schemeClr"].$val;
-      const schemeColors: Record<string, string> = {
+      
+      // Try to use static theme colors if set
+      if (this.currentThemeColors && this.currentThemeColors[val]) {
+        return this.currentThemeColors[val];
+      }
+      
+      // Fallback to static defaults if no theme data available
+      const defaultSchemeColors: Record<string, string> = {
         dk1: "#000000", // Dark 1
         lt1: "#FFFFFF", // Light 1
         dk2: "#44546A", // Dark 2
@@ -106,7 +131,7 @@ export class BaseParser {
         hlink: "#0563C1", // Hyperlink
         folHlink: "#954F72", // Followed hyperlink
       };
-      return schemeColors[val] || "#000000";
+      return defaultSchemeColors[val] || "#000000";
     }
 
     return "#000000";

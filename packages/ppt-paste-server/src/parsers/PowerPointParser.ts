@@ -73,7 +73,13 @@ export class PowerPointParser extends BaseParser {
       const normalized = this.normalizer.normalize(json);
       if (debug) {
         console.log(`🔄 Normalized ${normalized.format} format with ${normalized.slides.length} slides`);
+        if (normalized.theme?.colors) {
+          console.log(`🎨 Theme colors available:`, Object.keys(normalized.theme.colors));
+        }
       }
+      
+      // Set theme colors for this parsing session
+      BaseParser.setThemeColors(normalized.theme?.colors);
       
       // Step 2: Process all slides using unified structure
       const slides: ParsedSlide[] = [];
@@ -275,6 +281,9 @@ export class PowerPointParser extends BaseParser {
         }
       }
 
+      // Clear theme colors after parsing
+      BaseParser.clearThemeColors();
+
       return {
         slides,
         totalComponents: components.length,
@@ -283,6 +292,8 @@ export class PowerPointParser extends BaseParser {
       };
 
     } catch (error) {
+      // Clear theme colors on error too
+      BaseParser.clearThemeColors();
       console.error('❌ Error processing PowerPoint JSON:', error);
       throw error;
     }

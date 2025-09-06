@@ -69,6 +69,9 @@ export class PowerPointNormalizer {
     // Extract slide dimensions from presentation.xml
     const slideDimensions = pptxParser.getSlideDimensions(json);
     
+    // Extract theme data from theme file
+    const themeData = this.extractThemeData(json, 'pptx');
+    
     // Find slide files (no sorting needed - we'll extract slide numbers)
     const slideFiles = files.filter(f => 
       f.startsWith('ppt/slides/slide') && f.endsWith('.xml')
@@ -154,7 +157,8 @@ export class PowerPointNormalizer {
       slideDimensions,
       mediaFiles: this.extractMediaFiles(json),
       relationships: this.extractRelationships(json),
-      slideLayoutRelationships // Include relationships for reference
+      slideLayoutRelationships, // Include relationships for reference
+      theme: themeData // Include theme data
     };
   }
   
@@ -164,6 +168,9 @@ export class PowerPointNormalizer {
   normalizeClipboard(json: any, formatType: string): NormalizedResult {
     const slides: NormalizedSlide[] = [];
     const files = Object.keys(json);
+    
+    // Extract theme data from clipboard theme file
+    const themeData = this.extractThemeData(json, 'clipboard');
     
     // Find drawing files
     const drawingFiles = files.filter(f => 
@@ -204,7 +211,8 @@ export class PowerPointNormalizer {
       slides,
       slideDimensions: contentBounds,
       mediaFiles: this.extractMediaFiles(json),
-      relationships: this.extractRelationships(json)
+      relationships: this.extractRelationships(json),
+      theme: themeData // Include theme data
     };
   }
   
@@ -1022,5 +1030,108 @@ export class PowerPointNormalizer {
     // Calculated content-based slide dimensions
     
     return result;
+  }
+
+  /**
+   * Extract theme data from PowerPoint files
+   * @param json The parsed PowerPoint JSON
+   * @param format The detected format (pptx or clipboard)
+   * @returns Parsed theme data or null
+   */
+  extractThemeData(json: any, format: string): any | null {
+    try {
+      // Determine theme file path based on format
+      const themeFilePath = format === 'pptx' ? 'ppt/theme/theme1.xml' : 'clipboard/theme/theme1.xml';
+      
+      const themeFile = json[themeFilePath];
+      if (!themeFile) {
+        console.log(`📎 No theme file found at ${themeFilePath}`);
+        return null;
+      }
+
+      // Extract theme from the XML structure
+      const theme = themeFile.theme;
+      if (!theme) {
+        console.log('📎 No theme element found in theme file');
+        return null;
+      }
+
+      // Parse the theme color scheme
+      const themeElements = theme.themeElements;
+      if (!themeElements) {
+        console.log('📎 No themeElements found in theme');
+        return null;
+      }
+
+      const clrScheme = themeElements.clrScheme;
+      if (!clrScheme) {
+        console.log('📎 No clrScheme found in themeElements');
+        return null;
+      }
+
+      // Extract actual theme colors
+      const themeColors: Record<string, string> = {};
+      
+      // Extract each color scheme color
+      const colorNames = ['dk1', 'lt1', 'dk2', 'lt2', 'accent1', 'accent2', 'accent3', 'accent4', 'accent5', 'accent6', 'hlink', 'folHlink'];
+      
+      for (const colorName of colorNames) {
+        const colorDef = clrScheme[colorName];
+        if (colorDef) {
+          const parsedColor = this.parseThemeColor(colorDef);
+          if (parsedColor) {
+            themeColors[colorName] = parsedColor;
+          }
+        }
+      }
+
+      console.log('🎨 Extracted theme colors:', Object.keys(themeColors).length, 'colors');
+      return {
+        colors: themeColors,
+        rawTheme: theme // Keep raw theme for advanced processing
+      };
+    } catch (error) {
+      console.warn('⚠️ Error extracting theme data:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Parse a theme color definition to hex color
+   * @param colorDef Theme color definition from XML
+   * @returns Hex color string or null
+   */
+  private parseThemeColor(colorDef: any): string | null {
+    try {
+      // Handle srgbClr (direct RGB)
+      if (colorDef.srgbClr) {
+        const val = colorDef.srgbClr.$val;
+        return val && typeof val === 'string' ? `#${val.toUpperCase()}` : null;
+      }
+
+      // Handle sysClr (system colors)
+      if (colorDef.sysClr) {
+        const val = colorDef.sysClr.$val;
+        const lastClr = colorDef.sysClr.$lastClr;
+        // Prefer lastClr if available, fallback to system color name
+        if (lastClr && typeof lastClr === 'string') {
+          return `#${lastClr.toUpperCase()}`;
+        }
+        // Map common system colors
+        const sysColors: Record<string, string> = {
+          'windowText': '#000000',
+          'window': '#FFFFFF',
+          'btnText': '#000000',
+          'btnFace': '#F0F0F0'
+        };
+        return sysColors[val] || '#000000';
+      }
+
+      console.warn('📎 Unknown theme color format:', colorDef);
+      return null;
+    } catch (error) {
+      console.warn('⚠️ Error parsing theme color:', error);
+      return null;
+    }
   }
 }

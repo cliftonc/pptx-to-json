@@ -407,6 +407,7 @@ export class ShapeParser extends BaseParser {
   /**
    * Parse fill properties from style element
    * @param style - Style properties
+   * @param themeColors - Optional theme colors
    * @returns fill information or null
    */
   static parseFillFromStyle(style: XMLNode): FillInfo | null {
@@ -424,8 +425,8 @@ export class ShapeParser extends BaseParser {
       }
 
       if (schemeClr && (schemeClr as any).$val) {
-        const color = this.parseSchemeColor((schemeClr as any).$val);
-        if (color) {
+        const color = BaseParser.parseColor({ schemeClr });
+        if (color && color !== "#000000") { // Don't use default fallback color
           return {
             type: "solid",
             color: color,
@@ -501,29 +502,4 @@ export class ShapeParser extends BaseParser {
     return `#${toHex(shadedR)}${toHex(shadedG)}${toHex(shadedB)}`.toUpperCase();
   }
 
-  /**
-   * Parse scheme color to hex value
-   * @param scheme - Scheme color name
-   * @returns hex color or null
-   */
-  static parseSchemeColor(scheme: string): string | null {
-    const schemeColors: Record<string, string> = {
-      accent1: "#4472C4",
-      accent2: "#E7E6E6",
-      accent3: "#A5A5A5",
-      accent4: "#FFC000",
-      accent5: "#5B9BD5",
-      accent6: "#70AD47",
-      bg1: "#FFFFFF",
-      bg2: "#F2F2F2",
-      tx1: "#000000",
-      tx2: "#44546A",
-      dk1: "#000000",
-      dk2: "#44546A",
-      lt1: "#FFFFFF",
-      lt2: "#F2F2F2",
-    };
-
-    return schemeColors[scheme] || null;
-  }
 }

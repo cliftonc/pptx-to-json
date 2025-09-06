@@ -481,15 +481,26 @@ export class TextParser extends BaseParser {
         marks.push({ type: 'italic' });
       }
       
-      // Font size using TipTap textStyle format
+      // Font size and color using TipTap textStyle format
       const fontSizeNum = this.getNumber(rPr, '$sz', 0);
-      if (fontSizeNum > 0) {
-        const fontSizeInPt = this.fontSizeToPoints(fontSizeNum);
+      const solidFill = this.getNode(rPr, 'solidFill');
+      
+      // Only create textStyle mark if we have fontSize or color
+      if (fontSizeNum > 0 || solidFill) {
+        const attrs: any = {};
+        
+        if (fontSizeNum > 0) {
+          const fontSizeInPt = this.fontSizeToPoints(fontSizeNum);
+          attrs.fontSize = `${fontSizeInPt}pt`;
+        }
+        
+        if (solidFill) {
+          attrs.color = BaseParser.parseColor(solidFill);
+        }
+        
         marks.push({
           type: 'textStyle',
-          attrs: {
-            fontSize: `${fontSizeInPt}pt`
-          }
+          attrs
         });
       }
       

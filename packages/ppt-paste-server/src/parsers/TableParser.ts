@@ -27,7 +27,7 @@ export class TableParser extends BaseParser {
     tableComponent: NormalizedTableComponent,
     componentIndex: number,
     slideIndex: number,
-    zIndex: number,
+    zIndex: number
   ): Promise<TableComponent | null> {
     const { graphicData, spPr, nvGraphicFramePr, namespace } = tableComponent;
 

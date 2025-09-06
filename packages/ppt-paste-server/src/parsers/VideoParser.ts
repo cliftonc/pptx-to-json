@@ -27,7 +27,7 @@ export class VideoParser extends BaseParser {
     componentIndex: number,
     slideIndex: number,
     zIndex: number,
-    r2Storage: any = null,
+    r2Storage: any = null
   ): Promise<VideoComponent | null> {
     const { data, spPr, nvPicPr, blipFill, namespace, relationshipId } =
       videoComponent;

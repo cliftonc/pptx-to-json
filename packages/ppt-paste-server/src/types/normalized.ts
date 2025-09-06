@@ -120,4 +120,8 @@ export interface NormalizedResult {
   mediaFiles: MediaFiles;
   relationships: RelationshipGraph;
   slideLayoutRelationships?: Record<string, string>;
+  theme?: {
+    colors: Record<string, string>;
+    rawTheme: any;
+  };
 }

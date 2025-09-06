@@ -32,7 +32,7 @@ export class ImageParser extends BaseParser {
     componentIndex: number,
     slideIndex: number,
     zIndex: number,
-    r2Storage: any = null,
+    r2Storage: any = null
   ): Promise<ImageComponent | null> {
     const { data, spPr, nvPicPr, blipFill, namespace } = imageComponent;
 
