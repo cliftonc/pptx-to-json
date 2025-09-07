@@ -7,6 +7,7 @@ import { renderShapeComponent } from '../renderers/ShapeRenderer'
 import { renderImageComponent } from '../renderers/ImageRenderer'
 import { renderTableComponent } from '../renderers/TableRenderer'
 import { renderVideoComponent } from '../renderers/VideoRenderer'
+import { renderConnectionComponent } from '../renderers/ConnectionRenderer'
 import { createColorMapping, applyColorPaletteOverride } from './colorPaletteOverride'
 
 /**
@@ -184,7 +185,7 @@ async function drawComponentsInFrame(
     
     switch (component.type) {
       case 'text':
-        await renderTextComponent(component, index, frameX, frameY, editor, slideIndex, frameId)
+        await renderTextComponent(component, index, frameX, frameY, editor, slideIndex, frameId, colorMapping)
         break
       case 'shape':
         await renderShapeComponent(component, index, frameX, frameY, editor, slideIndex, frameId, colorMapping || new Map(), frameDimensions)
@@ -197,6 +198,9 @@ async function drawComponentsInFrame(
         break
       case 'video':
         await renderVideoComponent(component, index, frameX, frameY, editor, slideIndex, frameId)
+        break
+      case 'connection':
+        await renderConnectionComponent(component, index, frameX, frameY, editor, slideIndex, frameId, colorMapping)
         break
       default:
         break

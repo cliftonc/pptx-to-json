@@ -8,10 +8,11 @@ import { ShapeParser } from './ShapeParser.js';
 import { ImageParser } from './ImageParser.js';
 import { TableParser } from './TableParser.js';
 import { VideoParser } from './VideoParser.js';
+import { ConnectorParser } from './ConnectorParser.js';
 import { BaseParser } from './BaseParser.js';
-import type { PowerPointComponent } from '../types/index.js';
+import type { PowerPointComponent, ConnectionComponent } from '../types/index.js';
 
-import { isTextElement, isShapeElement, isImageElement, isTableElement, isVideoElement, type NormalizedTextElement, type NormalizedShapeElement, type NormalizedImageElement, type NormalizedTableElement, type NormalizedVideoElement, type MediaFiles, type RelationshipGraph, type NormalizedSlide } from '../types/normalized.js';
+import { isTextElement, isShapeElement, isImageElement, isTableElement, isVideoElement, isConnectionElement, type NormalizedTextElement, type NormalizedShapeElement, type NormalizedImageElement, type NormalizedTableElement, type NormalizedVideoElement, type NormalizedConnectionElement, type MediaFiles, type RelationshipGraph, type NormalizedSlide } from '../types/normalized.js';
 
 interface R2BucketLike {
   put?(key: string, value: any, options?: any): Promise<any> | any;
@@ -88,14 +89,14 @@ export class PowerPointParser extends BaseParser {
     const { debug = false, r2Storage = null } = options;
     
     try {
-      if (debug) console.log('🎨 Processing PowerPoint JSON data...');
+      // if (debug) console.log('Processing PowerPoint JSON data...');
       
       // Step 1: Normalize the structure (eliminates all format differences!)
       const normalized = this.normalizer.normalize(json);
       if (debug) {
-        console.log(`🔄 Normalized ${normalized.format} format with ${normalized.slides.length} slides`);
+        // console.log(`Normalized ${normalized.format} format with ${normalized.slides.length} slides`);
         if (normalized.theme?.colors) {
-          console.log(`🎨 Theme colors available:`, Object.keys(normalized.theme.colors));
+          // console.log(`Theme colors available:`, Object.keys(normalized.theme.colors));
         }
       }
       
@@ -151,7 +152,7 @@ export class PowerPointParser extends BaseParser {
             if (!element.isMasterElement) continue; // Only process master elements
             
             if (element.isBackgroundElement) {
-              if (debug) console.log(`🎨 Processing master background element`);
+              // if (debug) console.log(`Processing master background element`);
               if (isShapeElement(element)) {
                 masterBackground = await this.parseUnifiedShapeComponent(element, relationships, mediaFiles, globalComponentIndex++, 0, -2000, { debug });
               }
@@ -170,6 +171,8 @@ export class PowerPointParser extends BaseParser {
               component = await this.parseUnifiedTableComponent(element, relationships, mediaFiles, globalComponentIndex++, 0, element.zIndex, { debug });
             } else if (isVideoElement(element)) {
               component = await this.parseUnifiedVideoComponent(element, relationships, mediaFiles, globalComponentIndex++, 0, element.zIndex, { debug, r2Storage });
+            } else if (isConnectionElement(element)) {
+              component = await this.parseUnifiedConnectionComponent(element, globalComponentIndex++, 0, element.zIndex, { debug });
             }
             
             if (component) {
@@ -186,7 +189,7 @@ export class PowerPointParser extends BaseParser {
           };
           
           if (debug) {
-            console.log(`📋 Extracted master ${masterId}: ${masterBackground ? '1 background' : '0 backgrounds'}, ${masterComponents.length} components`);
+            // console.log(`Extracted master ${masterId}: ${masterBackground ? '1 background' : '0 backgrounds'}, ${masterComponents.length} components`);
           }
         }
         
@@ -211,7 +214,7 @@ export class PowerPointParser extends BaseParser {
             if (!element.isLayoutElement) continue; // Only process layout elements
             
             if (element.isBackgroundElement) {
-              if (debug) console.log(`🎨 Processing layout background element`);
+              // if (debug) console.log(`Processing layout background element`);
               if (isShapeElement(element)) {
                 layoutBackground = await this.parseUnifiedShapeComponent(element, relationships, mediaFiles, globalComponentIndex++, 0, -1000, { debug });
               }
@@ -230,6 +233,8 @@ export class PowerPointParser extends BaseParser {
               component = await this.parseUnifiedTableComponent(element, relationships, mediaFiles, globalComponentIndex++, 0, element.zIndex, { debug });
             } else if (isVideoElement(element)) {
               component = await this.parseUnifiedVideoComponent(element, relationships, mediaFiles, globalComponentIndex++, 0, element.zIndex, { debug, r2Storage });
+            } else if (isConnectionElement(element)) {
+              component = await this.parseUnifiedConnectionComponent(element, globalComponentIndex++, 0, element.zIndex, { debug });
             }
             
             if (component) {
@@ -247,7 +252,7 @@ export class PowerPointParser extends BaseParser {
           };
           
           if (debug) {
-            console.log(`🎨 Extracted layout ${layoutId}: ${layoutBackground ? '1 background' : '0 backgrounds'}, ${layoutComponents.length} components`);
+            // console.log(`Extracted layout ${layoutId}: ${layoutBackground ? '1 background' : '0 backgrounds'}, ${layoutComponents.length} components`);
           }
         }
       }
@@ -261,7 +266,7 @@ export class PowerPointParser extends BaseParser {
         const slideNumber = slide.slideNumber || (arrayIndex + 1); // Use extracted number or fallback
         
         if (debug) {
-          console.log(`📄 Processing slide ${slideNumber}: ${slide.shapes.length} shapes, ${slide.text.length} text, ${slide.images.length} images`);
+          // console.log(`Processing slide ${slideNumber}: ${slide.shapes.length} shapes, ${slide.text.length} text, ${slide.images.length} images`);
         }
         
         const slideComponents: PowerPointComponent[] = [];
@@ -341,12 +346,20 @@ export class PowerPointParser extends BaseParser {
                 element.zIndex,
                 { debug, r2Storage }
               );
+            } else if (isConnectionElement(element)) {
+              component = await this.parseUnifiedConnectionComponent(
+                element,
+                globalComponentIndex++,
+                slideNumber - 1,
+                element.zIndex,
+                { debug }
+              );
             }
             
               if (component) {
                 const coords = component as any;
                 if (coords.x > 50000 || coords.y > 50000 || coords.width > 50000 || coords.height > 50000) {
-                  console.warn('🚨 Component coordinates may be in EMU, not pixels:', {
+                  console.warn('Component coordinates may be in EMU, not pixels:', {
                     type: component.type,
                     x: coords.x,
                     y: coords.y,
@@ -455,19 +468,19 @@ export class PowerPointParser extends BaseParser {
         slides.push(slideObject);
         
         if (debug) {
-          console.log(`📄 Slide ${slideNumber} complete: ${slideComponents.length} components`);
+          // console.log(`Slide ${slideNumber} complete: ${slideComponents.length} components`);
         }
       }
       
       if (debug) {
-        console.log('✅ Unified parsing complete:', components.length, 'total components in', slides.length, 'slides');
+        // console.log('Unified parsing complete:', components.length, 'total components in', slides.length, 'slides');
       }
       
       // Validate slide dimensions are in pixel range before returning to client
       if (normalized.slideDimensions) {
         const { width, height } = normalized.slideDimensions;
         if (width > 50000 || height > 50000) {
-          console.warn('🚨 Slide dimensions appear to be in EMU, not pixels:', { width, height });
+          console.warn('Slide dimensions appear to be in EMU, not pixels:', { width, height });
         } else {
           // Slide dimensions validated as pixels
         }
@@ -476,8 +489,14 @@ export class PowerPointParser extends BaseParser {
       // Clear theme colors after parsing
       BaseParser.clearThemeColors();
 
+      // Fix connection points for all slides
+      const fixedSlides = slides.map(slide => ({
+        ...slide,
+        components: this.fixConnectionPoints(slide.components)
+      }));
+
       return {
-        slides,
+        slides: fixedSlides,
         masters,
         layouts,
         totalComponents: components.length,
@@ -508,8 +527,8 @@ export class PowerPointParser extends BaseParser {
     const { debug = false, r2Storage = null } = options;
     
     if (debug) {
-      console.warn(`🔧 parseElementToComponent called with element.type: ${element.type}`);
-      console.warn(`🔧 Element data keys:`, Object.keys(element.data || {}));
+      // console.warn(`parseElementToComponent called with element.type: ${element.type}`);
+      // console.warn(`Element data keys:`, Object.keys(element.data || {}));
     }
     
     // Convert LayoutElement to NormalizedElement format - strip namespace prefixes from data
@@ -523,7 +542,7 @@ export class PowerPointParser extends BaseParser {
     }
     
     if (debug) {
-      console.warn(`🔧 Stripped data keys:`, Object.keys(strippedData));
+      // console.warn(`Stripped data keys:`, Object.keys(strippedData));
     }
     
     const normalizedElement = {
@@ -587,14 +606,22 @@ export class PowerPointParser extends BaseParser {
         zIndex,
         { debug, r2Storage }
       );
+    } else if (element.type === 'connection' && isConnectionElement(normalizedElement)) {
+      return await this.parseUnifiedConnectionComponent(
+        normalizedElement,
+        componentIndex,
+        slideIndex,
+        zIndex,
+        { debug }
+      );
     }
     
     if (debug) {
-      console.warn(`⚠️ parseElementToComponent failed - element type: ${element.type}`);
-      console.warn(`⚠️ Element data keys:`, Object.keys(element.data || {}));
-      console.warn(`⚠️ normalizedElement.type:`, normalizedElement.type);
-      console.warn(`⚠️ isShapeElement check:`, element.type === 'shape' ? isShapeElement(normalizedElement) : 'not shape');
-      console.warn(`⚠️ isImageElement check:`, element.type === 'image' ? isImageElement(normalizedElement) : 'not image');
+      // console.warn(`parseElementToComponent failed - element type: ${element.type}`);
+      // console.warn(`Element data keys:`, Object.keys(element.data || {}));
+      // console.warn(`normalizedElement.type:`, normalizedElement.type);
+      // console.warn(`isShapeElement check:`, element.type === 'shape' ? isShapeElement(normalizedElement) : 'not shape');
+      // console.warn(`isImageElement check:`, element.type === 'image' ? isImageElement(normalizedElement) : 'not image');
     }
     return null;
   }
@@ -613,7 +640,7 @@ export class PowerPointParser extends BaseParser {
     try {
       return await TextParser.parseFromNormalized(textComponent, componentIndex, slideIndex, zIndex);
     } catch (error) {
-      if (debug) console.warn(`⚠️ Failed to parse text component:`, error);
+      if (debug) console.warn(`Failed to parse text component:`, error);
       return null;
     }
   }
@@ -634,7 +661,7 @@ export class PowerPointParser extends BaseParser {
     try {
       return await ShapeParser.parseFromNormalized(shapeComponent, componentIndex, relSlideIndex, zIndex);
     } catch (error) {
-      if (debug) console.warn(`⚠️ Failed to parse shape component:`, error);
+      if (debug) console.warn(`Failed to parse shape component:`, error);
       return null;
     }
   }
@@ -655,7 +682,7 @@ export class PowerPointParser extends BaseParser {
     try {
       return await ImageParser.parseFromNormalized(imageComponent, relationships, mediaFiles, componentIndex, relSlideIndex, zIndex, r2Storage);
     } catch (error) {
-      if (debug) console.warn(`⚠️ Failed to parse image component:`, error);
+      if (debug) console.warn(`Failed to parse image component:`, error);
       return null;
     }
   }
@@ -676,7 +703,7 @@ export class PowerPointParser extends BaseParser {
     try {
       return await TableParser.parseFromNormalized(tableComponent, componentIndex, relSlideIndex, zIndex);
     } catch (error) {
-      if (debug) console.warn(`⚠️ Failed to parse table component:`, error);
+      if (debug) console.warn(`Failed to parse table component:`, error);
       return null;
     }
   }
@@ -697,8 +724,83 @@ export class PowerPointParser extends BaseParser {
     try {
       return await VideoParser.parseFromNormalized(videoComponent, _relationships, _mediaFiles, componentIndex, relSlideIndex, zIndex, r2Storage);
     } catch (error) {
-      if (debug) console.warn(`⚠️ Failed to parse video component:`, error);
+      if (debug) console.warn(`Failed to parse video component:`, error);
       return null;
     }
+  }
+  
+  /**
+   * Parse unified connection component from normalized data
+   */
+  private async parseUnifiedConnectionComponent(
+    connectionComponent: NormalizedConnectionElement,
+    componentIndex: number,
+    slideIndex: number,
+    zIndex: number,
+    options: { debug?: boolean, shapeMap?: Map<string, { x: number, y: number, width: number, height: number }> } = {}
+  ): Promise<PowerPointComponent | null> {
+    const { debug = false, shapeMap } = options;
+    try {
+      return await ConnectorParser.parseFromNormalized(connectionComponent, componentIndex, slideIndex, zIndex, shapeMap);
+    } catch (error) {
+      if (debug) console.warn(`Failed to parse connection component:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Post-process connection components to fix connection points
+   * This corrects startPoint and endPoint based on actual connected shape positions
+   * @param components - Array of all parsed components
+   * @returns Updated components with corrected connection points
+   */
+  private fixConnectionPoints(components: PowerPointComponent[]): PowerPointComponent[] {
+    // Build shape lookup map
+    const shapeMap = new Map<string, { x: number, y: number, width: number, height: number }>();
+    
+    for (const component of components) {
+      if (component.type !== 'connection' && component.id) {
+        // Extract shape ID from component ID (format: "Name;ID;namespace")
+        const idParts = component.id.split(';');
+        if (idParts.length >= 2) {
+          const shapeId = idParts[1];
+          shapeMap.set(shapeId, {
+            x: component.x,
+            y: component.y,
+            width: component.width,
+            height: component.height
+          });
+        }
+      }
+    }
+
+    // Fix connection points
+    return components.map(component => {
+      if (component.type === 'connection') {
+        const connection = component as ConnectionComponent;
+        
+        if (connection.startShapeId && connection.endShapeId) {
+          const startShape = shapeMap.get(connection.startShapeId);
+          const endShape = shapeMap.get(connection.endShapeId);
+          
+          if (startShape && endShape) {
+            // Use ConnectorParser to calculate proper connection points based on actual indices
+            // Extract connection indices from metadata or default to right->left connection
+            const startConnectionIndex = connection.metadata?.startConnectionIndex ?? 3; // Default to right center
+            const endConnectionIndex = connection.metadata?.endConnectionIndex ?? 1; // Default to left center
+            
+            const startPoint = ConnectorParser.calculateConnectionPoint(startShape, startConnectionIndex);
+            const endPoint = ConnectorParser.calculateConnectionPoint(endShape, endConnectionIndex);
+            
+            return {
+              ...connection,
+              startPoint,
+              endPoint
+            };
+          }
+        }
+      }
+      return component;
+    });
   }
 }
