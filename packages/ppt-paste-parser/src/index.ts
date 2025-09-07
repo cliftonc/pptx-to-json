@@ -6,5 +6,6 @@ export type {
   ParsedContent, 
   PowerPointComponent,
   PowerPointSlide,
+  ConnectionComponent,
   EnhancedPowerPointComponent
 } from './ClipboardParser';

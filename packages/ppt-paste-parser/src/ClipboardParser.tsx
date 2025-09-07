@@ -7,7 +7,7 @@ export interface ClipboardData {
 
 export interface PowerPointComponent {
   id: string;
-  type: 'text' | 'image' | 'shape' | 'table' | 'video' | 'unknown';
+  type: 'text' | 'image' | 'shape' | 'table' | 'video' | 'connection' | 'unknown';
   content: string;
   x: number;
   y: number;
@@ -23,6 +23,57 @@ export interface PowerPointComponent {
   thumbnailSrc?: string;
   title?: string;
   embedType?: 'youtube' | 'vimeo' | 'generic';
+  // Connection-specific properties
+  startShapeId?: string;
+  endShapeId?: string;
+  connectorType?: string;
+  startPoint?: { x: number; y: number };
+  endPoint?: { x: number; y: number };
+  lineStyle?: {
+    width?: number;
+    color?: string;
+    dashStyle?: string;
+    startArrow?: string;
+    endArrow?: string;
+  };
+  // Background shape for text components
+  backgroundShape?: {
+    type: 'rectangle' | 'ellipse' | 'roundRect' | 'custom';
+    fill?: {
+      type: 'solid' | 'gradient' | 'pattern' | 'none';
+      color?: string;
+      opacity?: number;
+    };
+    border?: {
+      type: 'solid' | 'dashed' | 'dotted' | 'none';
+      color?: string;
+      width?: number;
+      style?: string;
+      cap?: string;
+      compound?: string;
+    };
+    geometry?: {
+      type: string;
+      preset: string;
+      isCustom: boolean;
+    };
+  };
+}
+
+export interface ConnectionComponent extends PowerPointComponent {
+  type: 'connection';
+  startShapeId?: string;
+  endShapeId?: string;
+  connectorType?: string;
+  startPoint?: { x: number; y: number };
+  endPoint?: { x: number; y: number };
+  lineStyle?: {
+    width?: number;
+    color?: string;
+    dashStyle?: string;
+    startArrow?: string;
+    endArrow?: string;
+  };
 }
 
 export interface PowerPointSlide {

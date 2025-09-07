@@ -426,10 +426,10 @@ export class PPTXParser {
               const blipFill = spPr && (spPr['p:blipFill'] || spPr['blipFill']);
               if (blipFill) {
                 finalType = 'image';
-                console.log('🖼️ Detected shape with image data, reclassifying as image:', {
-                  hasBlipFill: !!blipFill,
-                  elementKeys: Object.keys(element)
-                });
+                // console.log('Detected shape with image data, reclassifying as image:', {
+                //   hasBlipFill: !!blipFill,
+                //   elementKeys: Object.keys(element)
+                // });
               }
             }
             
@@ -517,23 +517,23 @@ export class PPTXParser {
    */
   getSlideMasterElements(json: PPTXJson, masterFile: string, slideDimensions?: { width: number; height: number }): LayoutElement[] {
     if (!json[masterFile]) {
-      console.log(`❌ Master file not found: ${masterFile}`);
+      // console.log(`Master file not found: ${masterFile}`);
       return [];
     }
     
     try {
-      console.log(`🔍 Processing master file: ${masterFile}`);
+      // console.log(`Processing master file: ${masterFile}`);
       const masterData = json[masterFile] as XMLNode;
       // Handle both namespaced and non-namespaced versions
       const master = masterData['p:sldMaster'] || masterData['sldMaster'] || masterData;
       if (!master) {
-        console.log(`❌ No sldMaster in ${masterFile}`);
+        // console.log(`No sldMaster in ${masterFile}`);
         return [];
       }
       
       const cSld = master['p:cSld'] || master['cSld'];
       if (!cSld) {
-        console.log(`❌ No cSld in master ${masterFile}`);
+        // console.log(`No cSld in master ${masterFile}`);
         return [];
       }
       
@@ -575,10 +575,10 @@ export class PPTXParser {
                 const blipFill = spPr && (spPr['p:blipFill'] || spPr['blipFill']);
                 if (blipFill) {
                   finalType = 'image';
-                  console.log('🖼️ Detected master shape with image data, reclassifying as image:', {
-                    hasBlipFill: !!blipFill,
-                    elementKeys: Object.keys(element)
-                  });
+                  // console.log('Detected master shape with image data, reclassifying as image:', {
+                  //   hasBlipFill: !!blipFill,
+                  //   elementKeys: Object.keys(element)
+                  // });
                 }
               }
               
@@ -613,7 +613,7 @@ export class PPTXParser {
         });
       }
       
-      console.log(`🔍 Master ${masterFile} extracted ${elements.length} elements`);
+      // console.log(`Master ${masterFile} extracted ${elements.length} elements`);
       return elements;
       
     } catch (error) {
@@ -627,7 +627,7 @@ export class PPTXParser {
    */
   private extractBackgroundElement(bg: XMLNode, zIndex: number, slideDimensions?: { width: number; height: number }): LayoutElement | null {
     try {
-      console.log('🔍 Extracting background element:', JSON.stringify(bg, null, 2));
+      // console.log('Extracting background element:', JSON.stringify(bg, null, 2));
       // Check for background properties (already namespace-stripped)
       const bgPr = bg['bgPr'];
       if (!bgPr) {
@@ -656,10 +656,10 @@ export class PPTXParser {
       
       // Check for blip fill (image background) - already namespace-stripped
       const blipFill = bgPr['blipFill'];
-      console.log('🖼️ Checking blipFill:', !!blipFill, blipFill ? Object.keys(blipFill) : 'none');
+      // console.log('Checking blipFill:', !!blipFill, blipFill ? Object.keys(blipFill) : 'none');
       if (blipFill) {
         const blip = blipFill['blip'];
-        console.log('🖼️ Found blip:', !!blip, blip ? Object.keys(blip) : 'none');
+        // console.log('Found blip:', !!blip, blip ? Object.keys(blip) : 'none');
         if (blip) {
           // Handle attribute formats - look for embed in attributes
           // After namespace stripping, attributes might be directly on the object
@@ -711,12 +711,12 @@ export class PPTXParser {
       const gradFill = bgPr['gradFill'];
       const pattFill = bgPr['pattFill'];
       
-      console.log('🎨 Background fills detected:', {
-        solidFill: !!solidFill,
-        gradFill: !!gradFill,
-        pattFill: !!pattFill,
-        bgPrKeys: Object.keys(bgPr)
-      });
+      // console.log('Background fills detected:', {
+      //   solidFill: !!solidFill,
+      //   gradFill: !!gradFill,
+      //   pattFill: !!pattFill,
+      //   bgPrKeys: Object.keys(bgPr)
+      // });
       
       if (solidFill || gradFill || pattFill) {
         // Calculate background dimensions in EMUs

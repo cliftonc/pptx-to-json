@@ -239,7 +239,6 @@ const TldrawCanvas = forwardRef<TldrawCanvasRef, TldrawCanvasProps>(({ component
       >
         <TopToolbar 
           slideId={slideId} 
-          onAutoSave={autoSave}
           onClearAndGoHome={() => window.location.href = '/'} 
         />
         <FloatingTableToolbar />

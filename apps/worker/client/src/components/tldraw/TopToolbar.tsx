@@ -2,12 +2,11 @@ import { useState } from 'react'
 import { useEditor, getSnapshot } from '@tldraw/tldraw'
 
 interface TopToolbarProps {
-  slideId: string | null
-  onAutoSave?: () => Promise<void>
+  slideId: string | undefined
   onClearAndGoHome?: () => void
 }
 
-export function TopToolbar({ slideId, onAutoSave, onClearAndGoHome }: TopToolbarProps) {
+export function TopToolbar({ slideId, onClearAndGoHome }: TopToolbarProps) {
   const editor = useEditor()
   const [isSaving, setIsSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle')
@@ -84,20 +83,7 @@ export function TopToolbar({ slideId, onAutoSave, onClearAndGoHome }: TopToolbar
     return '🔗 Save & Share'
   }
 
-  const getSaveButtonColor = () => {
-    if (saveStatus === 'success') return '#28a745'
-    if (saveStatus === 'error') return '#dc3545'
-    return '#4285f4'
-  }
 
-  // Auto-save functionality (can be called from parent)
-  const autoSave = async () => {
-    if (onAutoSave) {
-      await onAutoSave()
-    } else {
-      await handleSaveShare()
-    }
-  }
 
   // Only show the container if there's a slideId (which means buttons will be visible)
   if (!slideId) return null

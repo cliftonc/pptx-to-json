@@ -616,7 +616,9 @@ export class PowerPointNormalizer {
 
     // Process all child elements in their original order
     // This preserves the back-to-front ordering from PowerPoint XML
+    console.log('DEBUG: extractOrderedElements - spTree keys:', Object.keys(spTree));
     for (const [key, value] of Object.entries(spTree)) {
+      console.log('DEBUG: processing key:', key);
       if (key === 'sp') {
         // Handle shapes and text boxes
         const spArray = this.ensureArray(value);
@@ -711,6 +713,22 @@ export class PowerPointNormalizer {
               graphicData: graphicData
             });
           }
+        }
+      } else if (key === 'cxnSp') {
+        // Handle connection shapes (arrows, connectors)
+        const cxnSpArray = this.ensureArray(value);
+        for (const cxnSp of cxnSpArray) {
+          elements.push({
+            type: 'connection',
+            zIndex: zIndex++,
+            namespace: 'p',
+            element: 'cxnSp',
+            data: cxnSp,
+            nvCxnSpPr: cxnSp['nvCxnSpPr'],
+            spPr: cxnSp['spPr'],
+            startConnection: cxnSp['nvCxnSpPr']?.['cNvCxnSpPr']?.['stCxn'],
+            endConnection: cxnSp['nvCxnSpPr']?.['cNvCxnSpPr']?.['endCxn']
+          });
         }
       } else if (key === 'grpSp') {
         // Handle grouped shapes - flatten all child elements
@@ -830,6 +848,22 @@ export class PowerPointNormalizer {
               graphicData: graphicData
             });
           }
+        }
+      } else if (key === 'cxnSp') {
+        // Handle connection shapes within groups (arrows, connectors)
+        const cxnSpArray = this.ensureArray(value);
+        for (const cxnSp of cxnSpArray) {
+          elements.push({
+            type: 'connection',
+            zIndex: zIndex++,
+            namespace: 'p',
+            element: 'cxnSp',
+            data: cxnSp,
+            nvCxnSpPr: cxnSp['nvCxnSpPr'],
+            spPr: cxnSp['spPr'],
+            startConnection: cxnSp['nvCxnSpPr']?.['cNvCxnSpPr']?.['stCxn'],
+            endConnection: cxnSp['nvCxnSpPr']?.['cNvCxnSpPr']?.['endCxn']
+          });
         }
       } else if (key === 'grpSp') {
         // Handle nested groups (recursive)

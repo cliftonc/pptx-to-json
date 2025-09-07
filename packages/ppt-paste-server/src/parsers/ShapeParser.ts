@@ -254,9 +254,9 @@ export class ShapeParser extends BaseParser {
     }
 
     return {
-      type: "solid",
-      color: "#FFFFFF",
-      opacity: 1,
+      type: "none",
+      color: "transparent",
+      opacity: 0,
     };
   }
 
@@ -281,17 +281,27 @@ export class ShapeParser extends BaseParser {
       };
     }
 
-    const width = ln.$ && ln.$w ? emuToPixels(parseInt(ln.$w)) : 1;
+    const width = ln.$ && ln.$w ? emuToPixels(parseInt(ln.$w)) : 0;
     const compound = (ln.$ && ln.$cmpd) || "sng";
     const cap = (ln.$ && ln.$cap) || "flat";
 
-    let color = "#000000";
+    let color = "transparent";
     const solidFill = BaseParser.getNode(ln, "solidFill");
     if (solidFill) {
       color = this.parseColor(solidFill);
     }
 
     const dashStyle = this.parseDashStyle(ln);
+
+    // If no explicit width is set and no fill is defined, treat as no border
+    if (width === 0 && color === "transparent") {
+      return {
+        type: "none",
+        color: "transparent",
+        width: 0,
+        style: "none",
+      };
+    }
 
     return {
       type: "solid",

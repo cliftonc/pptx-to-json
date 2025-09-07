@@ -112,13 +112,25 @@
       "expectedTypes": [
         "text"
       ]
+    },
+    {
+      "name": "slide-with-background",
+      "description": "PowerPoint content: slide-with-background",
+      "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=a3d720ae-7209-4e26-b576-cee7c2e58deb&amp;DC=GEU8&amp;pkey=f2736a41-88a3-4bb3-826c-f8dadb74a0b2&amp;wdwaccluster=GEU8&amp;DataType=shape",
+      "fixtureFile": "slide-with-background.bin",
+      "expectedFile": "slide-with-background.json",
+      "expectedComponentCount": 5,
+      "expectedTypes": [
+        "image",
+        "text"
+      ]
     }
   ],
   "metadata": {
     "version": "1.0.0",
     "created": "2025-08-31",
     "description": "Basic text copy",
-    "lastUpdated": "2025-09-03T17:28:10.294Z",
+    "lastUpdated": "2025-09-07T04:19:05.961Z",
     "lastRegenerated": "2025-09-03T17:28:10.294Z"
   }
 }

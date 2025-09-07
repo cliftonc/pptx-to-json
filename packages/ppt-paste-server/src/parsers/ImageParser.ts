@@ -32,7 +32,7 @@ export class ImageParser extends BaseParser {
     componentIndex: number,
     slideIndex: number,
     zIndex: number,
-    r2Storage: any = null
+    r2Storage: any = null,
   ): Promise<ImageComponent | null> {
     const { data, spPr, nvPicPr, blipFill, namespace } = imageComponent;
 
@@ -47,7 +47,11 @@ export class ImageParser extends BaseParser {
     const transform = ImageParser.parseTransform(xfrm);
 
     // Extract component info from nvPicPr
-    const componentName = BaseParser.getString(nvPicPr, "cNvPr.$name", `image-${componentIndex}`);
+    const componentName = BaseParser.getString(
+      nvPicPr,
+      "cNvPr.$name",
+      `image-${componentIndex}`,
+    );
     const description = BaseParser.getString(nvPicPr, "cNvPr.$descr", "");
 
     // Extract image reference from blipFill (namespaces already stripped)
@@ -154,10 +158,7 @@ export class ImageParser extends BaseParser {
       return {
         data: mediaFile,
         type: this.getImageTypeFromPath(mediaPath),
-        size:
-          (mediaFile as any).byteLength ||
-          (mediaFile as any).length ||
-          0,
+        size: (mediaFile as any).byteLength || (mediaFile as any).length || 0,
       };
     }
 
@@ -216,7 +217,6 @@ export class ImageParser extends BaseParser {
     slideIndex: number | null = null,
     r2Storage: any = null,
   ): Promise<ImageInfo> {
-    
     if (!rId) {
       return {
         url: null,
@@ -244,8 +244,9 @@ export class ImageParser extends BaseParser {
             [],
           ) as any) || [];
         const rels = Array.isArray(relsData) ? relsData : [relsData];
-        const rel = rels.find((r: any) =>
-          BaseParser.asString(r?.$Id, "") === BaseParser.asString(rId, ""),
+        const rel = rels.find(
+          (r: any) =>
+            BaseParser.asString(r?.$Id, "") === BaseParser.asString(rId, ""),
         );
 
         if (rel) {
@@ -293,8 +294,9 @@ export class ImageParser extends BaseParser {
               [],
             ) as any) || [];
           const rels = Array.isArray(relsData) ? relsData : [relsData];
-          const rel = rels.find((r: any) =>
-            BaseParser.asString(r?.$Id, "") === BaseParser.asString(rId, ""),
+          const rel = rels.find(
+            (r: any) =>
+              BaseParser.asString(r?.$Id, "") === BaseParser.asString(rId, ""),
           );
 
           if (rel) {
@@ -353,8 +355,9 @@ export class ImageParser extends BaseParser {
             [],
           ) as any) || [];
         const rels = Array.isArray(relsData) ? relsData : [relsData];
-        const rel = rels.find((r: any) =>
-          BaseParser.asString(r?.$Id, "") === BaseParser.asString(rId, ""),
+        const rel = rels.find(
+          (r: any) =>
+            BaseParser.asString(r?.$Id, "") === BaseParser.asString(rId, ""),
         );
 
         if (rel) {
@@ -412,9 +415,6 @@ export class ImageParser extends BaseParser {
     r2Storage: any = null,
   ): Promise<string> {
     if (!mediaFile || !(mediaFile instanceof Uint8Array)) {
-      console.log(
-        `⚠️ Image data not available, using placeholder SVG for ${filename}`,
-      );
       return "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2RkZCIvPjx0ZXh0IHg9IjUwIiB5PSI1NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5JbWFnZTwvdGV4dD48L3N2Zz4=";
     }
 
@@ -447,7 +447,6 @@ export class ImageParser extends BaseParser {
           },
         });
 
-        console.log(`✅ Uploaded image to R2: ${imagePath}`);
         return `/api/images/${hash}.${type}`;
       } catch (error) {
         console.error(`❌ R2 upload failed for ${filename}:`, error);
@@ -467,9 +466,6 @@ export class ImageParser extends BaseParser {
    */
   static createDataUrl(mediaFile: Uint8Array, filename: string): string {
     if (!mediaFile || !(mediaFile instanceof Uint8Array)) {
-      console.log(
-        `⚠️ Image data not available, using placeholder SVG for ${filename}`,
-      );
       return "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2RkZCIvPjx0ZXh0IHg9IjUwIiB5PSI1NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5JbWFnZTwvdGV4dD48L3N2Zz4=";
     }
 
@@ -608,9 +604,7 @@ export class ImageParser extends BaseParser {
       top: BaseParser.asNumber(srcRect.t, 0) / 1000,
       right: BaseParser.asNumber(srcRect.r, 0) / 1000,
       bottom: BaseParser.asNumber(srcRect.b, 0) / 1000,
-      isCropped: !!(
-        srcRect.l || srcRect.t || srcRect.r || srcRect.b
-      ),
+      isCropped: !!(srcRect.l || srcRect.t || srcRect.r || srcRect.b),
     };
   }
 

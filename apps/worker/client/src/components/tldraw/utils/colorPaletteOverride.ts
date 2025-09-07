@@ -53,7 +53,7 @@ function findClosestTldrawColor(targetHex: string): TLDrawColor {
 /**
  * Maps PowerPoint colors to closest TLDraw colors based on visual similarity
  */
-export function createColorMapping(components: PowerPointComponent[], slides?: PowerPointSlide[], theme?: any): Map<string, TLDrawColor> {
+export function createColorMapping(components: PowerPointComponent[], slides?: PowerPointSlide[], _theme?: any): Map<string, TLDrawColor> {
   const uniqueColors = new Set<string>()
   
   // Collect colors from components
@@ -63,6 +63,17 @@ export function createColorMapping(components: PowerPointComponent[], slides?: P
     }
     if (component.style?.borderColor && component.style.borderColor !== 'transparent') {
       uniqueColors.add(component.style.borderColor)
+    }
+    
+    // Collect colors from background shapes
+    if ('backgroundShape' in component && component.backgroundShape) {
+      const bg = component.backgroundShape
+      if (bg.fill?.color && bg.fill.color !== 'transparent') {
+        uniqueColors.add(bg.fill.color)
+      }
+      if (bg.border?.color && bg.border.color !== 'transparent') {
+        uniqueColors.add(bg.border.color)
+      }
     }
   })
   
@@ -75,6 +86,17 @@ export function createColorMapping(components: PowerPointComponent[], slides?: P
       if (component.style?.borderColor && component.style.borderColor !== 'transparent') {
         uniqueColors.add(component.style.borderColor)
       }
+      
+      // Collect colors from background shapes
+      if ('backgroundShape' in component && component.backgroundShape) {
+        const bg = component.backgroundShape
+        if (bg.fill?.color && bg.fill.color !== 'transparent') {
+          uniqueColors.add(bg.fill.color)
+        }
+        if (bg.border?.color && bg.border.color !== 'transparent') {
+          uniqueColors.add(bg.border.color)
+        }
+      }
     })
   })
   
@@ -84,13 +106,8 @@ export function createColorMapping(components: PowerPointComponent[], slides?: P
   Array.from(uniqueColors).forEach((hexColor) => {
     const closestTldrawColor = findClosestTldrawColor(hexColor)
     colorMapping.set(hexColor, closestTldrawColor)
-    console.log(`🎨 Mapped ${hexColor} → ${closestTldrawColor} (${TLDRAW_COLOR_VALUES[closestTldrawColor]})`)
   })
   
-  // Log theme colors if available for debugging
-  if (theme?.colors) {
-    console.log('🎨 PowerPoint theme colors detected:', theme.colors)
-  }
   
   return colorMapping
 }
@@ -99,8 +116,7 @@ export function createColorMapping(components: PowerPointComponent[], slides?: P
  * No-op function - TLDraw doesn't support runtime palette overrides
  * Colors are mapped to closest defaults instead
  */
-export function applyColorPaletteOverride(colorMapping: Map<string, TLDrawColor>): void {
-  console.log('🎨 Color mapping created:', Object.fromEntries(colorMapping))
+export function applyColorPaletteOverride(_colorMapping: Map<string, TLDrawColor>): void {
   // TLDraw uses its default palette - we just map to closest colors
 }
 

@@ -217,3 +217,27 @@ button:focus-visible {
 .resize-cursor {
     cursor: col-resize;
 }
+
+/* Fix paragraph spacing in TipTap/ProseMirror for richText rendering */
+.ProseMirror p,
+.tl-text-content .ProseMirror p {
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1.2 !important;
+}
+
+/* Adjust line-height for small font sizes to prevent extra spacing */
+.ProseMirror p[style*="font-size: 12px"],
+.ProseMirror p[style*="font-size: 10px"],
+.ProseMirror p[style*="font-size: 8px"] {
+  line-height: 1.1 !important;
+}
+
+/* Ensure first and last paragraph have no extra spacing */
+.ProseMirror p:first-child {
+  margin-top: 0 !important;
+}
+
+.ProseMirror p:last-child {
+  margin-bottom: 0 !important;
+}

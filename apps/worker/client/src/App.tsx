@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Routes, Route, useParams, useLocation } from 'react-router-dom'
+import { Routes, Route, useParams } from 'react-router-dom'
 import { ClipboardParser, type ParsedContent } from 'ppt-paste-parser'
 import TldrawCanvas, { type TldrawCanvasRef } from './components/TldrawCanvas'
 import RawDataPage from './RawDataPage'
@@ -16,14 +16,13 @@ const generateSlideId = (): string => {
 
 // Separate component for the main page
 function MainPage() {
-  const location = useLocation()
   const { id } = useParams<{ id?: string }>()
   const [currentPage, setCurrentPage] = useState<'main' | 'raw'>('main')
   const [structuredData, setStructuredData] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [loadingMessage, setLoadingMessage] = useState('')
   const [loadingProgress, setLoadingProgress] = useState('')
-  const [currentSlideId, setCurrentSlideId] = useState<string | null>(null)
+  const [currentSlideId, setCurrentSlideId] = useState<string | undefined>(undefined)
   const [initialSnapshot, setInitialSnapshot] = useState<any>(null)
   const [loadingSlideId, setLoadingSlideId] = useState<string | null>(null)
   const tldrawCanvasRef = useRef<TldrawCanvasRef>(null)
@@ -216,6 +215,7 @@ function MainPage() {
       case 'shape': return '🔸';
       case 'table': return '📊';
       case 'video': return '🎬';
+      case 'connection': return '🔗';
       default: return '❓';
     }
   };
@@ -433,6 +433,7 @@ function MainPage() {
                   <li><strong>🎬 Videos:</strong> Videos - youtube and vimeo</li>
                   <li><strong>🔸 Shapes:</strong> Rectangles, circles, lines with fills & borders</li>
                   <li><strong>📊 Tables:</strong> Rich text tables with headers and data cells</li>
+                  <li><strong>🔗 Connections:</strong> Arrows and connectors between shapes</li>
                   <li><strong>🎨 Styling:</strong> Colors, gradients, transparency, shadows</li>
                   <li><strong>📐 Layout:</strong> Precise positioning, rotation, grouping</li>
                 </ul>

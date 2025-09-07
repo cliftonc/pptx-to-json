@@ -33,11 +33,22 @@ describe('TextParser spacing & style regression', () => {
     const paraTexts = firstPara.content.map((n: any) => n.text);
     expect(paraTexts.join('')).toContain('Become an ecosystem');
 
-    // Flattened runs with styles available in metadata.flattenedRuns
-    const flattened = (comp.metadata as any)?.flattenedRuns || [];
-    const boldRun = flattened.find((r: any) => r.text.includes('Become'));
-    const italicRun = flattened.find((r: any) => r.text === 'an');
-    expect(boldRun?.style?.fontWeight).toBe('bold');
-    expect(italicRun?.style?.fontStyle).toBe('italic');
+    // Check styles from the rich text document structure
+    const allTextNodes: any[] = [];
+    if (firstPara?.content) {
+      firstPara.content.forEach((node: any) => {
+        if (node.type === 'text') {
+          allTextNodes.push(node);
+        }
+      });
+    }
+    
+    // Find text nodes with specific content to verify styling
+    const becomeNode = allTextNodes.find((n: any) => n.text?.includes('Become'));
+    const anNode = allTextNodes.find((n: any) => n.text === 'an');
+    
+    // Verify that marks/styles are preserved in the rich text structure
+    expect(becomeNode?.marks?.some((m: any) => m.type === 'bold' || m.type === 'strong')).toBeTruthy();
+    expect(anNode?.marks?.some((m: any) => m.type === 'italic' || m.type === 'em')).toBeTruthy();
   });
 });

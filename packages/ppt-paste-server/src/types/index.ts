@@ -7,7 +7,7 @@
  */
 
 // Component types that can be parsed from PowerPoint
-export type ComponentType = 'text' | 'shape' | 'image' | 'table' | 'video' | 'any';
+export type ComponentType = 'text' | 'shape' | 'image' | 'table' | 'video' | 'connection' | 'any';
 
 // Shared base component properties
 export interface PowerPointComponentBase {
@@ -32,6 +32,7 @@ export type PowerPointComponent =
   | ImageComponent
   | TableComponent
   | VideoComponent
+  | ConnectionComponent
   | UnknownComponent;
 
 // Style information for components
@@ -64,6 +65,13 @@ export interface ComponentStyle {
 export interface TextComponent extends PowerPointComponentBase {
   type: 'text';
   richText?: any; // TipTap-style document structure (was mistakenly named textRuns during regression)
+  // Background shape properties for text-with-background components
+  backgroundShape?: {
+    type: 'rectangle' | 'ellipse' | 'roundRect' | 'custom';
+    fill?: FillInfo;
+    border?: BorderInfo;
+    geometry?: GeometryInfo;
+  };
 }
 
 // A fallback any component
@@ -105,6 +113,22 @@ export interface VideoComponent extends PowerPointComponentBase {
   thumbnailSrc?: string;
   title?: string;
   embedType?: 'youtube' | 'vimeo' | 'generic';
+}
+
+export interface ConnectionComponent extends PowerPointComponentBase {
+  type: 'connection';
+  startShapeId?: string;
+  endShapeId?: string;
+  connectorType?: string;
+  startPoint?: { x: number; y: number };
+  endPoint?: { x: number; y: number };
+  lineStyle?: {
+    width?: number;
+    color?: string;
+    dashStyle?: string;
+    startArrow?: string;
+    endArrow?: string;
+  };
 }
 
 // Table row structure
@@ -187,6 +211,15 @@ export interface NormalizedImageComponent {
   nvPicPr?: XMLNode;
   blipFill?: XMLNode;
   namespace?: string;
+}
+
+export interface NormalizedConnectionComponent {
+  data?: any;
+  spPr?: XMLNode;
+  nvCxnSpPr?: XMLNode;
+  namespace?: string;
+  startConnection?: XMLNode;
+  endConnection?: XMLNode;
 }
 
 // Image information returned by getImageInfo

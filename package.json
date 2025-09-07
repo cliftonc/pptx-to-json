@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "pnpm --filter worker dev & pnpm --filter worker dev:client",
     "build:lib": "pnpm --filter ppt-paste-parser build",
-    "build": "pnpm build:lib && pnpm --filter worker build",
+    "build:server": "pnpm --filter ppt-paste-server build",
+    "build": "pnpm build:server && pnpm build:lib && pnpm --filter worker build",
     "deploy": "pnpm build:lib && cd apps/worker && pnpm run deploy",
     "preview": "pnpm --filter worker start",
     "test": "pnpm -r test -- --run",

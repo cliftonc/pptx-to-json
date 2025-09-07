@@ -81,6 +81,7 @@ export async function renderShapeComponent(
     component.style?.borderColor,
     colorMapping,
   );
+  
 
   // Determine the best tldraw shape type based on PowerPoint shape type
   const shapeType =
