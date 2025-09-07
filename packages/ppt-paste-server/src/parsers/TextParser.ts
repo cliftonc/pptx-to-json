@@ -3,8 +3,9 @@
  */
 
 import { BaseParser } from './BaseParser.js';
-import { TextComponent, XMLNode, TextRun, ComponentStyle } from '../types/index.js';
+import { TextComponent, XMLNode, TextRun, ComponentStyle, FillInfo, BorderInfo, GeometryInfo } from '../types/index.js';
 import { TextBodyNode, ParagraphNode, RunNode } from '../types/xml-nodes.js';
+import { ShapeParser } from './ShapeParser.js';
 
 // Rich text node types for TLDraw compatibility
 interface TextNode {
@@ -142,10 +143,13 @@ export class TextParser extends BaseParser {
     const componentName = this.getString(cNvPr, '$name', `text-${componentIndex}`);
     const isTextBox = this.getBoolean(nvSpPr, 'cNvSpPr.$txBox', false);
 
-    // Extract dominant font styling using existing method
+    // Extract dominant font styling and text alignment
     const paragraphs = this.getNode(textBody, 'p') ?? this.safeGet(textBody, 'p', []);
     const paragraphsArray = Array.isArray(paragraphs) ? paragraphs : [paragraphs];
     let dominantFont = { family: 'Arial', size: 18, weight: 'normal', style: 'normal', color: '#000000', decoration: 'none' };
+    
+    // Extract text alignment from paragraph properties
+    const textAlignment = this.extractTextAlignment(paragraphsArray);
     
     // Find first non-empty run with formatting
     for (const paragraph of paragraphsArray) {
@@ -162,6 +166,45 @@ export class TextParser extends BaseParser {
           }
         }
         if (dominantFont.family !== 'Arial') break;
+      }
+    }
+
+    // Detect background shape properties if present
+    let backgroundShape: { type: 'rectangle' | 'ellipse' | 'roundRect' | 'custom'; fill?: FillInfo; border?: BorderInfo; geometry?: GeometryInfo } | undefined;
+
+    if (spPr) {
+      // Check for shape geometry (indicates this text has a background shape)
+      const geometry = ShapeParser.parseGeometry(spPr);
+      
+      // Check for fill properties (solid color, gradient, etc.)
+      const fill = ShapeParser.parseFill(spPr, null);
+      
+      // Check for border properties
+      const border = ShapeParser.parseBorder(spPr, null);
+      
+      // Only treat as text-with-background if it has visible styling beyond basic rectangle
+      const hasVisibleFill = fill.type !== 'none' && fill.color !== 'transparent';
+      const hasVisibleBorder = border.type !== 'none' && border.color !== 'transparent';
+      const hasCustomGeometry = geometry.preset !== 'rect' || geometry.type !== 'rectangle';
+      
+      if (hasVisibleFill || hasVisibleBorder || hasCustomGeometry) {
+        
+        // Map PowerPoint geometry types to our simpler types
+        let backgroundType: 'rectangle' | 'ellipse' | 'roundRect' | 'custom' = 'rectangle';
+        if (geometry.preset === 'ellipse') {
+          backgroundType = 'ellipse';
+        } else if (geometry.preset === 'roundRect') {
+          backgroundType = 'roundRect';
+        } else if (geometry.preset !== 'rect') {
+          backgroundType = 'custom';
+        }
+        
+        backgroundShape = {
+          type: backgroundType,
+          fill: hasVisibleFill ? fill : undefined,
+          border: hasVisibleBorder ? border : undefined,
+          geometry
+        };
       }
     }
 
@@ -184,19 +227,20 @@ export class TextParser extends BaseParser {
         textDecoration: dominantFont.decoration,
         color: dominantFont.color,
         backgroundColor: 'transparent', // Text components don't have background by default
-        textAlign: 'left',
+        textAlign: textAlignment,
         opacity: 1,
         rotation: transform.rotation || 0
       },
       // Restore original property name: richText (regression fix)
       richText: richTextDoc as any,
+      // Background shape properties for text-with-background components
+      backgroundShape,
       metadata: {
         namespace,
         isTextBox,
         originalFormat: 'normalized',
         paragraphCount: paragraphsArray.length,
-        hasMultipleRuns: paragraphsArray.some(p => Array.isArray(p['r'])),
-        flattenedRuns: richTextContent
+        hasMultipleRuns: paragraphsArray.some(p => Array.isArray(p['r']))
       }
     };
   }
@@ -378,7 +422,9 @@ export class TextParser extends BaseParser {
         // - Clipboard format: buChar exists and has content (e.g., "•")
         // - PPTX format: buChar exists but may be empty string for non-bullets
         if (buChar) {
-          const buCharValue = this.getString(buChar, '$val', '') || this.getString(buChar, '_', '') || this.getString(buChar, '');
+          // Check for char attribute first (PPTX format), then fallback to other patterns
+          const buCharValue = this.getString(buChar, '$char', '') || this.getString(buChar, 'char', '') || 
+                             this.getString(buChar, '$val', '') || this.getString(buChar, '_', '') || this.getString(buChar, '');
           // If buChar has a non-empty value, it's a bullet
           if (buCharValue.trim() !== '') {
             return true;
@@ -411,7 +457,9 @@ export class TextParser extends BaseParser {
           
           // Apply same logic to parent style
           if (buChar) {
-            const buCharValue = this.getString(buChar, '$val', '') || this.getString(buChar, '_', '') || this.getString(buChar, '');
+            // Check for char attribute first (PPTX format), then fallback to other patterns
+            const buCharValue = this.getString(buChar, '$char', '') || this.getString(buChar, 'char', '') || 
+                               this.getString(buChar, '$val', '') || this.getString(buChar, '_', '') || this.getString(buChar, '');
             if (buCharValue.trim() !== '') {
               return true; // Inherit bullets from style
             }
@@ -511,5 +559,50 @@ export class TextParser extends BaseParser {
     }
     
     return textNode;
+  }
+  
+  /**
+   * Extract text alignment from paragraph properties
+   * @param paragraphsArray - Array of paragraphs
+   * @returns text alignment (left, center, right)
+   */
+  static extractTextAlignment(paragraphsArray: XMLNode[]): string {
+    // Check the first paragraph for alignment
+    for (const paragraph of paragraphsArray) {
+      if (!paragraph || typeof paragraph !== 'object') continue;
+      
+      const pPr = this.safeGet(paragraph, 'pPr');
+      if (pPr && typeof pPr === 'object') {
+        // Try different attribute paths for alignment
+        let algn = this.getString(pPr, '$algn', null);
+        
+        // If not found as direct attribute, try as nested property
+        if (!algn) {
+          algn = this.getString(pPr, 'algn', null);
+        }
+        
+        // If still not found, try attributes object
+        if (!algn && pPr.$ && pPr.$.algn) {
+          algn = pPr.$.algn;
+        }
+        
+        if (algn) {
+          switch (algn) {
+            case 'ctr':
+              return 'center';
+            case 'r':
+              return 'right';
+            case 'j':
+              return 'justify';
+            case 'l':
+            default:
+              return 'left';
+          }
+        }
+      }
+    }
+    
+    // Default to left if no alignment found
+    return 'left';
   }
 }

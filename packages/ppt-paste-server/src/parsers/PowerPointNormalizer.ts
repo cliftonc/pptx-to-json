@@ -101,13 +101,13 @@ export class PowerPointNormalizer {
         const bgPr = slideBackground['bgPr'] || slideBackground;
         const blipFill = bgPr && (bgPr['blipFill'] || bgPr['a:blipFill']);
         
-        console.log(`🔍 Slide ${slideNumber} background check:`, {
-          hasBackground: !!slideBackground,
-          hasBgPr: !!bgPr,
-          hasBlipFill: !!blipFill,
-          bgPrKeys: bgPr ? Object.keys(bgPr) : [],
-          slideFile
-        });
+        // console.log(`Slide ${slideNumber} background check:`, {
+        //   hasBackground: !!slideBackground,
+        //   hasBgPr: !!bgPr,
+        //   hasBlipFill: !!blipFill,
+        //   bgPrKeys: bgPr ? Object.keys(bgPr) : [],
+        //   slideFile
+        // });
         
         // Determine if this is an image background or shape background
         if (blipFill) {
@@ -712,6 +712,133 @@ export class PowerPointNormalizer {
             });
           }
         }
+      } else if (key === 'grpSp') {
+        // Handle grouped shapes - flatten all child elements
+        const grpSpArray = this.ensureArray(value);
+        for (const grpSp of grpSpArray) {
+          // Recursively extract elements from the group
+          const groupElements = this.extractElementsFromGroup(grpSp, zIndex);
+          elements.push(...groupElements);
+          zIndex += groupElements.length;
+        }
+      }
+    }
+
+    return elements;
+  }
+
+  /**
+   * Extract elements from a grouped shape (grpSp), flattening the group structure
+   */
+  extractElementsFromGroup(grpSp: any, startZIndex: number): NormalizedElement[] {
+    const elements: NormalizedElement[] = [];
+    let zIndex = startZIndex;
+
+    // Process all child elements within the group
+    for (const [key, value] of Object.entries(grpSp)) {
+      if (key === 'sp') {
+        // Handle shapes and text boxes within the group
+        const spArray = this.ensureArray(value);
+        for (const sp of spArray) {
+          if (sp['txBody'] && this.hasTextContent(sp['txBody'])) {
+            // Text element
+            elements.push({
+              type: 'text',
+              zIndex: zIndex++,
+              namespace: 'p',
+              element: 'sp',
+              data: sp,
+              spPr: sp['spPr'],
+              nvSpPr: sp['nvSpPr'],
+              style: sp['style'],
+              textBody: sp['txBody']
+            });
+          } else {
+            // Shape element (non-text)
+            // Skip text boxes (they're handled above)
+            if (sp['nvSpPr'] && sp['nvSpPr']['cNvSpPr'] && sp['nvSpPr']['cNvSpPr']['$txBox']) continue;
+            
+            elements.push({
+              type: 'shape',
+              zIndex: zIndex++,
+              namespace: 'p',
+              element: 'sp',
+              data: sp,
+              spPr: sp['spPr'],
+              nvSpPr: sp['nvSpPr'],
+              style: sp['style'],
+              textBody: sp['txSp'] ? sp['txSp']['txBody'] : null
+            });
+          }
+        }
+      } else if (key === 'pic') {
+        // Handle images within the group
+        const picArray = this.ensureArray(value);
+        for (const pic of picArray) {
+          // Check if this is a video by looking for nvPr.videoFile
+          const nvPicPr = pic['nvPicPr'];
+          const isVideo = nvPicPr && nvPicPr['nvPr'] && nvPicPr['nvPr']['videoFile'];
+          
+          if (isVideo) {
+            // Video element
+            const videoFile = nvPicPr['nvPr']['videoFile'];
+            const relationshipId = videoFile['$link'] || videoFile['link'];
+            
+            elements.push({
+              type: 'video',
+              zIndex: zIndex++,
+              namespace: 'p',
+              element: 'pic',
+              data: pic,
+              nvPicPr: pic['nvPicPr'],
+              blipFill: pic['blipFill'],
+              spPr: pic['spPr'],
+              relationshipId: relationshipId
+            });
+          } else {
+            // Image element
+            elements.push({
+              type: 'image',
+              zIndex: zIndex++,
+              namespace: 'p',
+              element: 'pic',
+              data: pic,
+              nvPicPr: pic['nvPicPr'],
+              blipFill: pic['blipFill'],
+              spPr: pic['spPr']
+            });
+          }
+        }
+      } else if (key === 'graphicFrame') {
+        // Handle tables within the group
+        const graphicFrameArray = this.ensureArray(value);
+        for (const graphicFrame of graphicFrameArray) {
+          // Check if this is a table by looking at the graphicData URI
+          const graphic = graphicFrame['graphic'];
+          const graphicData = graphic?.['graphicData'];
+          const uri = graphicData?.['$uri'];
+          
+          if (uri === 'http://schemas.openxmlformats.org/drawingml/2006/table') {
+            elements.push({
+              type: 'table',
+              zIndex: zIndex++,
+              namespace: 'p',
+              element: 'graphicFrame',
+              data: graphicFrame,
+              nvGraphicFramePr: graphicFrame['nvGraphicFramePr'],
+              spPr: graphicFrame['xfrm'], // Use xfrm for positioning
+              graphicData: graphicData
+            });
+          }
+        }
+      } else if (key === 'grpSp') {
+        // Handle nested groups (recursive)
+        const nestedGrpSpArray = this.ensureArray(value);
+        for (const nestedGrpSp of nestedGrpSpArray) {
+          const nestedElements = this.extractElementsFromGroup(nestedGrpSp, zIndex);
+          elements.push(...nestedElements);
+          zIndex += nestedElements.length;
+        }
       }
     }
 
@@ -1070,7 +1197,7 @@ export class PowerPointNormalizer {
     
     if (!hasContent) {
       // Fallback to default dimensions if no content found
-      console.log('📐 No content bounds found, using default dimensions');
+      // console.log('No content bounds found, using default dimensions');
       return { width: DEFAULT_SLIDE_WIDTH_PX, height: DEFAULT_SLIDE_HEIGHT_PX };
     }
     
@@ -1110,27 +1237,27 @@ export class PowerPointNormalizer {
       
       const themeFile = json[themeFilePath];
       if (!themeFile) {
-        console.log(`📎 No theme file found at ${themeFilePath}`);
+        // console.log(`No theme file found at ${themeFilePath}`);
         return null;
       }
 
       // Extract theme from the XML structure
       const theme = themeFile.theme;
       if (!theme) {
-        console.log('📎 No theme element found in theme file');
+        // console.log('No theme element found in theme file');
         return null;
       }
 
       // Parse the theme color scheme
       const themeElements = theme.themeElements;
       if (!themeElements) {
-        console.log('📎 No themeElements found in theme');
+        // console.log('No themeElements found in theme');
         return null;
       }
 
       const clrScheme = themeElements.clrScheme;
       if (!clrScheme) {
-        console.log('📎 No clrScheme found in themeElements');
+        // console.log('No clrScheme found in themeElements');
         return null;
       }
 
@@ -1150,13 +1277,13 @@ export class PowerPointNormalizer {
         }
       }
 
-      console.log('🎨 Extracted theme colors:', Object.keys(themeColors).length, 'colors');
+      // console.log('Extracted theme colors:', Object.keys(themeColors).length, 'colors');
       return {
         colors: themeColors,
         rawTheme: theme // Keep raw theme for advanced processing
       };
     } catch (error) {
-      console.warn('⚠️ Error extracting theme data:', error);
+      console.warn('Error extracting theme data:', error);
       return null;
     }
   }
@@ -1192,10 +1319,10 @@ export class PowerPointNormalizer {
         return sysColors[val] || '#000000';
       }
 
-      console.warn('📎 Unknown theme color format:', colorDef);
+      console.warn('Unknown theme color format:', colorDef);
       return null;
     } catch (error) {
-      console.warn('⚠️ Error parsing theme color:', error);
+      console.warn('Error parsing theme color:', error);
       return null;
     }
   }
