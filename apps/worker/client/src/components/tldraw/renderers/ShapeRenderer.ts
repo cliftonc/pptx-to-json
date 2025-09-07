@@ -127,7 +127,6 @@ export async function renderShapeComponent(
     },
   };
 
-  console.log("shape", geoShapeProps);
 
   if (frameId) {
     geoShapeProps.parentId = frameId;

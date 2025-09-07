@@ -472,6 +472,7 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
       }
 
       const uploadResult = await uploadResponse.json();
+      console.log('🔍 Upload result from server:', uploadResult);
       setUploadProgress('Processing file...');
       onLoadingProgress?.('File uploaded successfully, parsing PowerPoint structure...');
 
@@ -494,15 +495,18 @@ export const ClipboardParser: React.FC<ClipboardParserProps> = ({
       
       // Server now always returns slides structure
       if (onParse) {
-        onParse({
+        const parseData = {
           formats: [{ type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', data: file.name }],
           isPowerPoint: processResult.isPowerPoint,
           slides: processResult.slides || [],
           slideDimensions: processResult.slideDimensions,
           masters: processResult.masters,
           layouts: processResult.layouts,
-          theme: processResult.theme
-        });
+          theme: processResult.theme,
+          fileId: uploadResult.fileId // Pass through fileId for navigation
+        };
+        console.log('🔍 About to call onParse with:', parseData);
+        onParse(parseData as any);
       }
 
       setUploadProgress(null);

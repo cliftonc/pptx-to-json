@@ -19,61 +19,32 @@ function composeSlideWithBackgrounds(
 ): PowerPointComponent[] {
   const components: PowerPointComponent[] = [];
   
-  console.log('🔍 Composing slide with backgrounds:', {
-    slideNumber: slide.slideNumber,
-    layoutId: slide.layoutId,
-    hasLayouts: !!layouts,
-    hasMasters: !!masters,
-    layoutKeys: layouts ? Object.keys(layouts) : [],
-    masterKeys: masters ? Object.keys(masters) : []
-  });
   
   // 1. Add master background (deepest, z-index around -2000)
   if (slide.layoutId && layouts?.[`ppt/slideLayouts/${slide.layoutId}.xml`]) {
     const layout = layouts[`ppt/slideLayouts/${slide.layoutId}.xml`];
-    console.log('🎨 Found layout:', layout.id, 'masterId:', layout.masterId);
     if (layout.masterId && masters?.[`ppt/slideMasters/${layout.masterId}.xml`]) {
       const master = masters[`ppt/slideMasters/${layout.masterId}.xml`];
-      console.log('🎨 Found master:', master.id, 'has background:', !!master.background);
       if (master.background) {
-        console.log('✅ Adding master background:', {
-          type: master.background.type,
-          id: master.background.id,
-          fillColor: master.background.style?.fillColor,
-          hasImageUrl: !!master.background.metadata?.imageUrl,
-          imageUrl: master.background.metadata?.imageUrl?.substring(0, 100)
-        });
         components.push(master.background);
       }
       // Add other master components too
       if (master.components) {
-        console.log('✅ Adding master components:', master.components.length);
         components.push(...master.components);
       }
     } else {
-      console.log('❌ Master not found:', `ppt/slideMasters/${layout.masterId}.xml`);
     }
   } else {
-    console.log('❌ Layout not found:', `ppt/slideLayouts/${slide.layoutId}.xml`);
   }
   
   // 2. Add layout background (middle, z-index around -1000)
   if (slide.layoutId && layouts?.[`ppt/slideLayouts/${slide.layoutId}.xml`]) {
     const layout = layouts[`ppt/slideLayouts/${slide.layoutId}.xml`];
-    console.log('🎨 Processing layout background:', layout.id, 'has background:', !!layout.background);
     if (layout.background) {
-      console.log('✅ Adding layout background:', {
-        type: layout.background.type,
-        id: layout.background.id,
-        fillColor: layout.background.style?.fillColor,
-        hasImageUrl: !!layout.background.metadata?.imageUrl,
-        imageUrl: layout.background.metadata?.imageUrl?.substring(0, 100)
-      });
       components.push(layout.background);
     }
     // Add other layout components too
     if (layout.components) {
-      console.log('✅ Adding layout components:', layout.components.length);
       components.push(...layout.components);
     }
   }
@@ -206,14 +177,6 @@ async function drawComponentsInFrame(
   // Sort components by zIndex to ensure correct layering order
   const sortedComponents = [...components].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
   
-  // Debug: Log component z-index order
-  console.log('🔢 Component z-index order:', sortedComponents.map((c, i) => ({
-    index: i,
-    type: c.type,
-    zIndex: c.zIndex,
-    isBackground: c.content?.includes('Background') || c.id?.includes('Background'),
-    name: c.id || c.content?.substring(0, 20)
-  })))
   
   // Render each component in correct z-order
   for (let index = 0; index < sortedComponents.length; index++) {

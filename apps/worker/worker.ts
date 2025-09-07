@@ -33,6 +33,7 @@ interface UploadResponse {
   fileName: string;
   size: number;
   processUrl: string;
+  slideUrl?: string; // New field for shareable URL
 }
 
 
@@ -45,26 +46,34 @@ interface ErrorResponse {
 // Upload PPTX file endpoint
 app.post('/api/upload-pptx', async (c: HonoContext) => {
   try {
+    console.log('📤 Upload PPTX started');
     const formData = await c.req.formData();
     const file = formData.get('file') as File;
     
     if (!file) {
+      console.log('❌ No file provided');
       return new Response(JSON.stringify({ error: 'No file provided' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
     
+    console.log('📄 File received:', file.name, 'Size:', file.size);
+    
     // Validate file type
     if (!file.name.toLowerCase().endsWith('.pptx')) {
+      console.log('❌ Invalid file type:', file.name);
       return new Response(JSON.stringify({ error: 'Only PPTX files are allowed' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
     
     // Generate unique file ID
     const fileId = generateFileId();
     const fileName = `${fileId}.pptx`;
+    console.log('🆔 Generated fileId:', fileId, 'fileName:', fileName);
     
     // Get file buffer
     const buffer = await file.arrayBuffer();
+    console.log('💾 File buffer created, size:', buffer.byteLength);
     
     // Store in R2
+    console.log('☁️ Storing in R2...');
     await c.env.PPTX_STORAGE.put(fileName, buffer, {
       httpMetadata: {
         contentType: file.type || 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
@@ -75,15 +84,18 @@ app.post('/api/upload-pptx', async (c: HonoContext) => {
         size: buffer.byteLength.toString()
       }
     });
+    console.log('✅ File saved to R2:', fileName);
     
     const response: UploadResponse = {
       success: true,
       fileId,
       fileName: file.name,
       size: buffer.byteLength,
-      processUrl: `/api/process-pptx/${fileId}`
+      processUrl: `/api/process-pptx/${fileId}`,
+      slideUrl: `/slides/${fileId}` // Add shareable slide URL
     };
     
+    console.log('📦 Upload response:', response);
     return c.json(response);
     
   } catch (error) {
@@ -101,16 +113,22 @@ app.get('/api/process-pptx/:fileId', async (c: HonoContext) => {
     const fileId = c.req.param('fileId');
     const debug = c.req.query('debug') === 'true';
     
+    console.log('🔄 Processing PPTX request for fileId:', fileId);
+    
     if (!fileId) {
+      console.log('❌ No fileId provided');
       return new Response(JSON.stringify({ error: 'File ID is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
     
     const fileName = `${fileId}.pptx`;
+    console.log('📁 Looking for file:', fileName);
     
     // Retrieve file from R2
     const object = await c.env.PPTX_STORAGE.get(fileName);
+    console.log('☁️ R2 get result:', object ? 'Found' : 'Not found');
     
     if (!object) {
+      console.log('❌ File not found in R2:', fileName);
       return new Response(JSON.stringify({ error: 'File not found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
     }
     
@@ -202,6 +220,92 @@ app.get('/api/proxy-powerpoint-clipboard', async (c: HonoContext) => {
   }
 });
 
+// Save TLDraw state for a slide
+app.post('/api/slides/:id/state', async (c: HonoContext) => {
+  try {
+    const slideId = c.req.param('id');
+    
+    if (!slideId) {
+      return c.json({ error: 'Slide ID is required' }, 400);
+    }
+    
+    // Get the TLDraw snapshot from request body
+    const body = await c.req.json();
+    const { snapshot } = body;
+    
+    if (!snapshot) {
+      return c.json({ error: 'Snapshot data is required' }, 400);
+    }
+    
+    // Store the snapshot in R2
+    const stateKey = `slides/${slideId}/state.json`;
+    
+    await c.env.PPTX_STORAGE.put(stateKey, JSON.stringify({
+      snapshot,
+      savedAt: new Date().toISOString(),
+      slideId
+    }), {
+      httpMetadata: {
+        contentType: 'application/json'
+      },
+      customMetadata: {
+        slideId,
+        savedAt: new Date().toISOString()
+      }
+    });
+    
+    return c.json({
+      success: true,
+      slideId,
+      shareUrl: `/slides/${slideId}`,
+      savedAt: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Save state error:', error);
+    return c.json({ 
+      error: 'Failed to save slide state',
+      message: (error as Error).message 
+    }, 500);
+  }
+});
+
+// Load TLDraw state for a slide
+app.get('/api/slides/:id/state', async (c: HonoContext) => {
+  try {
+    const slideId = c.req.param('id');
+    
+    if (!slideId) {
+      return c.json({ error: 'Slide ID is required' }, 400);
+    }
+    
+    const stateKey = `slides/${slideId}/state.json`;
+    
+    // Try to retrieve the state from R2
+    const object = await c.env.PPTX_STORAGE.get(stateKey);
+    
+    if (!object) {
+      return c.json({ error: 'Slide not found' }, 404);
+    }
+    
+    const stateData = await object.json() as any;
+    
+    return c.json({
+      success: true,
+      slideId,
+      snapshot: stateData.snapshot,
+      savedAt: stateData.savedAt
+    });
+    
+  } catch (error) {
+    console.error('❌ Load state error:', error);
+    return c.json({ 
+      error: 'Failed to load slide state',
+      message: (error as Error).message 
+    }, 500);
+  }
+});
+
 // Image serving endpoint from R2
 app.get('/api/images/:filename', async (c: HonoContext) => {
   try {
@@ -274,7 +378,10 @@ console.log('🚀 PPT Paste Worker initialized');
 console.log('📡 Clipboard API: /api/proxy-powerpoint-clipboard?url=<MICROSOFT_URL>');
 console.log('📤 Upload API: /api/upload-pptx (POST with file)');
 console.log('🔄 Process API: /api/process-pptx/:fileId');
+console.log('💾 Save State API: /api/slides/:id/state (POST)');
+console.log('📥 Load State API: /api/slides/:id/state (GET)');
 console.log('🖼️ Images API: /api/images/:filename');
 console.log('🌐 Web app available at root /');
+console.log('🔗 Slides available at /slides/:id');
 
 export default app;

@@ -1,23 +1,153 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { Routes, Route, useParams, useLocation } from 'react-router-dom'
 import { ClipboardParser, type ParsedContent } from 'ppt-paste-parser'
-import TldrawCanvas from './components/TldrawCanvas'
+import TldrawCanvas, { type TldrawCanvasRef } from './components/TldrawCanvas'
 import RawDataPage from './RawDataPage'
 import LoadingScreen from './components/LoadingScreen'
 
 import './App.css'
 
-function App() {
+// Generate a random ID for slides
+const generateSlideId = (): string => {
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+};
+
+// Separate component for the main page
+function MainPage() {
+  const location = useLocation()
+  const { id } = useParams<{ id?: string }>()
   const [currentPage, setCurrentPage] = useState<'main' | 'raw'>('main')
   const [structuredData, setStructuredData] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [loadingMessage, setLoadingMessage] = useState('')
   const [loadingProgress, setLoadingProgress] = useState('')
+  const [currentSlideId, setCurrentSlideId] = useState<string | null>(null)
+  const [initialSnapshot, setInitialSnapshot] = useState<any>(null)
+  const [loadingSlideId, setLoadingSlideId] = useState<string | null>(null)
+  const tldrawCanvasRef = useRef<TldrawCanvasRef>(null)
+
+  // Load slide data if there's an ID in the URL
+  useEffect(() => {
+    if (id) {
+      loadSlideData(id)
+    }
+  }, [id])
 
 
-  const handleStructuredParsed = (data: ParsedContent) => {
+  const loadSlideData = async (slideId: string) => {
+    console.log('🔄 loadSlideData called with slideId:', slideId)
+    
+    // Prevent duplicate calls
+    if (loadingSlideId === slideId) {
+      console.log('🔄 Already loading slideId:', slideId, '- skipping')
+      return
+    }
+    
+    try {
+      setLoadingSlideId(slideId)
+      setIsLoading(true)
+      setLoadingMessage('Loading slide...')
+      setCurrentSlideId(slideId)
+      
+      // First check if we have data in sessionStorage (for clipboard content)
+      const sessionData = sessionStorage.getItem(`slide-data-${slideId}`)
+      console.log('🗂️ SessionStorage data for', slideId, ':', sessionData ? 'Found' : 'Not found')
+      if (sessionData) {
+        const data = JSON.parse(sessionData)
+        console.log('📋 Loading from sessionStorage:', data)
+        setStructuredData({
+          totalComponents: data.slides?.reduce((sum: number, slide: any) => sum + slide.components.length, 0) || 0,
+          componentsByType: data.componentsByType || {},
+          slides: data.slides,
+          slideDimensions: data.slideDimensions,
+          masters: data.masters,
+          layouts: data.layouts,
+          theme: data.theme,
+          slideId: slideId,
+          isFromClipboard: true
+        })
+        setIsLoading(false)
+        return
+      }
+      
+      // Try to load the saved TLDraw state
+      console.log('🌐 Attempting to fetch saved state from /api/slides/', slideId, '/state')
+      const stateResponse = await fetch(`/api/slides/${slideId}/state`)
+      console.log('📡 State response status:', stateResponse.status, stateResponse.ok)
+      
+      if (stateResponse.ok) {
+        const stateData = await stateResponse.json()
+        console.log('💾 Found saved state:', stateData)
+        setInitialSnapshot(stateData.snapshot)
+        setStructuredData({
+          slideId: slideId,
+          savedAt: stateData.savedAt,
+          hasState: true
+        })
+      } else {
+        // If no saved state, try to load the original PPTX file and render it
+        setLoadingMessage('Processing PowerPoint file...')
+        console.log('📄 No saved state, attempting to process PPTX from /api/process-pptx/', slideId)
+        
+        const processResponse = await fetch(`/api/process-pptx/${slideId}`)
+        console.log('📡 Process response status:', processResponse.status, processResponse.ok)
+        
+        if (processResponse.ok) {
+          const processResult = await processResponse.json()
+          console.log('📊 PPTX processing result:', processResult)
+          
+          // Calculate total components and types
+          let totalComponents = 0;
+          const componentsByType: Record<string, number> = {};
+          
+          processResult.slides?.forEach((slide: any) => {
+            totalComponents += slide.components.length;
+            slide.components.forEach((comp: any) => {
+              componentsByType[comp.type] = (componentsByType[comp.type] || 0) + 1;
+            });
+          });
+          
+          setStructuredData({
+            slideId,
+            totalComponents,
+            componentsByType,
+            slides: processResult.slides,
+            slideDimensions: processResult.slideDimensions,
+            masters: processResult.masters,
+            layouts: processResult.layouts,
+            theme: processResult.theme,
+            isFromFile: true
+          })
+        } else {
+          console.log('❌ No PPTX file found for slideId:', slideId)
+          setStructuredData({
+            slideId,
+            error: 'Slide not found - the file may have been deleted or the URL is invalid'
+          })
+        }
+      }
+    } catch (error) {
+      console.error('💥 Error loading slide:', error)
+      setStructuredData({
+        slideId,
+        error: 'Failed to load slide'
+      })
+    } finally {
+      setIsLoading(false)
+      setLoadingSlideId(null)
+    }
+  }
+
+  const handleStructuredParsed = (data: ParsedContent & { fileId?: string }) => {
+    
     setIsLoading(false);
     setLoadingMessage('');
     setLoadingProgress('');
+    
+    // Clear any loaded snapshot since we're loading new content
+    setInitialSnapshot(null);
     
     // Calculate total components and types from all slides
     let totalComponents = 0;
@@ -31,7 +161,13 @@ function App() {
     });
     
     if (data.slides && data.slides.length > 0 && totalComponents > 0) {
-      // We have parsed PowerPoint slides from the server!
+      // Generate slide ID (use fileId from upload or generate random ID for clipboard)
+      const slideId = data.fileId || generateSlideId();
+      
+      // Set the current slide ID to enable Save & Share button
+      setCurrentSlideId(slideId);
+      
+      // Store the content and display it on the main page
       setStructuredData({
         totalComponents,
         componentsByType,
@@ -41,8 +177,11 @@ function App() {
         availableFormats: data.formats.map(f => f.type),
         masters: data.masters,
         layouts: data.layouts,
-        theme: data.theme
+        theme: data.theme,
+        slideId: slideId
       });
+      
+      // Don't change URL automatically - wait for user to click "Save & Share"
     } else if (data.isPowerPoint) {
       // PowerPoint was detected but no components returned
       setStructuredData({
@@ -373,7 +512,7 @@ function App() {
                   {structuredData.slides && structuredData.slides.length > 0 && (
                     <div><strong>📄 Slides:</strong> {structuredData.slides.length}</div>
                   )}
-                  {Object.entries(structuredData.componentsByType).map(([type, count]) => (
+                  {structuredData.componentsByType && Object.entries(structuredData.componentsByType).map(([type, count]) => (
                     <div key={type}>
                       <strong>{getTypeIcon(type) as string} {type}:</strong> {count as number}
                     </div>
@@ -421,12 +560,16 @@ function App() {
       {/* Right Column - Tldraw Canvas */}
       <div style={{ width: '75%', height: '100%' }}>
         <TldrawCanvas 
+          ref={tldrawCanvasRef}
+          key={initialSnapshot ? 'snapshot' : 'slides'} // Force re-mount when snapshot changes
           components={[]} // No longer used, components are in slides
           slides={structuredData?.slides || []}
           slideDimensions={structuredData?.slideDimensions}
           masters={structuredData?.masters}
           layouts={structuredData?.layouts}
           theme={structuredData?.theme}
+          slideId={currentSlideId}
+          initialSnapshot={initialSnapshot}
         />
       </div>
 
@@ -437,6 +580,18 @@ function App() {
         progress={loadingProgress}
       />
     </div>
+  )
+}
+
+
+// Main App component with routing
+function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<MainPage />} />
+      <Route path="/slides/:id" element={<MainPage />} />
+      <Route path="*" element={<MainPage />} />
+    </Routes>
   )
 }
 
