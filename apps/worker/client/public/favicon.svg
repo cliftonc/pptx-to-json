@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Background -->
+  <rect width="32" height="32" rx="6" fill="#D04423"/>
+  
+  <!-- PowerPoint "P" letter -->
+  <path d="M8 6h8c3.314 0 6 2.686 6 6s-2.686 6-6 6h-4v8h-4V6zm4 4v6h4c1.105 0 2-.895 2-2s-.895-2-2-2h-4z" fill="white"/>
+  
+  <!-- Subtle gradient overlay -->
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.1" />
+      <stop offset="100%" style="stop-color:#000000;stop-opacity:0.1" />
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="6" fill="url(#grad)"/>
+</svg>
