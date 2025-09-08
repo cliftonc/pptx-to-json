@@ -5,16 +5,52 @@ import type { Context } from 'hono';
 // Cloudflare Worker environment types
 interface R2Bucket { put(key: string, value: ArrayBuffer | Uint8Array | string, options?: any): Promise<any>; get(key: string): Promise<any>; head?(key: string): Promise<any>; }
 interface Fetcher { fetch(input: RequestInfo | URL | string, init?: RequestInit): Promise<Response>; }
+interface RateLimiter { limit(request: { key: string }): Promise<{ success: boolean }>; }
 
 interface Env {
   PPTX_STORAGE: R2Bucket;
   ASSETS: Fetcher;
+  UPLOAD_RATE_LIMITER: RateLimiter;
+  API_RATE_LIMITER: RateLimiter;
+  GLOBAL_RATE_LIMITER: RateLimiter;
 }
 
 // Type for Hono context with our environment
 type HonoContext = Context<{ Bindings: Env }>;
 
 const app = new Hono<{ Bindings: Env }>();
+
+// Rate limiting middleware
+const createRateLimitMiddleware = (rateLimiter: keyof Env, keyGenerator?: (c: HonoContext) => string) => {
+  return async (c: HonoContext, next: () => Promise<void>) => {
+    const limiter = c.env[rateLimiter] as RateLimiter;
+    
+    // Generate rate limit key (IP address or custom key)
+    const key = keyGenerator ? keyGenerator(c) : c.req.header('cf-connecting-ip') || 'unknown';
+    
+    try {
+      const result = await limiter.limit({ key });
+      
+      if (!result.success) {
+        return c.json(
+          { 
+            error: 'Too Many Requests',
+            message: 'Rate limit exceeded. Please try again later.',
+            retryAfter: 60 
+          }, 
+          429,
+          { 'Retry-After': '60' }
+        );
+      }
+      
+      await next();
+    } catch (error) {
+      // If rate limiter fails, continue without blocking (graceful degradation)
+      console.warn('Rate limiter error:', error);
+      await next();
+    }
+  };
+};
 
 // Initialize clipboard processor with properly bound fetch
 // Note: R2 storage will be passed per request since it comes from the worker context
@@ -44,7 +80,7 @@ interface ErrorResponse {
 }
 
 // Upload PPTX file endpoint
-app.post('/api/upload-pptx', async (c: HonoContext) => {
+app.post('/api/upload-pptx', createRateLimitMiddleware('UPLOAD_RATE_LIMITER'), async (c: HonoContext) => {
   try {
     console.log('📤 Upload PPTX started');
     const formData = await c.req.formData();
@@ -108,7 +144,7 @@ app.post('/api/upload-pptx', async (c: HonoContext) => {
 });
 
 // Process uploaded PPTX file endpoint
-app.get('/api/process-pptx/:fileId', async (c: HonoContext) => {
+app.get('/api/process-pptx/:fileId', createRateLimitMiddleware('API_RATE_LIMITER'), async (c: HonoContext) => {
   try {
     const fileId = c.req.param('fileId');
     const debug = c.req.query('debug') === 'true';
@@ -176,7 +212,7 @@ app.get('/api/process-pptx/:fileId', async (c: HonoContext) => {
 });
 
 // Proxy endpoint for Microsoft PowerPoint clipboard API
-app.get('/api/proxy-powerpoint-clipboard', async (c: HonoContext) => {
+app.get('/api/proxy-powerpoint-clipboard', createRateLimitMiddleware('API_RATE_LIMITER'), async (c: HonoContext) => {
   try {
     const url = c.req.query('url');
     const debug = c.req.query('debug') === 'true';
@@ -221,7 +257,7 @@ app.get('/api/proxy-powerpoint-clipboard', async (c: HonoContext) => {
 });
 
 // Save TLDraw state for a slide
-app.post('/api/slides/:id/state', async (c: HonoContext) => {
+app.post('/api/slides/:id/state', createRateLimitMiddleware('API_RATE_LIMITER'), async (c: HonoContext) => {
   try {
     const slideId = c.req.param('id');
     
@@ -271,7 +307,7 @@ app.post('/api/slides/:id/state', async (c: HonoContext) => {
 });
 
 // Load TLDraw state for a slide
-app.get('/api/slides/:id/state', async (c: HonoContext) => {
+app.get('/api/slides/:id/state', createRateLimitMiddleware('API_RATE_LIMITER'), async (c: HonoContext) => {
   try {
     const slideId = c.req.param('id');
     

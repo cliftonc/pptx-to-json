@@ -4,6 +4,7 @@ import { ClipboardParser, type ParsedContent } from 'ppt-paste-parser'
 import TldrawCanvas, { type TldrawCanvasRef } from './components/TldrawCanvas'
 import RawDataPage from './RawDataPage'
 import LoadingScreen from './components/LoadingScreen'
+import ApiDocumentation from './ApiDocumentation'
 
 import './App.css'
 
@@ -231,8 +232,32 @@ function MainPage() {
         width: '25%', 
         padding: '15px', 
         overflowY: 'auto',
-        borderRight: '1px solid #ddd'
+        borderRight: '1px solid #ddd',
+        position: 'relative',
+        background: '#ffffff',
+        color: '#1f2937'
       }}>
+        {/* Crosshatch Art - Light Pattern */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 0,
+            pointerEvents: 'none',
+            backgroundImage: `
+              repeating-linear-gradient(22.5deg, transparent, transparent 2px, rgba(75, 85, 99, 0.06) 2px, rgba(75, 85, 99, 0.06) 3px, transparent 3px, transparent 8px),
+              repeating-linear-gradient(67.5deg, transparent, transparent 2px, rgba(107, 114, 128, 0.05) 2px, rgba(107, 114, 128, 0.05) 3px, transparent 3px, transparent 8px),
+              repeating-linear-gradient(112.5deg, transparent, transparent 2px, rgba(55, 65, 81, 0.04) 2px, rgba(55, 65, 81, 0.04) 3px, transparent 3px, transparent 8px),
+              repeating-linear-gradient(157.5deg, transparent, transparent 2px, rgba(31, 41, 55, 0.03) 2px, rgba(31, 41, 55, 0.03) 3px, transparent 3px, transparent 8px)
+            `
+          }}
+        />
+        
+        {/* Content wrapper positioned above the background */}
+        <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column' }}>
         <header style={{ 
           textAlign: 'center', 
           marginBottom: '50px', 
@@ -249,7 +274,8 @@ function MainPage() {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: '30px'
+            marginBottom: '30px',
+            gap: '10px'
           }}>
             <a 
               href="https://github.com/cliftonc/ppt-paste" 
@@ -267,7 +293,8 @@ function MainPage() {
                 fontSize: '14px',
                 fontWeight: '500',
                 transition: 'all 0.2s ease',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                flex: '0 0 auto'
               }}
               onMouseOver={(e) => {
                 e.currentTarget.style.backgroundColor = '#32383f';
@@ -291,66 +318,68 @@ function MainPage() {
               GitHub
             </a>
             
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <a
-                href="/presentation4.pptx"
-                download
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '10px 16px',
-                  backgroundColor: '#28a745',
-                  color: 'white',
-                  textDecoration: 'none',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  transition: 'all 0.2s ease',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor = '#218838';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                  e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.backgroundColor = '#28a745';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                }}
-              >
-                📄 Sample PPTX
-              </a>
+            <a
+              href="/presentation4.pptx"
+              download
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 16px',
+                backgroundColor: '#28a745',
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                flex: '0 0 auto'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = '#218838';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = '#28a745';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+              }}
+            >
+              📄 Sample
+            </a>
 
-              <button 
-                onClick={() => setCurrentPage('raw')}
-                style={{
-                  padding: '10px 16px',
-                  backgroundColor: '#6c757d',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  transition: 'all 0.2s ease',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor = '#5a6268';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                  e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.backgroundColor = '#6c757d';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                }}
-              >
-                Extractor
-              </button>
-            </div>
+            <a
+              href="/docs"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 16px',
+                backgroundColor: '#17a2b8',
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                flex: '0 0 auto'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = '#138496';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = '#17a2b8';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+              }}
+            >
+              📚 Docs
+            </a>
           </div>
 
           {/* Main header content */}
@@ -556,6 +585,39 @@ function MainPage() {
           </div>
         )}
         </div>
+        
+        {/* Extract button at bottom */}
+        <div style={{ marginTop: 'auto', paddingTop: '20px' }}>
+          <button 
+            onClick={() => setCurrentPage('raw')}
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.backgroundColor = '#5a6268';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+              e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = '#6c757d';
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+            }}
+          >
+            🛠️ Extractor (Developer Tool)
+          </button>
+        </div>
+        </div>
       </div>
 
       {/* Right Column - Tldraw Canvas */}
@@ -591,6 +653,7 @@ function App() {
     <Routes>
       <Route path="/" element={<MainPage />} />
       <Route path="/slides/:id" element={<MainPage />} />
+      <Route path="/docs" element={<ApiDocumentation />} />
       <Route path="*" element={<MainPage />} />
     </Routes>
   )
