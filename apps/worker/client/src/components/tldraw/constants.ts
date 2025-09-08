@@ -27,6 +27,23 @@ export const FONT_SIZE_OPTIONS = [
   { label: '72pt', value: '72pt' },
 ] as const
 
+// Color options for text toolbar
+export const COLOR_OPTIONS = [
+  { label: 'Default', value: 'DEFAULT', color: '#000000' },
+  { label: 'Black', value: '#000000', color: '#000000' },
+  { label: 'Grey', value: '#6b7280', color: '#6b7280' },
+  { label: 'Light Violet', value: '#c084fc', color: '#c084fc' },
+  { label: 'Violet', value: '#8b5cf6', color: '#8b5cf6' },
+  { label: 'Blue', value: '#3b82f6', color: '#3b82f6' },
+  { label: 'Light Blue', value: '#06b6d4', color: '#06b6d4' },
+  { label: 'Yellow', value: '#eab308', color: '#eab308' },
+  { label: 'Orange', value: '#f97316', color: '#f97316' },
+  { label: 'Green', value: '#22c55e', color: '#22c55e' },
+  { label: 'Light Green', value: '#84cc16', color: '#84cc16' },
+  { label: 'Light Red', value: '#fb7185', color: '#fb7185' },
+  { label: 'Red', value: '#ef4444', color: '#ef4444' },
+] as const
+
 // Slide layout constants
 export const SLIDE_LAYOUT = {
   SLIDE_SPACING: 200,
