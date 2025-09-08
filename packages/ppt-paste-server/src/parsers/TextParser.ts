@@ -3,7 +3,7 @@
  */
 
 import { BaseParser } from './BaseParser.js';
-import { TextComponent, XMLNode, TextRun, ComponentStyle, FillInfo, BorderInfo, GeometryInfo } from '../types/index.js';
+import { TextComponent, XMLNode, TextRun, ComponentStyle, FillInfo, BorderInfo, GeometryInfo, PlaceholderMap } from '../types/index.js';
 import { TextBodyNode, ParagraphNode, RunNode } from '../types/xml-nodes.js';
 import { ShapeParser } from './ShapeParser.js';
 
@@ -54,13 +54,17 @@ export class TextParser extends BaseParser {
    * @param textComponent - Normalized text component
    * @param componentIndex - Component index
    * @param slideIndex - Slide index
+   * @param placeholders - Optional placeholder positions from layout/master
+   * @param masterStyles - Optional master styles for font size inheritance
    * @returns Parsed text component
    */
   static async parseFromNormalized(
     textComponent: NormalizedTextComponent,
     componentIndex: number,
     slideIndex: number,
-    zIndex: number
+    zIndex: number,
+    placeholders?: PlaceholderMap,
+    masterStyles?: { titleStyle?: XMLNode, bodyStyle?: XMLNode }
   ): Promise<TextComponent | null> {
     const { textBody, spPr, nvSpPr, namespace } = textComponent;
     
@@ -136,7 +140,43 @@ export class TextParser extends BaseParser {
 
     // Extract positioning from spPr (namespace-agnostic since we stripped them)
     const xfrm = this.getNode(spPr, 'xfrm');
-    const transform = this.parseTransform(xfrm as any);
+    let transform = this.parseTransform(xfrm as any);
+
+    // Check if this element references a layout placeholder and use its position if element has no position
+    if (placeholders && (transform.x === 0 && transform.y === 0 && transform.width === 0 && transform.height === 0)) {
+      // Look for placeholder reference in nvSpPr
+      const nvPr = this.getNode(nvSpPr, 'nvPr');
+      const ph = this.getNode(nvPr, 'ph');
+      
+      if (ph) {
+        let placeholderPos: any = null;
+        
+        // First try to lookup by idx attribute
+        const idx = this.getString(ph, '$idx') || this.getString(ph, 'idx');
+        if (idx && placeholders[idx]) {
+          placeholderPos = placeholders[idx];
+        }
+        
+        // If no match by idx, try lookup by type
+        if (!placeholderPos) {
+          const type = this.getString(ph, '$type') || this.getString(ph, 'type');
+          if (type && placeholders[`type:${type}`]) {
+            placeholderPos = placeholders[`type:${type}`];
+          }
+        }
+        
+        // Apply the found placeholder position
+        if (placeholderPos) {
+          transform = {
+            x: placeholderPos.x,
+            y: placeholderPos.y,
+            width: placeholderPos.width,
+            height: placeholderPos.height,
+            rotation: transform.rotation || 0
+          };
+        }
+      }
+    }
 
     // Extract component info from nvSpPr
     const cNvPr = this.getNode(nvSpPr, 'cNvPr');
@@ -148,10 +188,21 @@ export class TextParser extends BaseParser {
     const paragraphsArray = Array.isArray(paragraphs) ? paragraphs : [paragraphs];
     let dominantFont = { family: 'Arial', size: 18, weight: 'normal', style: 'normal', color: '#000000', decoration: 'none' };
     
+    // Check for placeholder type to inherit master styles
+    let placeholderType: string | null = null;
+    if (nvSpPr && masterStyles) {
+      const nvPr = this.getNode(nvSpPr, 'nvPr');
+      const ph = this.getNode(nvPr, 'ph');
+      if (ph) {
+        placeholderType = this.getString(ph, '$type') || this.getString(ph, 'type');
+      }
+    }
+    
     // Extract text alignment from paragraph properties
     const textAlignment = this.extractTextAlignment(paragraphsArray);
     
     // Find first non-empty run with formatting
+    let foundExplicitFont = false;
     for (const paragraph of paragraphsArray) {
       if (paragraph?.['r']) {
         const runs = Array.isArray(paragraph['r']) ? paragraph['r'] : [paragraph['r']];
@@ -161,11 +212,46 @@ export class TextParser extends BaseParser {
             const rPr = this.getNode(run, 'rPr');
             if (rPr) {
               dominantFont = this.parseFont(rPr);
+              // Check if we found explicit formatting (not just defaults)
+              if (rPr.$sz || dominantFont.size !== 12) {
+                foundExplicitFont = true;
+              }
               break;
             }
           }
         }
-        if (dominantFont.family !== 'Arial') break;
+        if (foundExplicitFont || dominantFont.family !== 'Arial') break;
+      }
+    }
+    
+    // If no explicit font size found, inherit from master styles based on placeholder type
+    if (!foundExplicitFont && masterStyles && placeholderType) {
+      if (placeholderType === 'title' && masterStyles.titleStyle) {
+        const titleFontSize = this.extractMasterStyleFontSize(masterStyles.titleStyle);
+        if (titleFontSize > 0) {
+          dominantFont.size = titleFontSize;
+        }
+      } else if ((placeholderType === 'body' || !placeholderType) && masterStyles.bodyStyle) {
+        const bodyFontSize = this.extractMasterStyleFontSize(masterStyles.bodyStyle);
+        if (bodyFontSize > 0) {
+          dominantFont.size = bodyFontSize;
+        }
+      }
+    }
+    
+    // For content placeholders without explicit type, also try body style
+    if (!foundExplicitFont && masterStyles && !placeholderType && nvSpPr) {
+      const nvPr = this.getNode(nvSpPr, 'nvPr');
+      const ph = this.getNode(nvPr, 'ph');
+      if (ph) {
+        const idx = this.getString(ph, '$idx') || this.getString(ph, 'idx');
+        // idx="1" typically means content placeholder (body style)
+        if (idx === '1' && masterStyles.bodyStyle) {
+          const bodyFontSize = this.extractMasterStyleFontSize(masterStyles.bodyStyle);
+          if (bodyFontSize > 0) {
+            dominantFont.size = bodyFontSize;
+          }
+        }
       }
     }
 
@@ -561,6 +647,26 @@ export class TextParser extends BaseParser {
     return textNode;
   }
   
+  /**
+   * Extract font size from master style (titleStyle or bodyStyle)
+   * @param style - Master style XML node
+   * @returns font size in points, or 0 if not found
+   */
+  static extractMasterStyleFontSize(style: XMLNode): number {
+    // Look for lvl1pPr > defRPr > sz attribute
+    const lvl1pPr = this.getNode(style, 'lvl1pPr') || this.getNode(style, 'a:lvl1pPr');
+    if (lvl1pPr) {
+      const defRPr = this.getNode(lvl1pPr, 'defRPr') || this.getNode(lvl1pPr, 'a:defRPr');
+      if (defRPr) {
+        const sz = this.getNumber(defRPr, '$sz', 0) || this.getNumber(defRPr, 'sz', 0);
+        if (sz > 0) {
+          return this.fontSizeToPoints(sz);
+        }
+      }
+    }
+    return 0;
+  }
+
   /**
    * Extract text alignment from paragraph properties
    * @param paragraphsArray - Array of paragraphs

@@ -2,7 +2,7 @@
   "metadata": {
     "name": "slide-with-background",
     "description": "PowerPoint content: slide-with-background",
-    "downloadedAt": "2025-09-07T04:19:05.951Z",
+    "downloadedAt": "2025-09-08T12:00:32.379Z",
     "size": 726899,
     "contentType": "application/octet-stream",
     "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=a3d720ae-7209-4e26-b576-cee7c2e58deb&amp;DC=GEU8&amp;pkey=f2736a41-88a3-4bb3-826c-f8dadb74a0b2&amp;wdwaccluster=GEU8&amp;DataType=shape"
@@ -128,16 +128,7 @@
         "isTextBox": true,
         "originalFormat": "normalized",
         "paragraphCount": 1,
-        "hasMultipleRuns": false,
-        "flattenedRuns": [
-          {
-            "text": "Explanations to incorrect answers",
-            "style": {
-              "fontWeight": "bold",
-              "fontSize": 22
-            }
-          }
-        ]
+        "hasMultipleRuns": false
       }
     },
     {
@@ -167,36 +158,51 @@
         "type": "doc",
         "content": [
           {
-            "type": "paragraph",
+            "type": "bulletList",
             "content": [
               {
-                "type": "text",
-                "text": "On wrong answers, compare the user’s response to the correct answer, topic theory, and the question, then explain the mistake",
-                "marks": [
+                "type": "listItem",
+                "content": [
                   {
-                    "type": "textStyle",
-                    "attrs": {
-                      "fontSize": "12pt",
-                      "color": "#FFFFFF"
-                    }
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "On wrong answers, compare the user’s response to the correct answer, topic theory, and the question, then explain the mistake",
+                        "marks": [
+                          {
+                            "type": "textStyle",
+                            "attrs": {
+                              "fontSize": "12pt",
+                              "color": "#FFFFFF"
+                            }
+                          }
+                        ]
+                      }
+                    ]
                   }
                 ]
-              }
-            ]
-          },
-          {
-            "type": "paragraph",
-            "content": [
+              },
               {
-                "type": "text",
-                "text": "Over 80%+ thumbs-up rating on explanations",
-                "marks": [
+                "type": "listItem",
+                "content": [
                   {
-                    "type": "textStyle",
-                    "attrs": {
-                      "fontSize": "12pt",
-                      "color": "#FFFFFF"
-                    }
+                    "type": "paragraph",
+                    "content": [
+                      {
+                        "type": "text",
+                        "text": "Over 80%+ thumbs-up rating on explanations",
+                        "marks": [
+                          {
+                            "type": "textStyle",
+                            "attrs": {
+                              "fontSize": "12pt",
+                              "color": "#FFFFFF"
+                            }
+                          }
+                        ]
+                      }
+                    ]
                   }
                 ]
               }
@@ -209,24 +215,7 @@
         "isTextBox": true,
         "originalFormat": "normalized",
         "paragraphCount": 2,
-        "hasMultipleRuns": false,
-        "flattenedRuns": [
-          {
-            "text": "On wrong answers, compare the user’s response to the correct answer, topic theory, and the question, then explain the mistake",
-            "style": {
-              "fontSize": 12
-            }
-          },
-          {
-            "text": " "
-          },
-          {
-            "text": "Over 80%+ thumbs-up rating on explanations",
-            "style": {
-              "fontSize": 12
-            }
-          }
-        ]
+        "hasMultipleRuns": false
       }
     },
     {
@@ -275,20 +264,25 @@
           }
         ]
       },
+      "backgroundShape": {
+        "type": "rectangle",
+        "fill": {
+          "type": "solid",
+          "color": "#000000",
+          "opacity": 1
+        },
+        "geometry": {
+          "type": "rectangle",
+          "preset": "rect",
+          "isCustom": false
+        }
+      },
       "metadata": {
         "namespace": "a",
         "isTextBox": false,
         "originalFormat": "normalized",
         "paragraphCount": 1,
-        "hasMultipleRuns": false,
-        "flattenedRuns": [
-          {
-            "text": "STUDYGO",
-            "style": {
-              "fontSize": 10
-            }
-          }
-        ]
+        "hasMultipleRuns": false
       }
     }
   ],

@@ -7,7 +7,7 @@
  */
 
 // Component types that can be parsed from PowerPoint
-export type ComponentType = 'text' | 'shape' | 'image' | 'table' | 'video' | 'connection' | 'any';
+export type ComponentType = 'text' | 'shape' | 'image' | 'table' | 'video' | 'connection' | 'diagram' | 'any';
 
 // Shared base component properties
 export interface PowerPointComponentBase {
@@ -31,6 +31,7 @@ export type PowerPointComponent =
   | ShapeComponent
   | ImageComponent
   | TableComponent
+  | DiagramComponent
   | VideoComponent
   | ConnectionComponent
   | UnknownComponent;
@@ -104,6 +105,68 @@ export interface TableComponent extends PowerPointComponentBase {
   type: 'table';
   rows?: TableRow[];
   columns?: number;
+}
+
+// SmartArt data point representing a node in the diagram
+export interface SmartArtDataPoint {
+  modelId: string;
+  type?: string;
+  content?: string;
+  parentId?: string;
+  children?: string[];
+  connections?: SmartArtConnection[];
+  presentationData?: Record<string, any>;
+}
+
+// SmartArt connection between data points
+export interface SmartArtConnection {
+  connectionId: string;
+  type: string;
+  sourceId: string;
+  destinationId: string;
+  sourceOrder?: number;
+  destinationOrder?: number;
+}
+
+// SmartArt visual shape element
+export interface SmartArtShape {
+  modelId: string;
+  shapeType: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation?: number;
+  fill?: FillInfo;
+  border?: BorderInfo;
+  effects?: any[];
+  textContent?: string;
+  textStyle?: ComponentStyle;
+}
+
+// SmartArt layout information
+export interface SmartArtLayout {
+  layoutType: string;
+  layoutCategory?: string;
+  colorScheme?: string;
+  quickStyle?: string;
+  hierarchy?: SmartArtDataPoint[];
+}
+
+// Enhanced diagram component that can represent SmartArt with full structure
+export interface DiagramComponent extends PowerPointComponentBase {
+  type: 'diagram';
+  diagramType?: string;
+  title?: string;
+  // Enhanced SmartArt properties
+  smartArtData?: {
+    dataPoints: SmartArtDataPoint[];
+    connections: SmartArtConnection[];
+    shapes: SmartArtShape[];
+    layout: SmartArtLayout;
+  };
+  // Individual components extracted from the SmartArt
+  extractedComponents?: PowerPointComponent[];
 }
 
 // Video-specific component
@@ -322,4 +385,18 @@ export interface TipTapTableNode {
 export interface TipTapDocumentNode {
   type: 'doc';
   content: (TipTapTableNode | TipTapParagraphNode)[];
+}
+
+// Placeholder position information for layout inheritance
+export interface PlaceholderPosition {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  type?: string; // 'title', 'body', 'dt', 'ftr', 'sldNum', etc.
+}
+
+// Map from placeholder idx to position information
+export interface PlaceholderMap {
+  [idx: string]: PlaceholderPosition;
 }

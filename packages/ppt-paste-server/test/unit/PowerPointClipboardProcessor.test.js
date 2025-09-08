@@ -71,7 +71,7 @@ describe('PowerPointClipboardProcessor', () => {
       // Create a buffer that doesn't have ZIP signature
       const nonZipBuffer = Buffer.from('This is not a ZIP file')
       const result = await processor.parseClipboardBuffer(nonZipBuffer)
-      expect(result).toEqual({ slides: [], totalComponents: 0, format: 'unknown' })
+      expect(result).toEqual({ slides: [], totalComponents: 0, format: 'unknown', layouts: {}, masters: {} })
     })
 
     it('should detect ZIP signature correctly', async () => {
@@ -287,13 +287,13 @@ describe('PowerPointClipboardProcessor Edge Cases', () => {
     it('should handle empty buffer', async () => {
       const emptyBuffer = Buffer.alloc(0)
       const result = await processor.parseClipboardBuffer(emptyBuffer)
-      expect(result).toEqual({ slides: [], totalComponents: 0, format: 'unknown' })
+      expect(result).toEqual({ slides: [], totalComponents: 0, format: 'unknown', layouts: {}, masters: {} })
     })
 
     it('should handle buffer with partial ZIP signature', async () => {
       const partialZipBuffer = Buffer.from([0x50, 0x4B]) // Only first 2 bytes
       const result = await processor.parseClipboardBuffer(partialZipBuffer)
-      expect(result).toEqual({ slides: [], totalComponents: 0, format: 'unknown' })
+      expect(result).toEqual({ slides: [], totalComponents: 0, format: 'unknown', layouts: {}, masters: {} })
     })
 
     it('should handle very large buffer metadata', async () => {
@@ -314,11 +314,13 @@ describe('PowerPointClipboardProcessor Edge Cases', () => {
       vi.spyOn(processor.powerPointParser, 'parseJson').mockResolvedValue({
         slides: [],
         totalComponents: 0,
-        format: 'unknown'
+        format: 'unknown',
+        layouts: {},
+        masters: {}
       })
       
       const result = await processor.parseClipboardBuffer(largeBuffer)
-      expect(result).toEqual({ slides: [], totalComponents: 0, format: 'unknown' })
+      expect(result).toEqual({ slides: [], totalComponents: 0, format: 'unknown', layouts: {}, masters: {} })
     })
   })
 

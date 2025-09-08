@@ -33,11 +33,9 @@ export async function renderShapeComponent(
 
   const scale = 1;
   
-  // Detect if this is a background shape
-  const isBackgroundShape = (component.x === 0 && component.y === 0 && 
-                            (component.content?.includes("Background") ||
-                             component.id?.includes("Background") ||
-                             (component.zIndex != null && component.zIndex < -100))) && 
+  // Only treat as background shape if explicitly marked as such
+  const isBackgroundShape = (component.content?.includes("Background") ||
+                            component.id?.includes("Background")) && 
                            frameDimensions;
 
   let shapeX = component.x || 0;

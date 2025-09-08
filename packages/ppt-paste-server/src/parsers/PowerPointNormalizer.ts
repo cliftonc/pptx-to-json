@@ -295,6 +295,13 @@ export class PowerPointNormalizer {
       // Skip shapes with actual text content (they're handled in extractPPTXText)
       if (sp['txBody'] && this.hasTextContent(sp['txBody'])) continue;
       
+      // Check if this shape uses background fill (design element)
+      const useBgFill = sp['$useBgFill'] === '1' || sp['useBgFill'] === '1' || sp['$useBgFill'] === 1 || sp['useBgFill'] === 1;
+      
+      
+      // Skip shapes that use background fill as they are typically design elements
+      if (useBgFill) continue;
+      
       shapes.push({
         type: 'shape',
         namespace: 'p',
@@ -616,9 +623,7 @@ export class PowerPointNormalizer {
 
     // Process all child elements in their original order
     // This preserves the back-to-front ordering from PowerPoint XML
-    console.log('DEBUG: extractOrderedElements - spTree keys:', Object.keys(spTree));
     for (const [key, value] of Object.entries(spTree)) {
-      console.log('DEBUG: processing key:', key);
       if (key === 'sp') {
         // Handle shapes and text boxes
         const spArray = this.ensureArray(value);
@@ -640,6 +645,14 @@ export class PowerPointNormalizer {
             // Shape element (non-text)
             // Skip text boxes (they're handled above)
             if (sp['nvSpPr'] && sp['nvSpPr']['cNvSpPr'] && sp['nvSpPr']['cNvSpPr']['$txBox']) continue;
+            
+            // Check if this shape uses background fill (design element)
+            const useBgFill = sp['$useBgFill'] === '1' || sp['useBgFill'] === '1' || sp['$useBgFill'] === 1 || sp['useBgFill'] === 1;
+            
+            
+            // Skip shapes that use background fill as they are typically design elements
+            // that should not be rendered as regular shapes
+            if (useBgFill) continue;
             
             elements.push({
               type: 'shape',
@@ -704,6 +717,17 @@ export class PowerPointNormalizer {
           if (uri === 'http://schemas.openxmlformats.org/drawingml/2006/table') {
             elements.push({
               type: 'table',
+              zIndex: zIndex++,
+              namespace: 'p',
+              element: 'graphicFrame',
+              data: graphicFrame,
+              nvGraphicFramePr: graphicFrame['nvGraphicFramePr'],
+              spPr: graphicFrame['xfrm'], // Use xfrm for positioning
+              graphicData: graphicData
+            });
+          } else if (uri === 'http://schemas.openxmlformats.org/drawingml/2006/diagram') {
+            elements.push({
+              type: 'diagram',
               zIndex: zIndex++,
               namespace: 'p',
               element: 'graphicFrame',
@@ -839,6 +863,17 @@ export class PowerPointNormalizer {
           if (uri === 'http://schemas.openxmlformats.org/drawingml/2006/table') {
             elements.push({
               type: 'table',
+              zIndex: zIndex++,
+              namespace: 'p',
+              element: 'graphicFrame',
+              data: graphicFrame,
+              nvGraphicFramePr: graphicFrame['nvGraphicFramePr'],
+              spPr: graphicFrame['xfrm'], // Use xfrm for positioning
+              graphicData: graphicData
+            });
+          } else if (uri === 'http://schemas.openxmlformats.org/drawingml/2006/diagram') {
+            elements.push({
+              type: 'diagram',
               zIndex: zIndex++,
               namespace: 'p',
               element: 'graphicFrame',

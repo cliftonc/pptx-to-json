@@ -109,6 +109,7 @@ export async function renderImageComponent(
         x,
         y,
         rotation: component.rotation ? degreesToRadians(component.rotation) : 0,
+        opacity: component.style?.opacity ?? component.style?.fillOpacity ?? 1,
         props: {
           assetId,
           w: width,

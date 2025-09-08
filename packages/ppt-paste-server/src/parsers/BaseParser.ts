@@ -106,12 +106,12 @@ export class BaseParser {
     // Scheme color (theme colors) - use static theme colors if available, fallback to defaults
     if (colorDef["schemeClr"]) {
       const val = colorDef["schemeClr"].$val;
-      
+
       // Try to use static theme colors if set
       if (this.currentThemeColors && this.currentThemeColors[val]) {
         return this.currentThemeColors[val];
       }
-      
+
       // Fallback to static defaults if no theme data available
       const defaultSchemeColors: Record<string, string> = {
         dk1: "#000000", // Dark 1
@@ -543,5 +543,28 @@ export class BaseParser {
       if (s === '0' || s === 'false' || s === 'no') return false;
     }
     return fallback;
+  }
+
+  /**
+   * Check if a color is white or near-white (should be treated as transparent background)
+   * @param color - Hex color string
+   * @returns true if color should be treated as no background
+   */
+  static isWhiteOrNearWhite(color: string | undefined): boolean {
+    if (!color || color === 'transparent') return true;
+
+    // Common white/near-white colors that should be treated as no background
+    const whiteColors = [
+      '#FFFFFF', // Pure white (bg1, lt1)
+      '#E7E6E6', // Light gray (bg2, lt2) - appears as light violet
+      '#FEFEFE', // Near white
+      '#F8F8F8', // Very light gray
+      '#F5F5F5', // Another light gray
+      '#EEEEEE', // Light gray variant
+      '#F0F0F0', // Another light gray variant
+    ];
+
+    const upperColor = color.toUpperCase();
+    return whiteColors.includes(upperColor);
   }
 }

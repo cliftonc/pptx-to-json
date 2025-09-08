@@ -1,6 +1,25 @@
 # PowerPoint Paste Parser - Implementation Summary
 
+## Development Workflow
+
+You can use the log-bin command on either an extracted clipboard file (these are stored in `packages/ppt-paste-server/test/test-harness/fixtures`), or any pptx file.
+
+```
+pnpm log-bin <filename>        # Parse binary file from fixtures/
+pnpm log-bin bullets.pptx       # Example: parse bullets.bin
+pnpm log-bin bullets.pptx --slide 1       # Example: limit output to slide 1
+pnpm log-bin bullets.bin --debug  # Example: with debug output
+```
+
+To test changes you are making you simply re-run the log-bin to see the output and it should be modified.
+
 ## Key Files
+
+**`/packages/ppt-paste-server/src/index.ts`** - Library exports for the main server component and TypeScript interfaces.
+
+**`/packages/ppt-paste-server/src/parsers`** - Individual parsers for sections of powerpoint (text, shape, image, video, table)
+
+**`/packages/ppt-paste-server/src/processors`** - Core processor for PPTX (or clipboard).  Clipboard content is actually the same structure, just with a different namespace - solved via the normalizer - and without a slide master / layout.
 
 **`/packages/ppt-paste-parser/src/ClipboardParser.tsx`** - Main React component that handles clipboard paste events, detects PowerPoint cloud service metadata, extracts Microsoft API URLs, and calls the worker server to get parsed components.
 
@@ -12,13 +31,13 @@
 
 ## Project Overview
 
-PowerPoint Component Parser that extracts structured data from PowerPoint clipboard operations. The system intercepts PowerPoint paste operations, calls Microsoft's internal APIs, and parses the Office Open XML format to provide detailed component analysis.
-
-## Current Status
-
-The system detects PowerPoint clipboard data, extracts Microsoft API URLs from clipboard metadata, calls Microsoft's GetClipboardBytes API via proxy server, downloads and extracts Office Open XML (ZIP format), parses PowerPoint drawing XML to extract structured components, and displays component details, positions, and content.
+PowerPoint Component Parser that extracts structured data from PowerPoint files and clipboard paste operations. For pasting from Clipboard, the system intercepts PowerPoint paste operations, calls Microsoft's internal APIs, and parses the Office Open XML format to provide detailed component analysis.
 
 ## System Architecture
+
+### Server-Side Library (`packages/ppt-paste-server/`)
+- Full parsing of both pptx and clipboard files
+- This is where key logic and complexity lives
 
 ### Client-Side Library (`packages/ppt-paste-parser/`)
 - Minimal implementation that detects PowerPoint data, calls worker server, and returns structured components
@@ -51,38 +70,6 @@ The system extracts:
 5. Metadata: Additional component information
 6. IDs: Unique component identifiers
 
-Example: Currently parsing 13 components from test PowerPoint data.
-
-## Workflow
-
-```
-1. User copies content in PowerPoint
-   ↓
-2. User pastes in browser → Clipboard API captures data
-   ↓
-3. Client detects PowerPoint cloud service metadata
-   ↓
-4. Extracts Microsoft GetClipboardBytes API URL
-   ↓
-5. Calls worker server: http://localhost:3001/api/proxy-powerpoint-clipboard
-   ↓
-6. Worker server fetches from Microsoft API (11,607 bytes binary data)
-   ↓
-7. Detects Office Open XML format (ZIP signature: 50 4B 03 04)
-   ↓
-8. Extracts ZIP contents:
-   - [Content_Types].xml (542 bytes)
-   - clipboard/drawings/drawing1.xml (84,766 bytes) ← Main data
-   - clipboard/theme/theme1.xml (6,690 bytes)
-   - + relationship files
-   ↓
-9. Parses drawing1.xml → Extracts 13 PowerPoint components
-   ↓
-10. Returns structured JSON to client
-    ↓
-11. UI displays all components with details
-```
-
 ## File Structure
 
 ```
@@ -94,6 +81,8 @@ ppt-paste/
 │   │   └── dist/                       # Built library
 │   └── ppt-paste-server/               # Server parsing logic
 │       └── src/                        # ZIP/XML parsing, PowerPoint parsers
+│           └── parsers/                # invididual element parsing
+│           └── processors/             # Processing of pptx or clipboard
 ├── apps/worker/                        # Cloudflare Worker app
 │   ├── client/                         # Client application
 │   │   ├── src/                        # React components, TLDraw integration
@@ -122,10 +111,6 @@ pnpm dev
 ```bash
 # Build everything and deploy to Cloudflare
 pnpm deploy
-
-# Or step by step:
-pnpm build     # Build library + client
-pnpm --filter worker deploy  # Deploy to Cloudflare Workers
 ```
 
 ### Usage
@@ -142,10 +127,10 @@ pnpm --filter worker deploy  # Deploy to Cloudflare Workers
 - Handles authentication and CORS via Cloudflare Worker
 
 ### Office Open XML Processing
-- ZIP extraction from binary clipboard data using pptx2json library
+- ZIP extraction from binary clipboard data or pptx file using jszip library
 - PowerPoint drawing XML format parsing with specialized component parsers
 - Component positions, sizes, and content extraction with modular parser architecture
-- Proper handling of clipboard format (`a:txSp` structure) vs full file format
+- Proper handling of ppt format (`a:txSp` or `p:txSp` structure) vs full file format
 
 ### Parser Architecture
 
@@ -157,11 +142,6 @@ pnpm --filter worker deploy  # Deploy to Cloudflare Workers
 - **ImageParser.js**: Images with data URL extraction and effects
 - **TableParser.js**: Tables with cell structure and formatting
 
-**Key Technical Breakthrough**: 
-- Clipboard format uses `a:txSp[0].a:txBody` structure (not `p:txBody`)
-- PowerPointParser extracts nested `a:txBody` and maps to TextParser's expected format
-- Enables reliable text vs shape classification from clipboard data
-
 ### Architecture
 - **Modular Parser System**: Specialized parsers for different component types (TextParser, ShapeParser, ImageParser, TableParser)
 - **Clipboard Format Support**: Proper detection and handling of PowerPoint clipboard structure (`a:txSp` → `a:txBody`)
@@ -170,43 +150,6 @@ pnpm --filter worker deploy  # Deploy to Cloudflare Workers
 - **Server-side processing**: Client delegates parsing to Cloudflare Worker for better performance
 - **Edge deployment**: Runs on Cloudflare's global edge network for low latency
 
-### User Experience
-- Real-time processing with loading states
-- Visual component type indicators (icons, colors)
-- Structured display of position, size, and content data
-- Error handling and debugging information
-
-## Results
-
-Current system capabilities:
-- **Accurate Component Classification**: Properly identifies text vs shapes from clipboard data
-- **Comprehensive Style Extraction**: Font families, sizes, colors, borders, fills for all component types
-- **Canvas-Ready Coordinates**: Positions and dimensions in pixel units suitable for rendering
-- **Rich Text Analysis**: Full text content with per-run styling and formatting
-- **Enhanced Shape Parsing**: 100+ shape types with proper geometry and styling
-- **Modular Architecture**: Clean separation of concerns with specialized parsers
-
-Example parsing results:
-- 3 components from clipboard: 2 text, 1 shape (correctly classified)
-- Exact positions in PowerPoint coordinate system converted to pixels
-- Complete styling data for both text and shape components
-- Structured display with visual component indicators in demo UI
-
-## Recent Improvements
-
-1. **✅ Enhanced XML Parsing**: Modular parser architecture with specialized parsers for each component type
-2. **✅ Style Information**: Comprehensive parsing of font, color, border, and formatting data for all component types
-3. **✅ Component Classification**: Reliable text vs shape detection handling clipboard format differences
-
-## Future Enhancements
-
-1. **Image Extraction**: Extract embedded images from PowerPoint data with proper base64 encoding
-2. **Animation Data**: Extract PowerPoint animation information and timing
-3. **Multiple Slides**: Support for full slide deck parsing beyond clipboard data
-4. **Export Options**: Save parsed data to JSON/CSV formats
-5. **Advanced Styling**: Shadow effects, gradients, and complex formatting
-6. **Table Enhancements**: Better table structure parsing and cell formatting
-
 ## Development Commands
 
 ```bash
@@ -214,25 +157,11 @@ Example parsing results:
 pnpm dev                        # Start worker + client dev servers
 
 # Building
-pnpm build:lib                  # Build ppt-paste-parser library
 pnpm build                      # Build library + client app
 pnpm deploy                     # Build + deploy to Cloudflare Workers
 
-# Client-specific
-pnpm --filter worker dev:client    # Run only client dev server
-pnpm --filter worker build:client  # Build only client app
-
-# Worker-specific
-pnpm --filter worker dev        # Run only worker dev server
-pnpm --filter worker deploy     # Deploy worker to Cloudflare
-
 # Type checking
-pnpm --filter ppt-paste-parser tsc --noEmit
-
-# Debug PowerPoint binary files
-pnpm log-bin <filename>        # Parse binary file from fixtures/
-pnpm log-bin bullets.bin       # Example: parse bullets.bin
-pnpm log-bin bullets.bin --debug  # Example: with debug output
+pnpm type-check
 ```
 
 ## Dependencies
@@ -255,13 +184,3 @@ pnpm log-bin bullets.bin --debug  # Example: with debug output
 - ppt-paste-parser (local)
 
 ---
-
-## Status
-
-The PowerPoint Component Parser is operational and parsing real PowerPoint data into structured components. The system provides an end-to-end solution for extracting and analyzing PowerPoint clipboard content.
-
-Date: September 2, 2025
-- **✅ App Consolidation**: Combined demo and worker into single deployment
-- **✅ TLDraw Integration**: Visual canvas rendering with slideshow mode
-- **✅ Cloudflare Deployment**: Edge-deployed worker with R2 storage
-- When we later want to create pptx use pptxgenjs

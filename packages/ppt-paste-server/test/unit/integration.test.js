@@ -35,7 +35,7 @@ describe('Integration Tests with Fixtures', () => {
     it('should handle empty fixture gracefully', async () => {
       const emptyBuffer = Buffer.alloc(0)
       const result = await processor.parseClipboardBuffer(emptyBuffer)
-      expect(result).toEqual({ slides: [], totalComponents: 0, format: 'unknown' })
+      expect(result).toEqual({ slides: [], totalComponents: 0, format: 'unknown', layouts: {}, masters: {} })
     })
   })
 

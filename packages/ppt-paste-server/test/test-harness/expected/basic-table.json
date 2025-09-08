@@ -2,7 +2,7 @@
   "metadata": {
     "name": "basic-table",
     "description": "PowerPoint content: basic-table",
-    "downloadedAt": "2025-09-03T17:28:10.286Z",
+    "downloadedAt": "2025-09-08T12:00:32.351Z",
     "size": 3987,
     "contentType": "application/octet-stream",
     "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=c97e5941-a729-44a8-b0a6-d79cde53e6f0&amp;DC=GEU7&amp;pkey=45f6d3d6-68aa-41e4-bbcf-77dfaf021d8b&amp;wdwaccluster=GEU7&amp;DataType=shape"
@@ -17,7 +17,8 @@
       "width": 288,
       "height": 139,
       "rotation": 0,
-      "slideIndex": 1,
+      "slideIndex": 0,
+      "zIndex": 0,
       "style": {
         "fontSize": 80,
         "fontFamily": "Arial",
@@ -43,7 +44,8 @@
                   {
                     "type": "textStyle",
                     "attrs": {
-                      "fontSize": "80pt"
+                      "fontSize": "80pt",
+                      "color": "#4EA72E"
                     }
                   }
                 ]
@@ -52,14 +54,29 @@
           }
         ]
       },
+      "backgroundShape": {
+        "type": "rectangle",
+        "border": {
+          "type": "solid",
+          "color": "#4472C4",
+          "width": 0,
+          "style": "solid",
+          "cap": "flat",
+          "compound": "sng"
+        },
+        "geometry": {
+          "type": "rectangle",
+          "preset": "rect",
+          "isCustom": false
+        }
+      },
       "metadata": {
         "namespace": "a",
         "isTextBox": true,
         "originalFormat": "normalized",
         "paragraphCount": 1,
         "hasMultipleRuns": false
-      },
-      "zIndex": 0
+      }
     }
   ],
   "componentCount": 1,

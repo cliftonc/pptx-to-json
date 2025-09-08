@@ -2,7 +2,7 @@
   "metadata": {
     "name": "blue-star",
     "description": "PowerPoint content: blue-star",
-    "downloadedAt": "2025-09-03T17:28:10.270Z",
+    "downloadedAt": "2025-09-08T12:00:32.335Z",
     "size": 3932,
     "contentType": "application/octet-stream",
     "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=5f8e6ec3-b5ae-4778-90ba-9b2ffa41f627&DC=GEU7&pkey=29a6fdf8-6a33-41a2-8e91-53663f0da38d&wdwaccluster=GEU7&DataType=shape"
@@ -17,18 +17,23 @@
       "width": 114,
       "height": 92,
       "rotation": 0,
-      "slideIndex": 1,
+      "slideIndex": 0,
+      "zIndex": 0,
       "style": {
         "fillColor": "#44546A",
         "borderColor": "#4472C4",
-        "borderWidth": 1,
+        "borderWidth": 0,
         "borderStyle": "solid",
         "fillOpacity": 1,
         "rotation": 0,
         "effects": []
       },
       "shapeType": "5-point star",
-      "geometry": "star5",
+      "geometry": {
+        "type": "5-point star",
+        "preset": "star5",
+        "isCustom": false
+      },
       "metadata": {
         "namespace": "a",
         "geometry": {
@@ -41,8 +46,7 @@
         "hasEffects": false,
         "hasFill": true,
         "hasBorder": true
-      },
-      "zIndex": 0
+      }
     }
   ],
   "componentCount": 1,

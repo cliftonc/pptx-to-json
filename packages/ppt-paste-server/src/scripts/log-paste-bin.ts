@@ -2,9 +2,9 @@
 
 /**
  * Log Paste Binary Script
- * 
+ *
  * Loads PowerPoint clipboard data from a binary file and parses it to show components.
- * 
+ *
  * Usage:
  *   node scripts/log-paste-bin.js <binary-file-path>
  *   node scripts/log-paste-bin.js test-harness/fixtures/orange-rectangle.bin
@@ -13,10 +13,25 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { PowerPointClipboardProcessor } from '../dist/processors/PowerPointClipboardProcessor.js'
+import { PowerPointClipboardProcessor } from '../processors/PowerPointClipboardProcessor.js'
+import { Formatter, EolStyle } from 'fracturedjsonjs';
+
+const formatter = new Formatter();
+formatter.maxInlineLength = 200;
+formatter.maxInlineComplexity = 10;
+formatter.maxCompactArrayComplexity = 10;
+formatter.tableObjectMinimumSimilarity = 30;
+formatter.tableArrayMinimumSimilarity = 50;
+formatter.jsonEolStyle = EolStyle.Crlf;
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+
+// Dense JSON printer function
+function printDenseJSON(obj) {
+  const jsonString = formatter.serialize(obj);
+  console.log(jsonString);
+}
 
 // Helper function to truncate individual values for display
 function truncateValue(value) {
@@ -24,7 +39,7 @@ function truncateValue(value) {
   if (value == null) {
     return value
   }
-  
+
   // Handle arrays
   if (Array.isArray(value)) {
     if (value.length === 0) {
@@ -35,7 +50,7 @@ function truncateValue(value) {
       return `[${value.slice(0, 3).map(v => truncateValue(v)).join(', ')}, ... +${value.length - 3} more]`
     }
   }
-  
+
   // Handle objects
   if (typeof value === 'object') {
     const keys = Object.keys(value)
@@ -49,13 +64,13 @@ function truncateValue(value) {
       return `{${entries}, ... +${keys.length - 2} more keys}`
     }
   }
-  
+
   // Handle strings
   if (typeof value === 'string') {
     if (value.length <= 100) {
       return value
     }
-    
+
     // Check if it's a data URL or base64 string
     if (value.startsWith('data:') || value.match(/^[A-Za-z0-9+/]+=*$/)) {
       return value.substring(0, 100) + '...'
@@ -67,7 +82,7 @@ function truncateValue(value) {
       return value.substring(0, 100) + '...'
     }
   }
-  
+
   // Handle other primitives (numbers, booleans, etc.)
   return value
 }
@@ -75,16 +90,16 @@ function truncateValue(value) {
 function truncateForLogging(components) {
   return components.map(component => {
     const truncated = { ...component }
-    
+
     // Truncate content field if it's longer than 100 characters
     if (truncated.content && truncated.content.length > 100) {
       truncated.content = truncated.content.substring(0, 100) + '...'
     }
-    
+
     // Enhanced base64 and URL truncation in metadata
     if (truncated.metadata) {
       truncated.metadata = { ...truncated.metadata }
-      
+
       // Truncate any field that looks like a base64 data URL or long URL
       Object.keys(truncated.metadata).forEach(key => {
         const value = truncated.metadata[key]
@@ -102,7 +117,7 @@ function truncateForLogging(components) {
         }
       })
     }
-    
+
     // Also check style object for long values
     if (truncated.style) {
       truncated.style = { ...truncated.style }
@@ -113,17 +128,17 @@ function truncateForLogging(components) {
         }
       })
     }
-    
+
     // Truncate src property (common for images with data URLs)
     if (truncated.src && typeof truncated.src === 'string' && truncated.src.length > 100) {
       truncated.src = truncated.src.substring(0, 100) + '...'
     }
-    
+
     // Truncate alt property if it's unusually long
     if (truncated.alt && typeof truncated.alt === 'string' && truncated.alt.length > 100) {
       truncated.alt = truncated.alt.substring(0, 100) + '...'
     }
-    
+
     return truncated
   })
 }
@@ -131,7 +146,7 @@ function truncateForLogging(components) {
 async function logPasteBinary() {
   // Parse command line arguments
   const args = process.argv.slice(2)
-  
+
   if (args.length < 1) {
     console.log('❌ Usage: node scripts/log-paste-bin.js <filename> [--debug] [--slide N]')
     console.log('📝 Example: node scripts/log-paste-bin.js orange-rectangle.bin')
@@ -143,7 +158,7 @@ async function logPasteBinary() {
 
   const [filename] = args
   const debugMode = args.includes('--debug')
-  
+
   // Parse --slide parameter
   let targetSlide = null
   const slideIndex = args.findIndex(arg => arg === '--slide')
@@ -154,25 +169,25 @@ async function logPasteBinary() {
       process.exit(1)
     }
   }
-  
+
   // Auto-prepend fixtures path if just filename is provided
-  const filePath = filename.includes('/') 
+  const filePath = filename.includes('/')
     ? filename  // Full path provided
     : `test/test-harness/fixtures/${filename}`  // Just filename, prepend fixtures path
-  
+
   // Resolve path relative to script location
-  const resolvedPath = path.isAbsolute(filePath) 
-    ? filePath 
+  const resolvedPath = path.isAbsolute(filePath)
+    ? filePath
     : path.join(__dirname, '..', filePath)
-    
+
   console.log('📁 Binary file:', resolvedPath)
-  
+
   try {
     // Step 1: Load the binary file
     console.log('\n📥 Step 1: Loading binary file...')
     const buffer = await fs.readFile(resolvedPath)
     console.log('✅ Loaded:', buffer.length, 'bytes')
-    
+
     // Detect file type
     const fileSignature = buffer.subarray(0, 4)
     const isZip = fileSignature[0] === 0x50 && fileSignature[1] === 0x4B
@@ -185,11 +200,11 @@ async function logPasteBinary() {
     // Step 2: Parse the data to get components
     console.log('\n🔄 Step 2: Parsing PowerPoint data...')
     const result = await processor.parseClipboardBuffer(buffer, { debug: debugMode })
-    
+
     // Extract components from the new slide-based structure
     const components = []
     let slidesToProcess = result.slides || []
-    
+
     // Filter to specific slide if requested
     if (targetSlide !== null) {
       console.log(`🎯 Filtering to slide ${targetSlide}`)
@@ -202,7 +217,7 @@ async function logPasteBinary() {
         return
       }
     }
-    
+
     if (slidesToProcess) {
       slidesToProcess.forEach(slide => {
         if (slide.components) {
@@ -210,7 +225,7 @@ async function logPasteBinary() {
         }
       })
     }
-    
+
     console.log('✅ Parsed:', components.length, 'components')
 
     // Debug: Output full parsed JSON immediately if debug mode is enabled
@@ -225,7 +240,13 @@ async function logPasteBinary() {
             layoutId: targetSlideData.layoutId,
             componentCount: targetSlideData.components?.length || 0
           })
-          
+
+          // Show raw normalized XML for the slide
+          if ((targetSlideData as any).rawSpTree) {
+            console.log('\n🐛 DEBUG: Raw normalized slide XML (spTree):')
+            console.log(JSON.stringify((targetSlideData as any).rawSpTree, null, 2))
+          }
+
           // Show masters/layouts data only for this specific slide if available
           if (result.masters && result.masters.length > 0) {
             console.log('\n🐛 DEBUG: Masters (relevant to slide):')
@@ -243,7 +264,7 @@ async function logPasteBinary() {
         console.log(JSON.stringify(result.layouts, null, 2))
       }
       console.log(`\n🐛 DEBUG: Full parsed JSON output${targetSlide !== null ? ` (Slide ${targetSlide} only)` : ''}:`)
-      console.log(JSON.stringify(truncateForLogging(components), null, 2))
+      console.log(printDenseJSON(truncateForLogging(components)))
     }
 
     if (components.length === 0) {
@@ -260,11 +281,11 @@ async function logPasteBinary() {
     console.log(`\n📊 Component types found${targetSlide !== null ? ` (Slide ${targetSlide} only)` : ''}:`, componentTypes)
 
     console.log(`\n🔧 Full JSON Output${targetSlide !== null ? ` (Slide ${targetSlide} only)` : ''}:`)
-    console.log(JSON.stringify(truncateForLogging(components), null, 2))
+    console.log(printDenseJSON(truncateForLogging(components)))
 
   } catch (error) {
     console.error('\n❌ Error processing binary file:', error.message)
-    
+
     if (error.code === 'ENOENT') {
       console.log('💡 File not found. Check that the path is correct:')
       console.log('   Resolved path:', resolvedPath)
@@ -273,14 +294,14 @@ async function logPasteBinary() {
     } else if (error.message.includes('ZIP')) {
       console.log('💡 The file appears to be corrupted or not a valid Office Open XML format')
     }
-    
+
     console.error('📋 Stack trace:', error.stack)
     process.exit(1)
   }
 }
 
 // Enhanced error handling
-process.on('unhandledRejection', (error) => {
+process.on('unhandledRejection', (error: Error) => {
   console.error('❌ Unhandled error:', error.message)
   process.exit(1)
 })

@@ -18,7 +18,8 @@ import {
   validatePixelRange 
 } from '../utils/constants.js';
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
-import type { XMLNode } from '../types/index.js';
+import { BaseParser } from '../parsers/BaseParser.js';
+import type { XMLNode, PlaceholderMap, PlaceholderPosition } from '../types/index.js';
 
 // Parser and builder option types
 interface XMLParserOptions {
@@ -719,6 +720,15 @@ export class PPTXParser {
       // });
       
       if (solidFill || gradFill || pattFill) {
+        // Check if solid fill is white/near-white and should be skipped
+        if (solidFill) {
+          const color = BaseParser.parseColor(solidFill);
+          if (BaseParser.isWhiteOrNearWhite(color)) {
+            // Skip white/near-white backgrounds - treat as no background
+            return null;
+          }
+        }
+        
         // Calculate background dimensions in EMUs
         const widthEmu = slideDimensions ? pixelsToEmu(slideDimensions.width) : DEFAULT_SLIDE_WIDTH_EMU;
         const heightEmu = slideDimensions ? pixelsToEmu(slideDimensions.height) : DEFAULT_SLIDE_HEIGHT_EMU;
@@ -876,6 +886,118 @@ export class PPTXParser {
     }
     
     return false;
+  }
+
+  /**
+   * Extract placeholder definitions from a layout or master file
+   */
+  getPlaceholderDefinitions(json: PPTXJson, layoutFile: string): PlaceholderMap {
+    const placeholders: PlaceholderMap = {};
+    
+    
+    if (!json[layoutFile]) {
+      console.log(`❌ Layout file not found: ${layoutFile}`);
+      return placeholders;
+    }
+    
+    try {
+      const layoutData = json[layoutFile] as XMLNode;
+      const layout = layoutData['p:sldLayout'] || layoutData['sldLayout'] || 
+                    layoutData['p:sldMaster'] || layoutData['sldMaster'] || layoutData;
+      if (!layout) return placeholders;
+      
+      const cSld = layout['p:cSld'] || layout['cSld'];
+      if (!cSld) return placeholders;
+      
+      const spTree = cSld['p:spTree'] || cSld['spTree'];
+      if (!spTree) return placeholders;
+      
+      // Process shapes that have placeholder definitions
+      const processPlaceholders = (elementArray: XMLNode | XMLNode[] | undefined) => {
+        if (!elementArray) return;
+        const arr = Array.isArray(elementArray) ? elementArray : [elementArray];
+        
+        arr.forEach(element => {
+          if (element && typeof element === 'object') {
+            // Look for placeholder definition
+            const nvSpPr = element['p:nvSpPr'] || element['nvSpPr'];
+            const nvPr = nvSpPr?.['p:nvPr'] || nvSpPr?.['nvPr'];
+            const ph = nvPr?.['p:ph'] || nvPr?.['ph'];
+            
+            if (ph) {
+              // Extract idx and type attributes
+              const idx = ph.$idx || ph.idx;
+              const type = ph.$type || ph.type || 'content';
+              
+              // Extract position from spPr
+              const spPr = element['p:spPr'] || element['spPr'];
+              const xfrm = spPr?.['p:xfrm'] || spPr?.['xfrm'] || spPr?.['a:xfrm'];
+              
+              if (xfrm) {
+                const off = xfrm['p:off'] || xfrm['off'] || xfrm['a:off'];
+                const ext = xfrm['p:ext'] || xfrm['ext'] || xfrm['a:ext'];
+                
+                if (off && ext) {
+                  const x = emuToPixels(parseInt(off.$x || off.x || '0'));
+                  const y = emuToPixels(parseInt(off.$y || off.y || '0'));
+                  const width = emuToPixels(parseInt(ext.$cx || ext.cx || '0'));
+                  const height = emuToPixels(parseInt(ext.$cy || ext.cy || '0'));
+                  
+                  const placeholderData = {
+                    x,
+                    y,
+                    width,
+                    height,
+                    type
+                  };
+                  
+                  
+                  // Only store placeholder if it has meaningful position/size data
+                  // This prevents layout placeholders without position from overriding master placeholders
+                  if (x !== 0 || y !== 0 || width !== 0 || height !== 0) {
+                    
+                    // Store by idx if it exists
+                    if (idx !== undefined && idx !== null) {
+                      placeholders[String(idx)] = placeholderData;
+                    }
+                    
+                    // Also store by type for lookup when idx is not available
+                    placeholders[`type:${type}`] = placeholderData;
+                    
+                    // Debug logging for stored placeholders
+                    if (layoutFile.includes('slideMaster3.xml') || layoutFile.includes('slideLayout12.xml')) {
+                    }
+                  } else {
+                    // Debug logging for skipped placeholders
+                    if (layoutFile.includes('slideLayout12.xml') && type === 'title') {
+                    }
+                  }
+                }
+              }
+            }
+          }
+        });
+      };
+      
+      // Process shapes (handle both namespaced and non-namespaced)
+      processPlaceholders(spTree['p:sp'] || spTree['sp']);
+      
+      // Process group shapes
+      const grpSp = spTree['p:grpSp'] || spTree['grpSp'];
+      if (grpSp) {
+        const grpArray = Array.isArray(grpSp) ? grpSp : [grpSp];
+        grpArray.forEach(grp => {
+          const sp = grp['p:sp'] || grp['sp'];
+          if (sp) processPlaceholders(sp);
+        });
+      }
+      
+      return placeholders;
+      
+    } catch (error) {
+      console.warn(`Error extracting placeholder definitions from ${layoutFile}:`, error);
+      return placeholders;
+    }
   }
 }
 

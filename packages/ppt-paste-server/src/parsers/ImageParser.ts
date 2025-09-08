@@ -78,6 +78,11 @@ export class ImageParser extends BaseParser {
       }
     }
 
+    // Skip WMF/EMF files - these are often decorative background elements
+    if (imageFormat === 'wmf' || imageFormat === 'emf') {
+      return null;
+    }
+
     // Parse image effects using existing method
     const effects = ImageParser.parseImageEffects(blipFill);
 

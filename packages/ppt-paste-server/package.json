@@ -23,10 +23,11 @@
     "test:run": "vitest run",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
-    "download-fixtures": "node scripts/download-fixtures.js",
-    "add-test-case": "node scripts/add-test-case.js",
-    "log-paste": "node scripts/log-paste.js",
-    "validate-samples": "node scripts/validate-samples.js"
+    "log-bin": "tsx src/scripts/log-paste-bin.ts",
+    "regenerate-test-cases": "tsx src/scripts/regenerate-test-cases.ts",
+    "download-fixtures": "node src/scripts/download-fixtures.js",
+    "add-test-case": "node src/scripts/add-test-case.js",
+    "validate-samples": "node src/scripts/validate-samples.js"
   },
   "dependencies": {
     "fast-xml-parser": "^5.2.5",
@@ -38,7 +39,10 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@vitest/coverage-v8": "^1.6.0",
-    "typescript": "^5.0.0",
+    "fracturedjsonjs": "^2.2.1",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
     "vitest": "^1.6.0"
   },
   "engines": {

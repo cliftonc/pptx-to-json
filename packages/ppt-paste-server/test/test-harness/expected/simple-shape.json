@@ -2,7 +2,7 @@
   "metadata": {
     "name": "simple-shape",
     "description": "Basic geometric shape from PowerPoint",
-    "downloadedAt": "2025-09-03T17:28:10.262Z",
+    "downloadedAt": "2025-09-08T12:00:32.326Z",
     "size": 4219,
     "contentType": "application/octet-stream",
     "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=7b278b8c-0c5b-4785-ad7d-0f5711b9bd5b&DC=GEU7&pkey=4568ec4f-90a8-4227-87dc-9ec5e93ee121&wdwaccluster=GEU7&DataType=shape"
@@ -17,7 +17,8 @@
       "width": 1019,
       "height": 68,
       "rotation": 0,
-      "slideIndex": 1,
+      "slideIndex": 0,
+      "zIndex": 0,
       "style": {
         "fontSize": 36,
         "fontFamily": "Arial",
@@ -46,7 +47,8 @@
                   {
                     "type": "textStyle",
                     "attrs": {
-                      "fontSize": "36pt"
+                      "fontSize": "36pt",
+                      "color": "#E97132"
                     }
                   }
                 ]
@@ -61,8 +63,7 @@
         "originalFormat": "normalized",
         "paragraphCount": 1,
         "hasMultipleRuns": false
-      },
-      "zIndex": 0
+      }
     },
     {
       "id": "TextBox 4",
@@ -73,7 +74,8 @@
       "width": 288,
       "height": 139,
       "rotation": 0,
-      "slideIndex": 1,
+      "slideIndex": 0,
+      "zIndex": 1,
       "style": {
         "fontSize": 80,
         "fontFamily": "Arial",
@@ -99,7 +101,8 @@
                   {
                     "type": "textStyle",
                     "attrs": {
-                      "fontSize": "80pt"
+                      "fontSize": "80pt",
+                      "color": "#4EA72E"
                     }
                   }
                 ]
@@ -108,14 +111,29 @@
           }
         ]
       },
+      "backgroundShape": {
+        "type": "rectangle",
+        "border": {
+          "type": "solid",
+          "color": "#4472C4",
+          "width": 0,
+          "style": "solid",
+          "cap": "flat",
+          "compound": "sng"
+        },
+        "geometry": {
+          "type": "rectangle",
+          "preset": "rect",
+          "isCustom": false
+        }
+      },
       "metadata": {
         "namespace": "a",
         "isTextBox": true,
         "originalFormat": "normalized",
         "paragraphCount": 1,
         "hasMultipleRuns": false
-      },
-      "zIndex": 1
+      }
     }
   ],
   "componentCount": 2,

@@ -7,12 +7,13 @@ import { TextParser } from './TextParser.js';
 import { ShapeParser } from './ShapeParser.js';
 import { ImageParser } from './ImageParser.js';
 import { TableParser } from './TableParser.js';
+import { DiagramParser } from './DiagramParser.js';
 import { VideoParser } from './VideoParser.js';
 import { ConnectorParser } from './ConnectorParser.js';
 import { BaseParser } from './BaseParser.js';
-import type { PowerPointComponent, ConnectionComponent } from '../types/index.js';
+import type { PowerPointComponent, ConnectionComponent, PlaceholderMap, XMLNode } from '../types/index.js';
 
-import { isTextElement, isShapeElement, isImageElement, isTableElement, isVideoElement, isConnectionElement, type NormalizedTextElement, type NormalizedShapeElement, type NormalizedImageElement, type NormalizedTableElement, type NormalizedVideoElement, type NormalizedConnectionElement, type MediaFiles, type RelationshipGraph, type NormalizedSlide } from '../types/normalized.js';
+import { isTextElement, isShapeElement, isImageElement, isTableElement, isDiagramElement, isVideoElement, isConnectionElement, type NormalizedTextElement, type NormalizedShapeElement, type NormalizedImageElement, type NormalizedTableElement, type NormalizedDiagramElement, type NormalizedVideoElement, type NormalizedConnectionElement, type MediaFiles, type RelationshipGraph, type NormalizedSlide } from '../types/normalized.js';
 
 interface R2BucketLike {
   put?(key: string, value: any, options?: any): Promise<any> | any;
@@ -42,6 +43,8 @@ interface ParsedMaster {
   background?: PowerPointComponent;
   components: PowerPointComponent[];
   sourceFile: string;
+  placeholders?: PlaceholderMap;
+  textStyles?: { titleStyle?: XMLNode, bodyStyle?: XMLNode };
 }
 
 interface ParsedLayout {
@@ -51,6 +54,7 @@ interface ParsedLayout {
   background?: PowerPointComponent;
   components: PowerPointComponent[];
   sourceFile: string;
+  placeholders?: PlaceholderMap;
 }
 
 interface ParsedSlide {
@@ -76,6 +80,8 @@ interface ParsedResult {
 
 export class PowerPointParser extends BaseParser {
   private normalizer: PowerPointNormalizer;
+  private json: any;
+  private normalizedJson: any;
 
   constructor() {
     super();
@@ -87,6 +93,11 @@ export class PowerPointParser extends BaseParser {
    */
   async parseJson(json: any, options: ParseOptions = {}): Promise<ParsedResult> {
     const { debug = false, r2Storage = null } = options;
+    
+    // Store both raw and normalized json for access in component parsers
+    this.json = json;
+    // Strip namespaces from the entire JSON structure for DiagramParser access
+    this.normalizedJson = this.normalizer.stripNamespaces(json);
     
     try {
       // if (debug) console.log('Processing PowerPoint JSON data...');
@@ -108,13 +119,22 @@ export class PowerPointParser extends BaseParser {
       const layouts: Record<string, ParsedLayout> = {};
       let globalComponentIndex = 0;
       
-      // Process masters
+      
+      // Process masters and layouts directly from available files
       const masterFiles = new Set<string>();
       const layoutFiles = new Set<string>();
-      normalized.slides.forEach(slide => {
-        if (slide.masterFile) masterFiles.add(slide.masterFile);
-        if (slide.layoutFile) layoutFiles.add(slide.layoutFile);
+      
+      // Find all master and layout files directly from JSON
+      const allFiles = Object.keys(json);
+      allFiles.forEach(filePath => {
+        if (filePath.startsWith('ppt/slideMasters/') && filePath.endsWith('.xml')) {
+          masterFiles.add(filePath);
+        }
+        if (filePath.startsWith('ppt/slideLayouts/') && filePath.endsWith('.xml')) {
+          layoutFiles.add(filePath);
+        }
       });
+      
       
       // Extract master definitions
       if (normalized.format === 'pptx' && json) {
@@ -129,17 +149,67 @@ export class PowerPointParser extends BaseParser {
         const masterSlides = new Map<string, NormalizedSlide>();
         const layoutSlides = new Map<string, NormalizedSlide>();
         
-        // Identify master and layout slides from the normalized data
-        normalized.slides.forEach(slide => {
-          if (slide.masterFile && slide.elements.some(el => el.isMasterElement)) {
-            masterSlides.set(slide.masterFile, slide);
+        // Process all available layout files directly using PPTXParser
+        for (const layoutFile of layoutFiles) {
+          try {
+            const layoutElements = pptxParser.getSlideLayoutElements(json, layoutFile, normalized.slideDimensions);
+            // Always process the layout, even if it has no elements, because it might have placeholders
+            const layoutSlide: NormalizedSlide = {
+              slideFile: layoutFile,
+              format: 'pptx',
+              shapes: [],
+              images: [],
+              text: [],
+              videos: [],
+              elements: layoutElements.map(el => ({
+                type: el.type as any,
+                zIndex: el.zIndex,
+                namespace: 'p',
+                element: 'sp',
+                data: el.data,
+                isLayoutElement: true
+              })),
+              layoutFile,
+              masterFile: null
+            };
+            layoutSlides.set(layoutFile, layoutSlide);
+          } catch (error) {
+            console.warn(`Failed to process layout ${layoutFile}:`, error);
           }
-          if (slide.layoutFile && slide.elements.some(el => el.isLayoutElement)) {
-            layoutSlides.set(slide.layoutFile, slide);
-          }
-        });
+        }
         
-        // Process master definitions using normalized data
+        // Process all available master files directly using PPTXParser
+        for (const masterFile of masterFiles) {
+          try {
+            const masterElements = pptxParser.getSlideMasterElements(json, masterFile, normalized.slideDimensions);
+            if (masterElements.length > 0) {
+              // Create a synthetic normalized slide for this master
+              const masterSlide: NormalizedSlide = {
+                slideFile: masterFile,
+                format: 'pptx',
+                shapes: [],
+                images: [],
+                text: [],
+                videos: [],
+                elements: masterElements.map(el => ({
+                  type: el.type as any,
+                  zIndex: el.zIndex,
+                  namespace: 'p',
+                  element: 'sp',
+                  data: el.data,
+                  isMasterElement: true
+                })),
+                layoutFile: null,
+                masterFile
+              };
+              masterSlides.set(masterFile, masterSlide);
+            }
+          } catch (error) {
+            console.warn(`Failed to process master ${masterFile}:`, error);
+          }
+        }
+
+        // Process master definitions using loaded data
         for (const [masterFile, masterSlide] of masterSlides) {
           const masterId = masterFile.replace('ppt/slideMasters/', '').replace('.xml', '');
           const masterComponents: PowerPointComponent[] = [];
@@ -154,7 +224,12 @@ export class PowerPointParser extends BaseParser {
             if (element.isBackgroundElement) {
               // if (debug) console.log(`Processing master background element`);
               if (isShapeElement(element)) {
-                masterBackground = await this.parseUnifiedShapeComponent(element, relationships, mediaFiles, globalComponentIndex++, 0, -2000, { debug });
+                const bgComponent = await this.parseUnifiedShapeComponent(element, relationships, mediaFiles, globalComponentIndex++, 0, -2000, { debug, isMasterOrLayout: true });
+                // Only set as background if it's not a white/near-white background
+                // Exception: Always allow image backgrounds regardless of fill color
+                if (bgComponent && (bgComponent.type === 'image' || (bgComponent.style?.fillColor && !BaseParser.isWhiteOrNearWhite(bgComponent.style.fillColor)))) {
+                  masterBackground = bgComponent;
+                }
               }
               continue;
             }
@@ -164,11 +239,19 @@ export class PowerPointParser extends BaseParser {
             if (isTextElement(element)) {
               component = await this.parseUnifiedTextComponent(element, globalComponentIndex++, 0, element.zIndex, { debug });
             } else if (isShapeElement(element)) {
-              component = await this.parseUnifiedShapeComponent(element, relationships, mediaFiles, globalComponentIndex++, 0, element.zIndex, { debug });
+              component = await this.parseUnifiedShapeComponent(element, relationships, mediaFiles, globalComponentIndex++, 0, element.zIndex, { debug, isMasterOrLayout: true });
             } else if (isImageElement(element)) {
               component = await this.parseUnifiedImageComponent(element, relationships, mediaFiles, globalComponentIndex++, 0, element.zIndex, { debug, r2Storage });
             } else if (isTableElement(element)) {
               component = await this.parseUnifiedTableComponent(element, relationships, mediaFiles, globalComponentIndex++, 0, element.zIndex, { debug });
+            } else if (isDiagramElement(element)) {
+              const diagramResult = await this.parseUnifiedDiagramComponent(element, relationships, mediaFiles, globalComponentIndex++, 0, element.zIndex, { debug });
+              if (Array.isArray(diagramResult)) {
+                masterComponents.push(...diagramResult);
+                continue;
+              } else {
+                component = diagramResult;
+              }
             } else if (isVideoElement(element)) {
               component = await this.parseUnifiedVideoComponent(element, relationships, mediaFiles, globalComponentIndex++, 0, element.zIndex, { debug, r2Storage });
             } else if (isConnectionElement(element)) {
@@ -180,12 +263,20 @@ export class PowerPointParser extends BaseParser {
             }
           }
           
+          // Extract placeholder definitions from master
+          const masterPlaceholders = pptxParser.getPlaceholderDefinitions(json, masterFile);
+          
+          // Extract text styles (txStyles) from master
+          const masterStyles = this.extractMasterTextStyles(json, masterFile);
+          
           masters[masterFile] = {
             id: masterId,
             name: `Master ${masterId}`,
             background: masterBackground,
             components: masterComponents,
-            sourceFile: masterFile
+            sourceFile: masterFile,
+            placeholders: masterPlaceholders,
+            textStyles: masterStyles
           };
           
           if (debug) {
@@ -216,7 +307,12 @@ export class PowerPointParser extends BaseParser {
             if (element.isBackgroundElement) {
               // if (debug) console.log(`Processing layout background element`);
               if (isShapeElement(element)) {
-                layoutBackground = await this.parseUnifiedShapeComponent(element, relationships, mediaFiles, globalComponentIndex++, 0, -1000, { debug });
+                const bgComponent = await this.parseUnifiedShapeComponent(element, relationships, mediaFiles, globalComponentIndex++, 0, -1000, { debug, isMasterOrLayout: true });
+                // Only set as background if it's not a white/near-white background
+                // Exception: Always allow image backgrounds regardless of fill color
+                if (bgComponent && (bgComponent.type === 'image' || (bgComponent.style?.fillColor && !BaseParser.isWhiteOrNearWhite(bgComponent.style.fillColor)))) {
+                  layoutBackground = bgComponent;
+                }
               }
               continue;
             }
@@ -226,11 +322,19 @@ export class PowerPointParser extends BaseParser {
             if (isTextElement(element)) {
               component = await this.parseUnifiedTextComponent(element, globalComponentIndex++, 0, element.zIndex, { debug });
             } else if (isShapeElement(element)) {
-              component = await this.parseUnifiedShapeComponent(element, relationships, mediaFiles, globalComponentIndex++, 0, element.zIndex, { debug });
+              component = await this.parseUnifiedShapeComponent(element, relationships, mediaFiles, globalComponentIndex++, 0, element.zIndex, { debug, isMasterOrLayout: true });
             } else if (isImageElement(element)) {
               component = await this.parseUnifiedImageComponent(element, relationships, mediaFiles, globalComponentIndex++, 0, element.zIndex, { debug, r2Storage });
             } else if (isTableElement(element)) {
               component = await this.parseUnifiedTableComponent(element, relationships, mediaFiles, globalComponentIndex++, 0, element.zIndex, { debug });
+            } else if (isDiagramElement(element)) {
+              const diagramResult = await this.parseUnifiedDiagramComponent(element, relationships, mediaFiles, globalComponentIndex++, 0, element.zIndex, { debug });
+              if (Array.isArray(diagramResult)) {
+                layoutComponents.push(...diagramResult);
+                continue;
+              } else {
+                component = diagramResult;
+              }
             } else if (isVideoElement(element)) {
               component = await this.parseUnifiedVideoComponent(element, relationships, mediaFiles, globalComponentIndex++, 0, element.zIndex, { debug, r2Storage });
             } else if (isConnectionElement(element)) {
@@ -242,13 +346,17 @@ export class PowerPointParser extends BaseParser {
             }
           }
           
+          // Extract placeholder definitions from layout
+          const layoutPlaceholders = pptxParser.getPlaceholderDefinitions(json, layoutFile);
+          
           layouts[layoutFile] = {
             id: layoutId,
             name: `Layout ${layoutId}`,
             masterId,
             background: layoutBackground,
             components: layoutComponents,
-            sourceFile: layoutFile
+            sourceFile: layoutFile,
+            placeholders: layoutPlaceholders
           };
           
           if (debug) {
@@ -274,6 +382,23 @@ export class PowerPointParser extends BaseParser {
         const layoutId = slide.layoutFile ? slide.layoutFile.replace('ppt/slideLayouts/', '').replace('.xml', '') : undefined;
         let localComponentIndex = 0;
         
+        // Build combined placeholder map for this slide (master → layout inheritance)
+        let combinedPlaceholders: PlaceholderMap = {};
+        let masterStyles: { titleStyle?: XMLNode, bodyStyle?: XMLNode } | undefined;
+        if (slide.layoutFile && layouts[slide.layoutFile]) {
+          const layout = layouts[slide.layoutFile];
+          // Start with master placeholders if layout has a master
+          if (layout.masterId && slide.masterFile && masters[slide.masterFile]) {
+            combinedPlaceholders = { ...masters[slide.masterFile].placeholders || {} };
+            // Extract master text styles for font inheritance
+            masterStyles = masters[slide.masterFile].textStyles;
+          }
+          // Override with layout-specific placeholders
+          if (layout.placeholders) {
+            combinedPlaceholders = { ...combinedPlaceholders, ...layout.placeholders };
+          }
+        }
+        
         // Note: Slide backgrounds are already extracted during normalization as elements with isBackgroundElement=true
         
         // Process components in their original z-order if available
@@ -288,7 +413,9 @@ export class PowerPointParser extends BaseParser {
             // Handle slide-specific background
             if (element.isBackgroundElement && !element.isMasterElement && !element.isLayoutElement) {
               const bgComponent = await this.parseElementToComponent(element, normalized.relationships, normalized.mediaFiles, globalComponentIndex++, slideNumber - 1, -500, { debug, r2Storage });
-              if (bgComponent) {
+              // Only set as background if it's not a white/near-white background
+              // Exception: Always allow image backgrounds regardless of fill color
+              if (bgComponent && (bgComponent.type === 'image' || (bgComponent.style?.fillColor && !BaseParser.isWhiteOrNearWhite(bgComponent.style.fillColor)))) {
                 slideBackground = bgComponent;
                 slideComponents.push(bgComponent);
                 components.push(bgComponent);
@@ -304,7 +431,7 @@ export class PowerPointParser extends BaseParser {
                 globalComponentIndex++,
                 slideNumber - 1,
                 element.zIndex,
-                { debug }
+                { debug, placeholders: combinedPlaceholders, masterStyles }
               );
             } else if (isShapeElement(element)) {
               component = await this.parseUnifiedShapeComponent(
@@ -314,7 +441,7 @@ export class PowerPointParser extends BaseParser {
                 globalComponentIndex++,
                 slideNumber - 1, // relationships index
                 element.zIndex,
-                { debug }
+                { debug, placeholders: combinedPlaceholders }
               );
             } else if (isImageElement(element)) {
               component = await this.parseUnifiedImageComponent(
@@ -336,6 +463,22 @@ export class PowerPointParser extends BaseParser {
                 element.zIndex,
                 { debug }
               );
+            } else if (isDiagramElement(element)) {
+              const diagramResult = await this.parseUnifiedDiagramComponent(
+                element,
+                normalized.relationships,
+                normalized.mediaFiles,
+                globalComponentIndex++,
+                slideNumber - 1,
+                element.zIndex,
+                { debug }
+              );
+              if (Array.isArray(diagramResult)) {
+                slideComponents.push(...diagramResult);
+                continue;
+              } else {
+                component = diagramResult;
+              }
             } else if (isVideoElement(element)) {
               component = await this.parseUnifiedVideoComponent(
                 element,
@@ -381,7 +524,7 @@ export class PowerPointParser extends BaseParser {
               globalComponentIndex++,
               slideNumber,
               localComponentIndex, // fallback zIndex based on order
-              { debug }
+              { debug, placeholders: combinedPlaceholders, masterStyles }
             );
             if (component) {
               slideComponents.push(component);
@@ -399,7 +542,7 @@ export class PowerPointParser extends BaseParser {
               globalComponentIndex++,
               slideNumber - 1, // relationships index for media lookup
               localComponentIndex,
-              { debug }
+              { debug, placeholders: combinedPlaceholders }
             );
             if (component) {
               slideComponents.push(component);
@@ -596,6 +739,21 @@ export class PowerPointParser extends BaseParser {
         zIndex,
         { debug }
       );
+    } else if (element.type === 'diagram' && isDiagramElement(normalizedElement)) {
+      const diagramResult = await this.parseUnifiedDiagramComponent(
+        normalizedElement,
+        relationships,
+        mediaFiles,
+        componentIndex,
+        slideIndex,
+        zIndex,
+        { debug }
+      );
+      // For parseElement, return the first component if it's an array
+      if (Array.isArray(diagramResult)) {
+        return diagramResult[0] || null;
+      }
+      return diagramResult;
     } else if (element.type === 'video' && isVideoElement(normalizedElement)) {
       return await this.parseUnifiedVideoComponent(
         normalizedElement,
@@ -634,11 +792,11 @@ export class PowerPointParser extends BaseParser {
     componentIndex: number,
     slideIndex: number,
     zIndex: number,
-    options: { debug?: boolean } = {}
+    options: { debug?: boolean; placeholders?: PlaceholderMap; masterStyles?: { titleStyle?: XMLNode, bodyStyle?: XMLNode } } = {}
   ): Promise<PowerPointComponent | null> {
-    const { debug = false } = options;
+    const { debug = false, placeholders, masterStyles } = options;
     try {
-      return await TextParser.parseFromNormalized(textComponent, componentIndex, slideIndex, zIndex);
+      return await TextParser.parseFromNormalized(textComponent, componentIndex, slideIndex, zIndex, placeholders, masterStyles);
     } catch (error) {
       if (debug) console.warn(`Failed to parse text component:`, error);
       return null;
@@ -655,11 +813,11 @@ export class PowerPointParser extends BaseParser {
     componentIndex: number,
     relSlideIndex: number,
     zIndex: number,
-    options: { debug?: boolean } = {}
+    options: { debug?: boolean; placeholders?: PlaceholderMap; isMasterOrLayout?: boolean } = {}
   ): Promise<PowerPointComponent | null> {
-    const { debug = false } = options;
+    const { debug = false, placeholders, isMasterOrLayout = false } = options;
     try {
-      return await ShapeParser.parseFromNormalized(shapeComponent, componentIndex, relSlideIndex, zIndex);
+      return await ShapeParser.parseFromNormalized(shapeComponent, componentIndex, relSlideIndex, zIndex, placeholders, { isMasterOrLayout });
     } catch (error) {
       if (debug) console.warn(`Failed to parse shape component:`, error);
       return null;
@@ -704,6 +862,27 @@ export class PowerPointParser extends BaseParser {
       return await TableParser.parseFromNormalized(tableComponent, componentIndex, relSlideIndex, zIndex);
     } catch (error) {
       if (debug) console.warn(`Failed to parse table component:`, error);
+      return null;
+    }
+  }
+  
+  /**
+   * Parse unified diagram component from normalized data
+   */
+  private async parseUnifiedDiagramComponent(
+    diagramComponent: NormalizedDiagramElement,
+    _relationships: RelationshipGraph,
+    _mediaFiles: MediaFiles,
+    componentIndex: number,
+    relSlideIndex: number,
+    zIndex: number,
+    options: { debug?: boolean } = {}
+  ): Promise<PowerPointComponent | PowerPointComponent[] | null> {
+    const { debug = false } = options;
+    try {
+      return await DiagramParser.parseFromNormalized(diagramComponent, componentIndex, relSlideIndex, zIndex, this.normalizedJson, { returnExtractedComponents: true });
+    } catch (error) {
+      if (debug) console.warn(`Failed to parse diagram component:`, error);
       return null;
     }
   }
@@ -802,5 +981,60 @@ export class PowerPointParser extends BaseParser {
       }
       return component;
     });
+  }
+
+  /**
+   * Extract text styles (txStyles) from a slide master
+   * @param json - PPTXJson object containing all parsed files
+   * @param masterFile - Path to the master file (e.g., 'ppt/slideMasters/slideMaster1.xml')
+   * @returns Master text styles object with titleStyle and bodyStyle
+   */
+  private extractMasterTextStyles(json: any, masterFile: string): { titleStyle?: XMLNode, bodyStyle?: XMLNode } {
+    if (!json || !json[masterFile]) {
+      return {};
+    }
+
+    const masterData = json[masterFile];
+    return this.extractStylesFromMasterData(masterData);
+  }
+
+  /**
+   * Helper method to extract styles from master data
+   */
+  private extractStylesFromMasterData(masterData: any): { titleStyle?: XMLNode, bodyStyle?: XMLNode } {
+    // Navigate to txStyles: sldMaster > txStyles > titleStyle/bodyStyle
+    const sldMaster = BaseParser.getNode(masterData, 'sldMaster');
+    if (!sldMaster) {
+      // Try alternative namespace-aware paths
+      const altSldMaster = BaseParser.getNode(masterData, 'p:sldMaster') || masterData['p:sldMaster'];
+      if (!altSldMaster) {
+        return {};
+      }
+      const altTxStyles = BaseParser.getNode(altSldMaster, 'txStyles') || BaseParser.getNode(altSldMaster, 'p:txStyles');
+      if (!altTxStyles) {
+        return {};
+      }
+      
+      const titleStyle = BaseParser.getNode(altTxStyles, 'titleStyle') || BaseParser.getNode(altTxStyles, 'p:titleStyle');
+      const bodyStyle = BaseParser.getNode(altTxStyles, 'bodyStyle') || BaseParser.getNode(altTxStyles, 'p:bodyStyle');
+      
+      return {
+        titleStyle: titleStyle || undefined,
+        bodyStyle: bodyStyle || undefined
+      };
+    }
+
+    const txStyles = BaseParser.getNode(sldMaster, 'txStyles');
+    if (!txStyles) {
+      return {};
+    }
+
+    const titleStyle = BaseParser.getNode(txStyles, 'titleStyle');
+    const bodyStyle = BaseParser.getNode(txStyles, 'bodyStyle');
+
+    return {
+      titleStyle: titleStyle || undefined,
+      bodyStyle: bodyStyle || undefined
+    };
   }
 }

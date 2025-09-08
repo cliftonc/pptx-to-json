@@ -14,12 +14,13 @@ export type NormalizedElement =
   | NormalizedShapeElement
   | NormalizedImageElement
   | NormalizedTableElement
+  | NormalizedDiagramElement
   | NormalizedVideoElement
   | NormalizedConnectionElement;
 
 /** Base shared fields for all normalized elements */
 export interface NormalizedElementBase {
-  type: 'text' | 'shape' | 'image' | 'table' | 'video' | 'connection';
+  type: 'text' | 'shape' | 'image' | 'table' | 'video' | 'connection' | 'diagram';
   /** Z-order index (higher renders on top) */
   zIndex: number;
   /** PowerPoint namespace origin ('p' = pptx slide, 'a' = clipboard drawing) */
@@ -80,6 +81,13 @@ export interface NormalizedTableElement extends NormalizedElementBase {
   graphicData?: any; // Table XML contents
 }
 
+export interface NormalizedDiagramElement extends NormalizedElementBase {
+  type: 'diagram';
+  nvGraphicFramePr?: any;
+  spPr?: any; // Positioning (xfrm)
+  graphicData?: any; // Diagram XML contents
+}
+
 export interface NormalizedConnectionElement extends NormalizedElementBase {
   type: 'connection';
   nvCxnSpPr?: any; // Connection shape properties
@@ -117,6 +125,7 @@ export function isTextElement(el: NormalizedElement): el is NormalizedTextElemen
 export function isShapeElement(el: NormalizedElement): el is NormalizedShapeElement { return el.type === 'shape'; }
 export function isImageElement(el: NormalizedElement): el is NormalizedImageElement { return el.type === 'image'; }
 export function isTableElement(el: NormalizedElement): el is NormalizedTableElement { return el.type === 'table'; }
+export function isDiagramElement(el: NormalizedElement): el is NormalizedDiagramElement { return el.type === 'diagram'; }
 export function isVideoElement(el: NormalizedElement): el is NormalizedVideoElement { return el.type === 'video'; }
 export function isConnectionElement(el: NormalizedElement): el is NormalizedConnectionElement { return el.type === 'connection'; }
 

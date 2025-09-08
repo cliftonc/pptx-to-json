@@ -12,6 +12,7 @@ import {
   BorderInfo,
   GeometryInfo,
   EffectsInfo,
+  PlaceholderMap,
 } from "../types/index.js";
 
 export class ShapeParser extends BaseParser {
@@ -20,6 +21,7 @@ export class ShapeParser extends BaseParser {
    * @param shapeComponent - Normalized shape component
    * @param componentIndex - Component index
    * @param slideIndex - Slide index
+   * @param placeholders - Optional placeholder positions from layout/master
    * @returns Parsed shape component
    */
   static async parseFromNormalized(
@@ -27,16 +29,41 @@ export class ShapeParser extends BaseParser {
     componentIndex: number,
     slideIndex: number,
     zIndex: number,
+    placeholders?: PlaceholderMap,
+    context?: { isMasterOrLayout?: boolean }
   ): Promise<ShapeComponent | null> {
     const { spPr, nvSpPr, namespace, style } = shapeComponent;
 
     if (!spPr) {
-      throw new Error("No spPr found in normalized shape component");
+      // Skip shapes without valid spPr (shape properties) - they can't be rendered
+      return null;
     }
 
     // Extract positioning from spPr (namespaces already stripped)
     const xfrm = BaseParser.getNode(spPr, "xfrm");
-    const transform = ShapeParser.parseTransform(xfrm);
+    let transform = ShapeParser.parseTransform(xfrm);
+
+    // Check if this element references a layout placeholder and use its position if element has no position
+    if (placeholders && (transform.x === 0 && transform.y === 0 && transform.width === 0 && transform.height === 0)) {
+      // Look for placeholder reference in nvSpPr
+      const nvPr = BaseParser.getNode(nvSpPr, 'nvPr');
+      const ph = BaseParser.getNode(nvPr, 'ph');
+      
+      if (ph) {
+        // Extract idx attribute
+        const idx = BaseParser.getString(ph, '$idx') || BaseParser.getString(ph, 'idx');
+        if (idx && placeholders[idx]) {
+          const placeholderPos = placeholders[idx];
+          transform = {
+            x: placeholderPos.x,
+            y: placeholderPos.y,
+            width: placeholderPos.width,
+            height: placeholderPos.height,
+            rotation: transform.rotation || 0
+          };
+        }
+      }
+    }
 
     // Skip if shape has no dimensions
     if (transform.width === 0 && transform.height === 0) return null;
@@ -53,7 +80,7 @@ export class ShapeParser extends BaseParser {
     );
 
     // Parse styling from spPr and style data
-    const fill = ShapeParser.parseFill(spPr, style || null);
+    const fill = ShapeParser.parseFill(spPr, style || null, context?.isMasterOrLayout);
     const border = ShapeParser.parseBorder(spPr, style || null);
     const effects = ShapeParser.parseEffects(spPr);
 
@@ -216,12 +243,23 @@ export class ShapeParser extends BaseParser {
    * @param style - Style properties (optional)
    * @returns fill information
    */
-  static parseFill(spPr: XMLNode, style: XMLNode | null = null): FillInfo {
+  static parseFill(spPr: XMLNode, style: XMLNode | null = null, isMasterOrLayout: boolean = false): FillInfo {
     const solidFill = BaseParser.getNode(spPr, "solidFill");
     if (solidFill) {
+      const color = this.parseColor(solidFill);
+      
+      // Skip white/near-white colors for backgrounds only on Masters/Layouts
+      if (isMasterOrLayout && BaseParser.isWhiteOrNearWhite(color)) {
+        return {
+          type: "none",
+          color: "transparent",
+          opacity: 0,
+        };
+      }
+      
       return {
         type: "solid",
-        color: this.parseColor(solidFill),
+        color: color,
         opacity: this.parseOpacity(solidFill),
       };
     }
@@ -249,7 +287,7 @@ export class ShapeParser extends BaseParser {
     }
 
     if (style) {
-      const styleFill = this.parseFillFromStyle(style);
+      const styleFill = this.parseFillFromStyle(style, isMasterOrLayout);
       if (styleFill) return styleFill;
     }
 
@@ -420,16 +458,23 @@ export class ShapeParser extends BaseParser {
    * @param themeColors - Optional theme colors
    * @returns fill information or null
    */
-  static parseFillFromStyle(style: XMLNode): FillInfo | null {
+  static parseFillFromStyle(style: XMLNode, isMasterOrLayout: boolean = false): FillInfo | null {
     const fillRef = BaseParser.getNode(style, "fillRef");
     if (fillRef) {
       const schemeClr = BaseParser.getNode(fillRef, "schemeClr");
       const srgbClr = BaseParser.getNode(fillRef, "srgbClr");
 
       if (srgbClr && (srgbClr as any).$val) {
+        const color = "#" + (srgbClr as any).$val;
+        
+        // Skip white/near-white colors for backgrounds only on Masters/Layouts
+        if (isMasterOrLayout && BaseParser.isWhiteOrNearWhite(color)) {
+          return null;
+        }
+        
         return {
           type: "solid",
-          color: "#" + (srgbClr as any).$val,
+          color: color,
           opacity: 1,
         };
       }
@@ -437,6 +482,11 @@ export class ShapeParser extends BaseParser {
       if (schemeClr && (schemeClr as any).$val) {
         const color = BaseParser.parseColor({ schemeClr });
         if (color && color !== "#000000") { // Don't use default fallback color
+          // Skip white/near-white colors for backgrounds only on Masters/Layouts
+          if (isMasterOrLayout && BaseParser.isWhiteOrNearWhite(color)) {
+            return null;
+          }
+          
           return {
             type: "solid",
             color: color,

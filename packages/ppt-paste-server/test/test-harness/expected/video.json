@@ -2,7 +2,7 @@
   "metadata": {
     "name": "video",
     "description": "PowerPoint content: video",
-    "downloadedAt": "2025-09-03T17:28:10.294Z",
+    "downloadedAt": "2025-09-08T12:00:32.358Z",
     "size": 3789,
     "contentType": "application/octet-stream",
     "url": "https://euc-powerpoint.officeapps.live.com/pods/GetClipboardBytes.ashx?Id=572607fc-9a4a-4572-85a7-1d66a1e9da1c&amp;DC=GEU7&amp;pkey=39724493-6187-41e0-ab0b-193569a77916&amp;wdwaccluster=GEU7&amp;DataType=shape"
@@ -17,7 +17,8 @@
       "width": 79,
       "height": 39,
       "rotation": 0,
-      "slideIndex": 1,
+      "slideIndex": 0,
+      "zIndex": 0,
       "style": {
         "fontSize": 12,
         "fontFamily": "Arial",
@@ -50,8 +51,7 @@
         "originalFormat": "normalized",
         "paragraphCount": 1,
         "hasMultipleRuns": false
-      },
-      "zIndex": 0
+      }
     }
   ],
   "componentCount": 1,
