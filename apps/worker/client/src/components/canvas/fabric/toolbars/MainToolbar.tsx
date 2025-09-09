@@ -32,7 +32,7 @@ export function MainToolbar({
   onModeChange,
   onAddShape,
   onAddText,
-  onAddImage,
+  onAddImage: _onAddImage,
   onUndo,
   onRedo,
   canUndo = false,

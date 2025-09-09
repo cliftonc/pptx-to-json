@@ -31,7 +31,7 @@ const EditableFabricCanvas: React.FC<EditableFabricCanvasProps> = (props) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const [canvasDimensions, setCanvasDimensions] = useState({ width: 800, height: 600 })
   const [fabricCanvas, setFabricCanvas] = useState<any>(null)
-  const [selectedCount, setSelectedCount] = useState(0)
+  const [, setSelectedCount] = useState(0)
   
   // Toolbar state
   const [currentMode, setCurrentMode] = useState<CanvasMode>('edit')
@@ -184,8 +184,8 @@ const EditableFabricCanvas: React.FC<EditableFabricCanvasProps> = (props) => {
         return aZ - bZ
       })
 
-    sortedComponents.forEach((component, index) => {
-      renderComponent(fabricCanvas, component, index)
+    sortedComponents.forEach((component) => {
+      renderComponent(fabricCanvas, component)
     })
 
     // After all components are rendered, re-sort the canvas objects by zIndex
@@ -205,7 +205,7 @@ const EditableFabricCanvas: React.FC<EditableFabricCanvasProps> = (props) => {
       fabricCanvas.clear()
       
       // Re-add in correct z-index order
-      sortedObjects.forEach(obj => {
+      sortedObjects.forEach((obj: any) => {
         fabricCanvas.add(obj)
       })
       
@@ -221,9 +221,9 @@ const EditableFabricCanvas: React.FC<EditableFabricCanvasProps> = (props) => {
   }, [fabricCanvas, currentSlide])
 
   // Render a PowerPoint component using Fabric.js
-  const renderComponent = async (canvas: any, component: any, sortedIndex?: number) => {
+  const renderComponent = async (canvas: any, component: any) => {
     try {
-      const { Rect, Circle, IText, Textbox } = await import('fabric')
+      const { Rect, Circle, Textbox } = await import('fabric')
       
       // Calculate scaling factors based on canvas vs slide dimensions
       const slideWidth = currentSlide?.dimensions?.width || 720
@@ -368,7 +368,7 @@ const EditableFabricCanvas: React.FC<EditableFabricCanvasProps> = (props) => {
                     })
                     
                     canvas.clear()
-                    sortedObjects.forEach(obj => canvas.add(obj))
+                    sortedObjects.forEach((obj: any) => canvas.add(obj))
                     canvas.renderAll()
                   }, 10)
                   
@@ -518,7 +518,7 @@ const EditableFabricCanvas: React.FC<EditableFabricCanvasProps> = (props) => {
     const centerX = canvasDimensions.width / 2 - 50
     const centerY = canvasDimensions.height / 2 - 50
     
-    fabricCanvas.getObjects().forEach(obj => obj.set('active', false))
+    fabricCanvas.getObjects().forEach((obj: any) => obj.set('active', false))
     
     import('fabric').then(({ Rect, Circle }) => {
       let newShape: any
@@ -574,7 +574,7 @@ const EditableFabricCanvas: React.FC<EditableFabricCanvasProps> = (props) => {
     const centerX = canvasDimensions.width / 2 - 75
     const centerY = canvasDimensions.height / 2 - 25
     
-    fabricCanvas.getObjects().forEach(obj => obj.set('active', false))
+    fabricCanvas.getObjects().forEach((obj: any) => obj.set('active', false))
     
     import('fabric').then(({ Textbox }) => {
       const newText = new Textbox('New Text', {

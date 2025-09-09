@@ -466,7 +466,7 @@ function MainPage() {
               marginLeft: 'auto',
               marginRight: 'auto'
             }}>
-              Upload PPTX files or paste PowerPoint content from web based PowerPoint and load them directly into <a href="https://www.tldraw.com/">TLDraw</a>
+              Upload PPTX files or paste PowerPoint content from web based PowerPoint and load them directly into <a href="https://www.tldraw.com/">TLDraw</a>, <a href="https://konvajs.org/">Konva</a>, or <a href="https://fabricjs.com/">Fabric.js</a>
             </p>
             <p style={{ 
               color: '#718096', 
