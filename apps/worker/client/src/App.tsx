@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Routes, Route, useParams } from 'react-router-dom'
 import { ClipboardParser, type ParsedContent } from 'ppt-paste-parser'
-import TldrawCanvas, { type TldrawCanvasRef } from './components/TldrawCanvas'
+import Canvas, { type CanvasRef } from './components/Canvas'
 import RawDataPage from './RawDataPage'
 import LoadingScreen from './components/LoadingScreen'
 import ApiDocumentation from './ApiDocumentation'
@@ -26,7 +26,7 @@ function MainPage() {
   const [currentSlideId, setCurrentSlideId] = useState<string | undefined>(undefined)
   const [initialSnapshot, setInitialSnapshot] = useState<any>(null)
   const [loadingSlideId, setLoadingSlideId] = useState<string | null>(null)
-  const tldrawCanvasRef = useRef<TldrawCanvasRef>(null)
+  const canvasRef = useRef<CanvasRef>(null)
 
   // Load slide data if there's an ID in the URL
   useEffect(() => {
@@ -620,10 +620,10 @@ function MainPage() {
         </div>
       </div>
 
-      {/* Right Column - Tldraw Canvas */}
+      {/* Right Column - Canvas */}
       <div style={{ width: '75%', height: '100%' }}>
-        <TldrawCanvas 
-          ref={tldrawCanvasRef}
+        <Canvas 
+          ref={canvasRef}
           key={initialSnapshot ? 'snapshot' : 'slides'} // Force re-mount when snapshot changes
           components={[]} // No longer used, components are in slides
           slides={structuredData?.slides || []}

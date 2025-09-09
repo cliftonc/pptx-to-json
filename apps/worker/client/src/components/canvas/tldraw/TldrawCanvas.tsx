@@ -3,15 +3,15 @@ import { Tldraw, Editor } from '@tldraw/tldraw'
 
 import type { PowerPointComponent, PowerPointSlide } from 'ppt-paste-parser'
 import '@tldraw/tldraw/tldraw.css'
-import { useSlideshowManager } from './tldraw/slideshow/SlideshowManager'
-import { useSlideshowKeyboardHandler } from './tldraw/slideshow/SlideshowKeyboardHandler'
-import { createUIComponents } from './tldraw/utils/uiComponents'
-import { textOptions } from './tldraw/utils/textOptions'
-import { drawSlides, drawComponents } from './tldraw/utils/drawingManager'
-import TopToolbar from './tldraw/TopToolbar'
-import { FloatingTableToolbar } from './tldraw/toolbars/FloatingTableToolbar'
-import { TableTool } from './tldraw/tools/TableTool'
-import { uiOverrides } from './tldraw/utils/uiOverrides'
+import { useSlideshowManager } from './slideshow/SlideshowManager'
+import { useSlideshowKeyboardHandler } from './slideshow/SlideshowKeyboardHandler'
+import { createUIComponents } from './utils/uiComponents'
+import { textOptions } from './utils/textOptions'
+import { drawSlides, drawComponents } from './utils/drawingManager'
+import TopToolbar from './TopToolbar'
+import { FloatingTableToolbar } from './toolbars/FloatingTableToolbar'
+import { TableTool } from './tools/TableTool'
+import { uiOverrides } from './utils/uiOverrides'
 
 interface TldrawCanvasProps {
   components: PowerPointComponent[]
@@ -22,13 +22,14 @@ interface TldrawCanvasProps {
   theme?: any
   slideId?: string
   initialSnapshot?: any
+  onEditorMount?: (editor: Editor) => void
 }
 
 export interface TldrawCanvasRef {
   autoSave: () => Promise<void>
 }
 
-const TldrawCanvas = forwardRef<TldrawCanvasRef, TldrawCanvasProps>(({ components, slides, slideDimensions, masters, layouts, theme, slideId, initialSnapshot }, ref) => {
+const TldrawCanvas = forwardRef<TldrawCanvasRef, TldrawCanvasProps>(({ components, slides, slideDimensions, masters, layouts, theme, slideId, initialSnapshot, onEditorMount }, ref) => {
   const editorRef = useRef<Editor | null>(null)
 
   // Auto-save function exposed via ref
@@ -150,6 +151,8 @@ const TldrawCanvas = forwardRef<TldrawCanvasRef, TldrawCanvasProps>(({ component
   const handleMount = (editor: Editor) => {
     editorRef.current = editor
     
+    // Call the onEditorMount callback if provided
+    onEditorMount?.(editor)
     
     // Only draw slides/components if no initial snapshot is provided
     // If snapshot is provided, TLDraw will handle loading it via the snapshot prop
