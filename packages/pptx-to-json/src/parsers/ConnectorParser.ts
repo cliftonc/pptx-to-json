@@ -40,8 +40,9 @@ export class ConnectorParser extends BaseParser {
 
     // Extract component info from nvCxnSpPr
     const cNvPr = BaseParser.getNode(nvCxnSpPr, "cNvPr");
-    const componentName = BaseParser.getString(cNvPr, "name", "") || "Connection";
-    const componentId = BaseParser.getString(cNvPr, "id", "") || `connection-${componentIndex}`;
+    const originalName = BaseParser.getString(cNvPr, "name", "") || "Connection";
+    const componentName = BaseParser.generateComponentId('connector', componentIndex, originalName);
+    const componentId = componentName; // Use the same clean ID
 
     // Parse line/connector properties
     const lineStyle = ConnectorParser.parseLineStyle(spPr);

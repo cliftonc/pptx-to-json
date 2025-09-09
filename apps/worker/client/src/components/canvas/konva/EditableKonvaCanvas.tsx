@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useRef, useState, useCallback } from 'react'
+import { forwardRef, useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { usePresentation } from '../../../context/PresentationContext'
 import { Stage, Layer, Rect, Transformer } from 'react-konva'
 import Konva from 'konva' // Used for typing
@@ -15,6 +15,7 @@ import SlideCarousel from './slideshow/SlideCarousel'
 import { MainToolbar } from './toolbars/MainToolbar'
 import { TextFormattingToolbar } from './toolbars/TextFormattingToolbar'
 import { EditableText } from './editors/EditableText'
+import ThumbnailGenerator, { type ThumbnailGeneratorRef } from './ThumbnailGenerator'
 
 interface EditableKonvaCanvasProps {
   slides: CanvasSlide[]
@@ -36,6 +37,7 @@ const EditableKonvaCanvas = forwardRef<any, EditableKonvaCanvasProps>(({
   const stageRef = useRef<any>(null)
   const transformerRef = useRef<any>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const thumbnailGeneratorRef = useRef<ThumbnailGeneratorRef>(null)
   const [stageDimensions, setStageDimensions] = useState({ width: 800, height: 600 })
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [currentMode, setCurrentMode] = useState(config.mode)
@@ -50,8 +52,20 @@ const EditableKonvaCanvas = forwardRef<any, EditableKonvaCanvasProps>(({
   const [isPanning, setIsPanning] = useState(false)
   const panStartRef = useRef<{ x: number; y: number; startX: number; startY: number } | null>(null)
   
-  // Get current slide
-  const currentSlide = slides[currentSlideIndex] || null
+  // Thumbnail generation is handled automatically via useEffect
+  
+  // Get current slide with memoization to prevent re-renders from thumbnail-only updates
+  const currentSlide = useMemo(() => {
+    const slide = slides[currentSlideIndex] || null
+    return slide
+  }, [slides, currentSlideIndex])
+  
+  // Cache the slide content (without thumbnailUrl) to detect meaningful changes
+  const currentSlideContent = useMemo(() => {
+    if (!currentSlide) return null
+    const { thumbnailUrl, ...contentWithoutThumbnail } = currentSlide
+    return contentWithoutThumbnail
+  }, [currentSlide])
 
   const { setRendererState } = usePresentation()
   const konvaSyncTimeoutRef = useRef<number | null>(null)
@@ -102,10 +116,10 @@ const EditableKonvaCanvas = forwardRef<any, EditableKonvaCanvasProps>(({
 
   // Calculate scale to fit slide in stage
   const getStageScale = () => {
-    if (!currentSlide) return 1
+    if (!currentSlideContent) return 1
 
-    const slideWidth = currentSlide.dimensions.width
-    const slideHeight = currentSlide.dimensions.height
+    const slideWidth = currentSlideContent.dimensions.width
+    const slideHeight = currentSlideContent.dimensions.height
     const stageWidth = stageDimensions.width - 40 // padding
     const stageHeight = stageDimensions.height - 40 // padding
 
@@ -117,11 +131,11 @@ const EditableKonvaCanvas = forwardRef<any, EditableKonvaCanvasProps>(({
 
   // Calculate stage position to center the slide
   const getStagePosition = () => {
-    if (!currentSlide) return { x: 0, y: 0 }
+    if (!currentSlideContent) return { x: 0, y: 0 }
 
     const scale = getStageScale()
-    const slideWidth = currentSlide.dimensions.width * scale
-    const slideHeight = currentSlide.dimensions.height * scale
+    const slideWidth = currentSlideContent.dimensions.width * scale
+    const slideHeight = currentSlideContent.dimensions.height * scale
     const x = (stageDimensions.width - slideWidth) / 2
     const y = (stageDimensions.height - slideHeight) / 2
     return { x, y }
@@ -197,8 +211,8 @@ const EditableKonvaCanvas = forwardRef<any, EditableKonvaCanvasProps>(({
 
   // Handle shape addition
   const handleAddShape = (shapeType: string) => {
-    const centerX = currentSlide ? currentSlide.dimensions.width / 2 - 50 : 100
-    const centerY = currentSlide ? currentSlide.dimensions.height / 2 - 50 : 100
+    const centerX = currentSlideContent ? currentSlideContent.dimensions.width / 2 - 50 : 100
+    const centerY = currentSlideContent ? currentSlideContent.dimensions.height / 2 - 50 : 100
     
     addComponent({
       type: 'shape',
@@ -218,8 +232,8 @@ const EditableKonvaCanvas = forwardRef<any, EditableKonvaCanvasProps>(({
 
   // Handle text addition
   const handleAddText = () => {
-    const centerX = currentSlide ? currentSlide.dimensions.width / 2 - 75 : 100
-    const centerY = currentSlide ? currentSlide.dimensions.height / 2 - 25 : 100
+    const centerX = currentSlideContent ? currentSlideContent.dimensions.width / 2 - 75 : 100
+    const centerY = currentSlideContent ? currentSlideContent.dimensions.height / 2 - 25 : 100
     
     const newTextComponent: Omit<CanvasComponent, 'id'> = {
       type: 'text',
@@ -242,8 +256,8 @@ const EditableKonvaCanvas = forwardRef<any, EditableKonvaCanvasProps>(({
 
   // Handle image addition (placeholder)
   const handleAddImage = () => {
-    const centerX = currentSlide ? currentSlide.dimensions.width / 2 - 75 : 100
-    const centerY = currentSlide ? currentSlide.dimensions.height / 2 - 50 : 100
+    const centerX = currentSlideContent ? currentSlideContent.dimensions.width / 2 - 75 : 100
+    const centerY = currentSlideContent ? currentSlideContent.dimensions.height / 2 - 50 : 100
     
     addComponent({
       type: 'image',
@@ -275,6 +289,15 @@ const EditableKonvaCanvas = forwardRef<any, EditableKonvaCanvasProps>(({
     setRedoStack(prev => prev.slice(1))
     onSlideUpdate(currentSlideIndex, nextState)
   }
+
+  // Clear all presentation state - perform complete page reload
+  const handleClear = useCallback(() => {
+    // Perform a complete page reload to guarantee a full reset
+    // This is exactly what happens when you press F5 or hard refresh
+    window.location.reload()
+  }, [])
+
+  // Thumbnail generation is now handled automatically via useEffect
 
   // Handle component clicks
   const handleComponentClick = (componentId: string, event?: any) => {
@@ -524,6 +547,72 @@ const EditableKonvaCanvas = forwardRef<any, EditableKonvaCanvasProps>(({
     }
   }, [onReady])
 
+  // Automatic thumbnail generation (with loop prevention)
+  const processedSlidesRef = useRef<Set<string>>(new Set())
+  const lastSlideCountRef = useRef(0)
+  const generationTimeoutRef = useRef<number | null>(null)
+  
+  useEffect(() => {
+    // Only trigger when slides change count or new slides are added
+    const slideCount = slides.length
+    
+    // Skip if no slides or same slide count already processed
+    if (slideCount === 0 || slideCount === lastSlideCountRef.current) {
+      return
+    }
+    
+    // Clear any pending generation
+    if (generationTimeoutRef.current) {
+      clearTimeout(generationTimeoutRef.current)
+    }
+    
+    // Delay to ensure Konva canvas is fully rendered
+    generationTimeoutRef.current = window.setTimeout(() => {
+      const slidesNeedingThumbnails = slides.filter(slide => 
+        !slide.thumbnailUrl && !processedSlidesRef.current.has(slide.id)
+      )
+      
+      if (slidesNeedingThumbnails.length > 0 && thumbnailGeneratorRef.current && onSlideUpdate) {
+        // Mark slides as being processed to prevent reprocessing
+        slidesNeedingThumbnails.forEach(slide => 
+          processedSlidesRef.current.add(slide.id)
+        )
+        
+        // Get slideId from window or URL
+        const slideId = (window as any).currentSlideId || 
+          new URL(window.location.href).pathname.split('/').pop() || 
+          'unknown'
+        
+        // Create a thumbnail update callback that only updates thumbnails
+        const silentThumbnailUpdate = (slideIndex: number, updates: Partial<CanvasSlide>) => {
+          // Update the slide with thumbnail URL - the memoized currentSlideContent will prevent main canvas re-renders
+          if (onSlideUpdate && updates.thumbnailUrl) {
+            const currentSlideForUpdate = slides[slideIndex]
+            if (currentSlideForUpdate) {
+              const updatedSlide = { ...currentSlideForUpdate, ...updates }
+              onSlideUpdate(slideIndex, updatedSlide)
+            }
+          }
+        }
+        
+        thumbnailGeneratorRef.current.generateThumbnails(
+          slides, 
+          slideId,
+          silentThumbnailUpdate
+        )
+      }
+      
+      // Update processed count
+      lastSlideCountRef.current = slideCount
+    }, 1500) // 1.5 second delay to ensure rendering is complete
+    
+    return () => {
+      if (generationTimeoutRef.current) {
+        clearTimeout(generationTimeoutRef.current)
+      }
+    }
+  }, [slides.length]) // Only depend on slides.length, not the slides array itself
+
   const scale = getStageScale()
   const position = getStagePosition()
 
@@ -600,6 +689,7 @@ const EditableKonvaCanvas = forwardRef<any, EditableKonvaCanvasProps>(({
         onRedo={handleRedo}
         canUndo={undoStack.length > 0}
         canRedo={redoStack.length > 0}
+        onClear={handleClear}
       />
 
       {/* Main canvas area */}
@@ -635,21 +725,21 @@ const EditableKonvaCanvas = forwardRef<any, EditableKonvaCanvasProps>(({
             x={position.x}
             y={position.y}
           >
-            {/* Slide background */}
-            {currentSlide && (
+            {/* Slide background - use memoized content to prevent re-renders from thumbnail updates */}
+            {currentSlideContent && (
               <Rect
-                width={currentSlide.dimensions.width}
-                height={currentSlide.dimensions.height}
-                fill={currentSlide.background?.type === 'color' ? 
-                  currentSlide.background.value as string : '#ffffff'}
+                width={currentSlideContent.dimensions.width}
+                height={currentSlideContent.dimensions.height}
+                fill={currentSlideContent.background?.type === 'color' ? 
+                  currentSlideContent.background.value as string : '#ffffff'}
                 stroke="#ddd"
                 strokeWidth={1 / scale} // Adjust stroke width for scaling
                 listening={false} // Don't intercept clicks - let them pass through to components
               />
             )}
             
-            {/* Render slide components sorted by zIndex */}
-            {currentSlide?.components
+            {/* Render slide components sorted by zIndex - use memoized content to prevent re-renders from thumbnail updates */}
+            {currentSlideContent?.components
               .slice()
               .sort((a, b) => {
                 const aZ = a.zIndex ?? 0
@@ -764,6 +854,14 @@ const EditableKonvaCanvas = forwardRef<any, EditableKonvaCanvasProps>(({
         slides={slides}
         currentSlideIndex={currentSlideIndex}
         onSlideSelect={onSlideSelect}
+      />
+
+      {/* Off-screen thumbnail generator */}
+      <ThumbnailGenerator
+        ref={thumbnailGeneratorRef}
+        onError={(slideIndex, error) => {
+          console.error(`Thumbnail generation failed for slide ${slideIndex + 1}:`, error)
+        }}
       />
     </div>
   )

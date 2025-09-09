@@ -180,7 +180,8 @@ export class TextParser extends BaseParser {
 
     // Extract component info from nvSpPr
     const cNvPr = this.getNode(nvSpPr, 'cNvPr');
-    const componentName = this.getString(cNvPr, '$name', `text-${componentIndex}`);
+    const originalName = this.getString(cNvPr, '$name', '');
+    const componentName = BaseParser.generateComponentId('text', componentIndex, originalName);
     const isTextBox = this.getBoolean(nvSpPr, 'cNvSpPr.$txBox', false);
 
     // Extract dominant font styling and text alignment

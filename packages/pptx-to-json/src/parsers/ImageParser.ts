@@ -47,11 +47,8 @@ export class ImageParser extends BaseParser {
     const transform = ImageParser.parseTransform(xfrm);
 
     // Extract component info from nvPicPr
-    const componentName = BaseParser.getString(
-      nvPicPr,
-      "cNvPr.$name",
-      `image-${componentIndex}`,
-    );
+    const originalName = BaseParser.getString(nvPicPr, "cNvPr.$name", "");
+    const componentName = BaseParser.generateComponentId('image', componentIndex, originalName);
     const description = BaseParser.getString(nvPicPr, "cNvPr.$descr", "");
 
     // Extract image reference from blipFill (namespaces already stripped)

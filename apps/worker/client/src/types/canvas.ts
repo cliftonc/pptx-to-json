@@ -64,6 +64,7 @@ export interface CanvasSlide {
     width: number
     height: number
   }
+  thumbnailUrl?: string // R2 URL for slide thumbnail (never data: URLs)
   metadata?: Record<string, any>
 }
 
@@ -244,6 +245,7 @@ export interface UnifiedSnapshotV1 {
   originalParsed?: any
   rendererStates: RendererStates
   metadata: UnifiedSnapshotMeta
+  slideDimensions?: { width: number; height: number }
 }
 
 export type AnyUnifiedSnapshot = UnifiedSnapshotV1 | { snapshot: any }

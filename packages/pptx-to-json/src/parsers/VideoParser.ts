@@ -42,8 +42,8 @@ export class VideoParser extends BaseParser {
 
     // Extract component info from nvPicPr
     const cNvPr = BaseParser.getNode(nvPicPr, "cNvPr");
-    const componentName =
-      BaseParser.getString(cNvPr, "$name", `video-${componentIndex}`);
+    const originalName = BaseParser.getString(cNvPr, "$name", "");
+    const componentName = BaseParser.generateComponentId('video', componentIndex, originalName);
     const description = BaseParser.getString(cNvPr, "$descr", "");
 
     // Extract video reference from nvPr

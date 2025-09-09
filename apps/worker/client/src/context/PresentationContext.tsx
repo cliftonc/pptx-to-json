@@ -2,6 +2,7 @@ import React, { createContext, useContext, useCallback, useState } from 'react'
 import type { PowerPointSlide } from 'ppt-paste-parser'
 import type { UnifiedSnapshotV1, RendererStates, AnyUnifiedSnapshot } from '../types/canvas'
 import { getSnapshot as getTlSnapshot } from '@tldraw/tldraw'
+import { sanitizeSlidesForSave, validateSlidesNoDataUrls, logThumbnailStats } from '../utils/thumbnailValidation'
 
 interface PresentationContextValue {
   slides: PowerPointSlide[]
@@ -10,9 +11,12 @@ interface PresentationContextValue {
   setOriginalParsed: (data: any | null) => void
   rendererStates: RendererStates
   setRendererState: (key: keyof RendererStates, value: any) => void
+  slideDimensions: { width: number; height: number } | null
+  setSlideDimensions: (dimensions: { width: number; height: number } | null) => void
   loadUnified: (data: AnyUnifiedSnapshot) => void
   buildUnified: () => UnifiedSnapshotV1 | null
   saveUnified: (slideId: string) => Promise<{ success: boolean; shareUrl?: string; error?: string }>
+  clearAll: () => void
 }
 
 const PresentationContext = createContext<PresentationContextValue | undefined>(undefined)
@@ -21,6 +25,7 @@ export const PresentationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [slides, setSlides] = useState<PowerPointSlide[]>([])
   const [originalParsed, setOriginalParsed] = useState<any | null>(null)
   const [rendererStates, setRendererStates] = useState<RendererStates>({})
+  const [slideDimensions, setSlideDimensions] = useState<{ width: number; height: number } | null>(null)
 
   const setRendererState = useCallback((key: keyof RendererStates, value: any) => {
     setRendererStates(prev => ({ ...prev, [key]: value }))
@@ -32,6 +37,7 @@ export const PresentationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setSlides(v1.slides || [])
       setOriginalParsed(v1.originalParsed || null)
       setRendererStates(v1.rendererStates || {})
+      setSlideDimensions(v1.slideDimensions || null)
     } else if ((data as any).snapshot) {
       // legacy TLDraw only snapshot
       setRendererStates({ tldraw: (data as any).snapshot })
@@ -41,17 +47,30 @@ export const PresentationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Build a versioned unified snapshot including all renderer states
   const buildUnified = useCallback((): UnifiedSnapshotV1 | null => {
     if (!slides || slides.length === 0) return null
+    
+    // Validate and sanitize slides to prevent data URLs from being saved
+    const sanitizedSlides = sanitizeSlidesForSave(slides)
+    
+    // Log thumbnail statistics for debugging
+    if (process.env.NODE_ENV === 'development') {
+      logThumbnailStats(sanitizedSlides)
+      
+      // In development, validate that no data URLs exist (throws error)
+      validateSlidesNoDataUrls(sanitizedSlides)
+    }
+    
     return {
       version: 1,
-      slides,
+      slides: sanitizedSlides,
       originalParsed: originalParsed || undefined,
       rendererStates,
+      slideDimensions: slideDimensions || undefined,
       metadata: {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }
     }
-  }, [slides, originalParsed, rendererStates])
+  }, [slides, originalParsed, rendererStates, slideDimensions])
 
   const saveUnified = useCallback(async (slideId: string) => {
     if (!slideId) return { success: false, error: 'Missing slideId' }
@@ -93,8 +112,15 @@ export const PresentationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return { success: true, shareUrl: `/slides/${slideId}` }
   }, [buildUnified, rendererStates])
 
+  const clearAll = useCallback(() => {
+    setSlides([])
+    setOriginalParsed(null)
+    setRendererStates({})
+    setSlideDimensions(null)
+  }, [])
+
   return (
-    <PresentationContext.Provider value={{ slides, setSlides, originalParsed, setOriginalParsed, rendererStates, setRendererState, loadUnified, buildUnified, saveUnified }}>
+    <PresentationContext.Provider value={{ slides, setSlides, originalParsed, setOriginalParsed, rendererStates, setRendererState, slideDimensions, setSlideDimensions, loadUnified, buildUnified, saveUnified, clearAll }}>
       {children}
     </PresentationContext.Provider>
   )

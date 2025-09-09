@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { SimpleCanvasProvider, useSimpleCanvas } from '../context/SimpleCanvasProvider'
+import { usePresentation } from '../context/PresentationContext'
 import { CanvasSelector } from './CanvasSelector'
 import TldrawCanvas from './canvas/tldraw/TldrawCanvas'
 import EditableKonvaCanvas from './canvas/konva/EditableKonvaCanvas'
+import FabricWrapper from './canvas/fabric/FabricWrapper'
 import type { PowerPointSlide } from 'ppt-paste-parser'
 
 interface SimpleUnifiedCanvasAppProps {
@@ -42,6 +44,19 @@ const KONVA_RENDERER_INFO = {
   }
 }
 
+const FABRIC_RENDERER_INFO = {
+  type: 'fabric',
+  displayName: 'Fabric Canvas',
+  description: 'Interactive canvas with right-side slide carousel and rich object manipulation',
+  capabilities: {
+    supportsSlideshow: true,
+    supportsRichText: true,
+    supportsAnimations: false,
+    supportsCollaboration: false,
+    supportsExport: ['png', 'json']
+  }
+}
+
 /**
  * Component that registers available canvas renderers
  */
@@ -52,6 +67,7 @@ function CanvasRendererRegistry() {
   useEffect(() => {
     registerRenderer(TLDRAW_RENDERER_INFO)
     registerRenderer(KONVA_RENDERER_INFO)
+    registerRenderer(FABRIC_RENDERER_INFO)
   }, [registerRenderer])
 
   return null
@@ -107,6 +123,7 @@ function CanvasContent({
   initialSnapshot 
 }: SimpleUnifiedCanvasAppProps) {
   const { currentRendererType, isLoading, error } = useSimpleCanvas()
+  const { setSlides, slideDimensions: contextSlideDimensions } = usePresentation()
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
   const [currentSlides, setCurrentSlides] = useState(slides)
 
@@ -117,10 +134,15 @@ function CanvasContent({
 
   // Handle slide updates from EditableKonvaCanvas
   const handleSlideUpdate = (slideIndex: number, updatedSlide: any) => {
+    // Update local state
     setCurrentSlides(prev => {
       if (!prev) return prev
       const newSlides = [...prev]
       newSlides[slideIndex] = updatedSlide
+      
+      // Also update the presentation context so changes persist
+      setSlides(newSlides)
+      
       return newSlides
     })
   }
@@ -194,7 +216,7 @@ function CanvasContent({
         key="tldraw"
         components={[]}
         slides={slides}
-        slideDimensions={slideDimensions}
+        slideDimensions={slideDimensions || contextSlideDimensions || undefined}
         masters={masters}
         layouts={layouts}
         theme={theme}
@@ -214,9 +236,10 @@ function CanvasContent({
           slideNumber: slide.slideNumber || index + 1,
           components: slide.components || [],
           dimensions: {
-            width: slide.metadata?.width || slideDimensions?.width || 720,
-            height: slide.metadata?.height || slideDimensions?.height || 540
+            width: slide.metadata?.width || slideDimensions?.width || contextSlideDimensions?.width || 720,
+            height: slide.metadata?.height || slideDimensions?.height || contextSlideDimensions?.height || 540
           },
+          thumbnailUrl: (slide as any).thumbnailUrl, // Pass through the thumbnail URL!
           metadata: slide.metadata,
           background: slide.background ? {
             type: 'color',
@@ -238,6 +261,20 @@ function CanvasContent({
         }}
         onSlideSelect={setCurrentSlideIndex}
         onSlideUpdate={handleSlideUpdate}
+      />
+    )
+  }
+
+  if (currentRendererType === 'fabric') {
+    return (
+      <FabricWrapper
+        key="fabric-wrapper"
+        slides={slides}
+        slideDimensions={slideDimensions || contextSlideDimensions || undefined}
+        masters={masters}
+        layouts={layouts}
+        theme={theme}
+        slideId={slideId}
       />
     )
   }

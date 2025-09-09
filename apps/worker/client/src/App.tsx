@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { usePresentation } from './context/PresentationContext'
 import { Routes, Route, useParams } from 'react-router-dom'
 import { ClipboardParser, type ParsedContent } from 'ppt-paste-parser'
@@ -28,7 +28,7 @@ function MainPage() {
   const [initialSnapshot, setInitialSnapshot] = useState<any>(null)
   const [loadingSlideId, setLoadingSlideId] = useState<string | null>(null)
   const canvasRef = useRef<CanvasRef>(null)
-  const { setSlides, setOriginalParsed, loadUnified } = usePresentation()
+  const { setSlides, setOriginalParsed, loadUnified, setSlideDimensions } = usePresentation()
 
   // Expose current slide id globally for toolbars (legacy dependency)
   useEffect(() => {
@@ -37,15 +37,17 @@ function MainPage() {
     }
   }, [currentSlideId])
 
-  // Load slide data if there's an ID in the URL
-  useEffect(() => {
-    if (id) {
-      loadSlideData(id)
+  const loadSlideData = useCallback(async (slideId: string) => {
+    // Prevent rapid-fire calls by adding a minimum delay
+    const now = Date.now()
+    const lastCallKey = `lastCall-${slideId}`
+    const lastCall = (window as any)[lastCallKey] || 0
+    if (now - lastCall < 1000) { // Minimum 1 second between calls for same slideId
+      console.log('🔄 Rate limiting loadSlideData for slideId:', slideId)
+      return
     }
-  }, [id])
-
-
-  const loadSlideData = async (slideId: string) => {
+    (window as any)[lastCallKey] = now
+    
     console.log('🔄 loadSlideData called with slideId:', slideId)
     
     // Prevent duplicate calls
@@ -77,6 +79,10 @@ function MainPage() {
           slideId: slideId,
           isFromClipboard: true
         })
+        // Populate PresentationContext for unified saves
+        setSlides(data.slides || [])
+        setSlideDimensions(data.slideDimensions || null)
+        setOriginalParsed(data)
         setIsLoading(false)
         return
       }
@@ -97,7 +103,7 @@ function MainPage() {
             savedAt: stateData.savedAt,
             hasState: true,
             slides: stateData.unified.slides,
-            slideDimensions: stateData.unified.slides?.[0]?.metadata?.dimensions || stateData.unified.slides?.[0]?.metadata || {},
+            slideDimensions: stateData.unified.slideDimensions || stateData.unified.slides?.[0]?.metadata?.dimensions || stateData.unified.slides?.[0]?.metadata || {},
           })
           // Populate PresentationContext
           loadUnified(stateData.unified)
@@ -149,6 +155,7 @@ function MainPage() {
           })
           // Populate context for unified save
           setSlides(processResult.slides || [])
+          setSlideDimensions(processResult.slideDimensions || null)
           setOriginalParsed({
             slides: processResult.slides,
             slideDimensions: processResult.slideDimensions,
@@ -174,7 +181,14 @@ function MainPage() {
       setIsLoading(false)
       setLoadingSlideId(null)
     }
-  }
+  }, [])
+
+  // Load slide data if there's an ID in the URL
+  useEffect(() => {
+    if (id) {
+      loadSlideData(id)
+    }
+  }, [id])
 
   const handleStructuredParsed = (data: ParsedContent & { fileId?: string }) => {
     
@@ -218,6 +232,7 @@ function MainPage() {
       });
       // Populate PresentationContext for unified saves
       setSlides(data.slides)
+      setSlideDimensions(data.slideDimensions || null)
       setOriginalParsed({
         slides: data.slides,
         slideDimensions: data.slideDimensions,
@@ -602,7 +617,7 @@ function MainPage() {
                     <h4>📄 Slides Structure:</h4>
                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                       {structuredData.slides.map((slide: any, index: number) => (
-                        <div key={`slide-${slide.slideNumber || slide.slideIndex || index}`} style={{
+                        <div key={`slide-${index}-${slide.slideNumber || slide.slideIndex || 'unknown'}`} style={{
                           padding: '10px',
                           backgroundColor: '#e3f2fd',
                           border: '1px solid #2196f3',
@@ -614,7 +629,7 @@ function MainPage() {
                             {slide.metadata?.name || `Slide ${slide.slideNumber}`}
                           </div>
                           <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                            {slide.components.length} components
+                            {slide.components?.length || 0} components
                           </div>
                         </div>
                       ))}

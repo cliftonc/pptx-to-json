@@ -73,11 +73,8 @@ export class ShapeParser extends BaseParser {
     const shapeType = geometry.type;
 
     // Extract component info from nvSpPr
-    const componentName = BaseParser.getString(
-      nvSpPr,
-      "cNvPr.$name",
-      `shape-${componentIndex}`,
-    );
+    const originalName = BaseParser.getString(nvSpPr, "cNvPr.$name", "");
+    const componentName = BaseParser.generateComponentId('shape', componentIndex, originalName);
 
     // Parse styling from spPr and style data
     const fill = ShapeParser.parseFill(spPr, style || null, context?.isMasterOrLayout);

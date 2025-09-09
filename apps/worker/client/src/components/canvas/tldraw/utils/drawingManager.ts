@@ -56,7 +56,9 @@ function composeSlideWithBackgrounds(
   }
   
   // 4. Add slide components (foreground, z-index 0+)
-  components.push(...slide.components);
+  if (slide.components && Array.isArray(slide.components)) {
+    components.push(...slide.components);
+  }
   
   return components;
 }

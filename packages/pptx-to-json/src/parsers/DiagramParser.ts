@@ -50,11 +50,8 @@ export class DiagramParser extends BaseParser {
     if (transform.width === 0 && transform.height === 0) return null;
 
     // Extract component info from nvGraphicFramePr
-    const componentName = BaseParser.getString(
-      nvGraphicFramePr,
-      "cNvPr.$name",
-      `diagram-${componentIndex}`,
-    );
+    const originalName = BaseParser.getString(nvGraphicFramePr, "cNvPr.$name", "");
+    const componentName = BaseParser.generateComponentId('diagram', componentIndex, originalName);
 
     // Try to determine diagram type from graphicData
     let diagramType = "unknown";

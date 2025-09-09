@@ -48,11 +48,8 @@ export class TableParser extends BaseParser {
     const transform = this.parseTransform(spPr); // spPr is actually xfrm for graphicFrame
 
     // Extract component info from nvGraphicFramePr
-    const componentName = BaseParser.getString(
-      nvGraphicFramePr,
-      "cNvPr.$name",
-      `table-${componentIndex}`,
-    );
+    const originalName = BaseParser.getString(nvGraphicFramePr, "cNvPr.$name", "");
+    const componentName = BaseParser.generateComponentId('table', componentIndex, originalName);
 
     // Calculate table dimensions
     const { rows, cols } = this.getTableDimensions(tableData);

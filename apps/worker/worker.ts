@@ -300,6 +300,79 @@ app.get('/api/proxy-powerpoint-clipboard', createRateLimitMiddleware(50, 60), as
   }
 });
 
+// Upload image to R2 and return URL (for thumbnails)
+app.post('/api/upload-image', createRateLimitMiddleware(100, 60), async (c: HonoContext) => {
+  try {
+    const body = await c.req.json();
+    const { imageData, slideId, slideNumber } = body;
+    
+    if (!imageData || !imageData.startsWith('data:image/')) {
+      return c.json({ error: 'Valid image data URL is required' }, 400);
+    }
+    
+    if (!slideId) {
+      return c.json({ error: 'Slide ID is required' }, 400);
+    }
+    
+    // Extract base64 data and mime type
+    const matches = imageData.match(/^data:image\/([a-zA-Z]*);base64,(.*)$/);
+    if (!matches || matches.length !== 3) {
+      return c.json({ error: 'Invalid image data format' }, 400);
+    }
+    
+    const mimeType = matches[1];
+    const base64Data = matches[2];
+    
+    // Validate image type (PNG or JPEG)
+    if (!['png', 'jpeg', 'jpg'].includes(mimeType)) {
+      return c.json({ error: 'Only PNG and JPEG images are supported' }, 400);
+    }
+    
+    // Convert base64 to buffer
+    const imageBuffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+    
+    // Generate SHA-256 hash for the image (same pattern as existing images)
+    const hashBuffer = await crypto.subtle.digest('SHA-256', imageBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    // Generate filename using hash (same pattern as existing images)
+    const filename = `${hashHex}.${mimeType === 'jpeg' ? 'jpg' : mimeType}`;
+    const imageKey = `images/${filename}`;
+    
+    // Store in R2 (same path as other images)
+    await c.env.PPTX_STORAGE.put(imageKey, imageBuffer, {
+      httpMetadata: {
+        contentType: `image/${mimeType}`,
+        cacheControl: 'public, max-age=31536000' // Cache for 1 year
+      },
+      customMetadata: {
+        slideId,
+        slideNumber: slideNumber?.toString() || 'unknown',
+        uploadedAt: new Date().toISOString(),
+        type: 'thumbnail'
+      }
+    });
+    
+    // Return URL using existing image serving endpoint
+    const imageUrl = `/api/images/${filename}`;
+    
+    return c.json({ 
+      success: true, 
+      imageUrl,
+      filename,
+      size: imageBuffer.length
+    });
+    
+  } catch (error) {
+    console.error('❌ Image upload error:', error);
+    return c.json({ 
+      error: 'Image upload failed', 
+      message: (error as Error).message 
+    }, 500);
+  }
+});
+
 // Save TLDraw state for a slide
 app.post('/api/slides/:id/state', createRateLimitMiddleware(50, 60), async (c: HonoContext) => {
   try {
@@ -309,37 +382,36 @@ app.post('/api/slides/:id/state', createRateLimitMiddleware(50, 60), async (c: H
       return c.json({ error: 'Slide ID is required' }, 400);
     }
     
-    // Get the TLDraw snapshot from request body
+    // Get body which may contain either legacy { snapshot } or new { unified }
     const body = await c.req.json();
-    const { snapshot } = body;
-    
-    if (!snapshot) {
-      return c.json({ error: 'Snapshot data is required' }, 400);
-    }
-    
-    // Store the snapshot in R2
+    const { snapshot, unified } = body as any;
+
     const stateKey = `slides/${slideId}/state.json`;
-    
-    await c.env.PPTX_STORAGE.put(stateKey, JSON.stringify({
-      snapshot,
-      savedAt: new Date().toISOString(),
-      slideId
-    }), {
-      httpMetadata: {
-        contentType: 'application/json'
-      },
-      customMetadata: {
-        slideId,
-        savedAt: new Date().toISOString()
+    const now = new Date().toISOString();
+
+    let toStore: any;
+    if (unified && unified.version === 1) {
+      // Ensure updatedAt is refreshed
+      if (unified.metadata) {
+        unified.metadata.updatedAt = now;
+        if (!unified.metadata.createdAt) unified.metadata.createdAt = now;
+      } else {
+        unified.metadata = { createdAt: now, updatedAt: now };
       }
+      toStore = { unified, savedAt: now, slideId };
+    } else if (snapshot) {
+      // Legacy path
+      toStore = { snapshot, savedAt: now, slideId };
+    } else {
+      return c.json({ error: 'Snapshot or unified data is required' }, 400);
+    }
+
+    await c.env.PPTX_STORAGE.put(stateKey, JSON.stringify(toStore), {
+      httpMetadata: { contentType: 'application/json' },
+      customMetadata: { slideId, savedAt: now }
     });
-    
-    return c.json({
-      success: true,
-      slideId,
-      shareUrl: `/slides/${slideId}`,
-      savedAt: new Date().toISOString()
-    });
+
+    return c.json({ success: true, slideId, shareUrl: `/slides/${slideId}`, savedAt: now, format: toStore.unified ? 'unified' : 'legacy' });
     
   } catch (error) {
     console.error('❌ Save state error:', error);
@@ -369,13 +441,12 @@ app.get('/api/slides/:id/state', createRateLimitMiddleware(50, 60), async (c: Ho
     }
     
     const stateData = await object.json() as any;
-    
-    return c.json({
-      success: true,
-      slideId,
-      snapshot: stateData.snapshot,
-      savedAt: stateData.savedAt
-    });
+
+    if (stateData.unified && stateData.unified.version === 1) {
+      return c.json({ success: true, slideId, unified: stateData.unified, savedAt: stateData.savedAt, format: 'unified' });
+    }
+
+    return c.json({ success: true, slideId, snapshot: stateData.snapshot, savedAt: stateData.savedAt, format: 'legacy' });
     
   } catch (error) {
     console.error('❌ Load state error:', error);

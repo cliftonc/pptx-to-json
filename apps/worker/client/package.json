@@ -24,6 +24,8 @@
     "@tiptap/extension-text-style": "2.26.1",
     "@tiptap/pm": "2.26.1",
     "@tldraw/tldraw": "^3.15.4",
+    "@types/fabric": "^5.3.10",
+    "fabric": "^6.7.1",
     "konva": "^9.3.22",
     "lucide-react": "^0.542.0",
     "ppt-paste-parser": "workspace:*",

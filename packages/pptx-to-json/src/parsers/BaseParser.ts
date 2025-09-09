@@ -73,6 +73,34 @@ export class BaseParser {
   }
 
   /**
+   * Generate a clean, unique component ID
+   * @param type - Component type (text, image, shape, etc.)
+   * @param index - Component index within its type
+   * @param originalName - Original PowerPoint name (optional, for debugging)
+   * @returns Clean component ID suitable for CSS selectors
+   */
+  static generateComponentId(type: string, index: number, originalName?: string): string {
+    // Create a base ID that's safe for CSS selectors
+    const baseId = `${type}-${index}`;
+    
+    // If we have an original name, create a short hash for uniqueness
+    if (originalName && originalName.trim()) {
+      // Simple hash function to create a short identifier
+      let hash = 0;
+      for (let i = 0; i < originalName.length; i++) {
+        const char = originalName.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32-bit integer
+      }
+      // Convert to positive hex string
+      const hashStr = Math.abs(hash).toString(16).substring(0, 6);
+      return `${baseId}-${hashStr}`;
+    }
+    
+    return baseId;
+  }
+
+  /**
    * Convert PowerPoint font size units to points
    * PowerPoint uses hundreds of a point (1 point = 100 units)
    * @param sz - PowerPoint font size

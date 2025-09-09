@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useEditor, getSnapshot } from '@tldraw/tldraw'
+import { usePresentation } from '../../../context/PresentationContext'
 
 interface SaveShareButtonProps {
   slideId: string
@@ -7,6 +8,7 @@ interface SaveShareButtonProps {
 
 export function SaveShareButton({ slideId }: SaveShareButtonProps) {
   const editor = useEditor()
+  const { saveUnified, setRendererState } = usePresentation()
   const [isSaving, setIsSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [shareUrl, setShareUrl] = useState<string>('')
@@ -18,31 +20,20 @@ export function SaveShareButton({ slideId }: SaveShareButtonProps) {
       setIsSaving(true)
       setSaveStatus('idle')
 
-      // Get the current TLDraw snapshot using the proper API
+      // Capture latest TLDraw state into context rendererStates
       const { document, session } = getSnapshot(editor.store)
-      const snapshot = { document, session }
+      setRendererState('tldraw', { document, session })
 
-      // Save to the API
-      const response = await fetch(`/api/slides/${slideId}/state`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ snapshot })
-      })
-
-      if (response.ok) {
-        const result = await response.json()
+      const result = await saveUnified(slideId)
+      if (result.success) {
         setSaveStatus('success')
         const fullShareUrl = `${window.location.origin}/slides/${slideId}`
         setShareUrl(fullShareUrl)
-        
-        // Copy to clipboard
+        window.history.pushState({}, '', `/slides/${slideId}`)
         await navigator.clipboard.writeText(fullShareUrl)
-        
-        console.log('Slide saved successfully:', result)
+        console.log('Slide saved successfully (unified):', result)
       } else {
-        throw new Error('Failed to save slide')
+        setSaveStatus('error')
       }
     } catch (error) {
       console.error('Error saving slide:', error)

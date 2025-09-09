@@ -1,13 +1,13 @@
 import React, { useEffect, useRef } from 'react'
 import type { CanvasSlide } from '../../../../types/canvas'
 
-interface SlideCarouselProps {
+interface VerticalSlideCarouselProps {
   slides: CanvasSlide[]
   currentSlideIndex: number
   onSlideSelect: (slideIndex: number) => void
 }
 
-const SlideCarousel: React.FC<SlideCarouselProps> = ({
+const VerticalSlideCarousel: React.FC<VerticalSlideCarouselProps> = ({
   slides,
   currentSlideIndex,
   onSlideSelect
@@ -26,28 +26,26 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
         const thumbnailRect = activeThumbnail.getBoundingClientRect()
         
         // Calculate if thumbnail is outside visible area
-        const carouselLeft = carouselRect.left
-        const carouselRight = carouselRect.right
-        const thumbnailLeft = thumbnailRect.left
-        const thumbnailRight = thumbnailRect.right
+        const carouselTop = carouselRect.top
+        const carouselBottom = carouselRect.bottom
+        const thumbnailTop = thumbnailRect.top
+        const thumbnailBottom = thumbnailRect.bottom
         
         // Check if thumbnail is outside viewport
-        if (thumbnailLeft < carouselLeft || thumbnailRight > carouselRight) {
+        if (thumbnailTop < carouselTop || thumbnailBottom > carouselBottom) {
           // Calculate scroll position to center the thumbnail
-          const thumbnailCenter = activeThumbnail.offsetLeft + (activeThumbnail.offsetWidth / 2)
-          const carouselCenter = carousel.offsetWidth / 2
+          const thumbnailCenter = activeThumbnail.offsetTop + (activeThumbnail.offsetHeight / 2)
+          const carouselCenter = carousel.offsetHeight / 2
           const scrollPosition = thumbnailCenter - carouselCenter
           
           carousel.scrollTo({
-            left: Math.max(0, scrollPosition),
+            top: Math.max(0, scrollPosition),
             behavior: 'smooth'
           })
         }
       }
     }
   }, [currentSlideIndex])
-
-  // Previously counted slides with thumbnails - removed since it was only used for logging
 
   if (slides.length === 0) {
     return null
@@ -56,18 +54,35 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
   return (
     <div 
       ref={carouselRef}
-      className="slide-carousel"
+      className="vertical-slide-carousel"
       style={{
-        height: '120px',
+        width: '200px',
         backgroundColor: '#f5f5f5',
-        borderTop: '1px solid #ddd',
+        borderLeft: '1px solid #ddd',
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
-        padding: '10px',
-        overflowX: 'auto',
-        gap: '10px'
+        padding: '15px 10px',
+        overflowY: 'auto',
+        gap: '12px',
+        height: '100%'
       }}
     >
+      <div
+        style={{
+          fontSize: '14px',
+          fontWeight: '600',
+          color: '#495057',
+          marginBottom: '5px',
+          textAlign: 'center',
+          borderBottom: '2px solid #dee2e6',
+          paddingBottom: '10px',
+          width: '100%'
+        }}
+      >
+        Slides ({slides.length})
+      </div>
+
       {slides.map((slide, index) => (
         <div
           key={`${slide.id}-${slide.thumbnailUrl || 'no-thumb'}`}
@@ -75,29 +90,32 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
           className={`slide-thumbnail ${index === currentSlideIndex ? 'active' : ''}`}
           onClick={() => onSlideSelect(index)}
           style={{
-            minWidth: '140px',
-            height: '100px',
+            width: '160px',
+            height: '120px',
             backgroundColor: 'white',
             border: index === currentSlideIndex ? '3px solid #007acc' : '2px solid #ccc',
-            borderRadius: '6px',
+            borderRadius: '8px',
             cursor: 'pointer',
             transition: 'all 0.2s ease',
             boxShadow: index === currentSlideIndex ? 
-              '0 4px 8px rgba(0, 122, 204, 0.3)' : 
-              '0 2px 4px rgba(0, 0, 0, 0.1)',
+              '0 4px 12px rgba(0, 122, 204, 0.3)' : 
+              '0 2px 6px rgba(0, 0, 0, 0.1)',
             position: 'relative',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            flexShrink: 0
           }}
           onMouseEnter={(e) => {
             if (index !== currentSlideIndex) {
               e.currentTarget.style.borderColor = '#999'
               e.currentTarget.style.transform = 'scale(1.02)'
+              e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.15)'
             }
           }}
           onMouseLeave={(e) => {
             if (index !== currentSlideIndex) {
               e.currentTarget.style.borderColor = '#ccc'
               e.currentTarget.style.transform = 'scale(1)'
+              e.currentTarget.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.1)'
             }
           }}
         >
@@ -105,13 +123,13 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
           <div
             style={{
               position: 'absolute',
-              top: '4px',
-              left: '4px',
+              top: '6px',
+              left: '6px',
               background: index === currentSlideIndex ? '#007acc' : '#9f7aea',
               color: 'white',
-              fontSize: '10px',
-              padding: '2px 6px',
-              borderRadius: '3px',
+              fontSize: '11px',
+              padding: '3px 7px',
+              borderRadius: '4px',
               fontWeight: 'bold',
               zIndex: 10
             }}
@@ -140,20 +158,29 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
               loading="lazy"
             />
           ) : (
-            <>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center',
+              height: '100%',
+              padding: '16px 8px 8px 8px',
+              textAlign: 'center'
+            }}>
               {/* Slide content preview (fallback when no thumbnail) */}
               <div
                 style={{
-                  fontSize: '12px',
+                  fontSize: '13px',
                   fontWeight: '500',
                   color: '#333',
-                  textAlign: 'center',
-                  marginTop: '16px',
                   marginBottom: '8px',
                   maxWidth: '100%',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  lineHeight: '1.3'
                 }}
               >
                 {slide.name || `Slide ${slide.slideNumber || index + 1}`}
@@ -162,7 +189,7 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
               {/* Component count indicator */}
               <div
                 style={{
-                  fontSize: '10px',
+                  fontSize: '11px',
                   color: '#666',
                   marginTop: 'auto'
                 }}
@@ -173,14 +200,14 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
               {/* Quick preview of slide dimensions */}
               <div
                 style={{
-                  fontSize: '9px',
+                  fontSize: '10px',
                   color: '#999',
                   marginTop: '2px'
                 }}
               >
                 {Math.round(slide.dimensions.width)} × {Math.round(slide.dimensions.height)}
               </div>
-            </>
+            </div>
           )}
         </div>
       ))}
@@ -190,19 +217,21 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
         <div
           className="add-slide-button"
           style={{
-            minWidth: '100px',
+            width: '160px',
             height: '100px',
             backgroundColor: '#f9f9f9',
             border: '2px dashed #ccc',
-            borderRadius: '6px',
+            borderRadius: '8px',
             cursor: 'pointer',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
             alignItems: 'center',
             color: '#666',
-            fontSize: '12px',
-            transition: 'all 0.2s ease'
+            fontSize: '13px',
+            transition: 'all 0.2s ease',
+            flexShrink: 0,
+            marginTop: '8px'
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.borderColor = '#999'
@@ -217,7 +246,7 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
             console.log('Add slide functionality not yet implemented')
           }}
         >
-          <div style={{ fontSize: '24px', marginBottom: '4px' }}>+</div>
+          <div style={{ fontSize: '28px', marginBottom: '6px' }}>+</div>
           <div>Add Slide</div>
         </div>
       )}
@@ -225,4 +254,4 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
   )
 }
 
-export default SlideCarousel
+export default VerticalSlideCarousel
