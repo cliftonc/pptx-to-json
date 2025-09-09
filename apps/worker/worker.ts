@@ -5,14 +5,12 @@ import type { Context } from 'hono';
 // Cloudflare Worker environment types
 interface R2Bucket { put(key: string, value: ArrayBuffer | Uint8Array | string, options?: any): Promise<any>; get(key: string): Promise<any>; head?(key: string): Promise<any>; }
 interface Fetcher { fetch(input: RequestInfo | URL | string, init?: RequestInit): Promise<Response>; }
-interface RateLimiter { limit(request: { key: string }): Promise<{ success: boolean }>; }
+interface KVNamespace { get(key: string): Promise<string | null>; put(key: string, value: string, options?: any): Promise<void>; }
 
 interface Env {
   PPTX_STORAGE: R2Bucket;
   ASSETS: Fetcher;
-  UPLOAD_RATE_LIMITER: RateLimiter;
-  API_RATE_LIMITER: RateLimiter;
-  GLOBAL_RATE_LIMITER: RateLimiter;
+  RATE_LIMIT_KV: KVNamespace;
 }
 
 // Type for Hono context with our environment
@@ -20,35 +18,81 @@ type HonoContext = Context<{ Bindings: Env }>;
 
 const app = new Hono<{ Bindings: Env }>();
 
-// Rate limiting middleware
-const createRateLimitMiddleware = (rateLimiter: keyof Env, keyGenerator?: (c: HonoContext) => string) => {
-  return async (c: HonoContext, next: () => Promise<void>) => {
-    const limiter = c.env[rateLimiter] as RateLimiter;
+// Simple sliding window rate limiter using KV
+async function checkRateLimit(kv: KVNamespace, key: string, limit: number, windowSeconds: number = 60): Promise<{ success: boolean; remaining: number }> {
+  try {
+    const now = Date.now();
+    const windowStart = now - (windowSeconds * 1000);
     
-    // Generate rate limit key (IP address or custom key)
-    const key = keyGenerator ? keyGenerator(c) : c.req.header('cf-connecting-ip') || 'unknown';
+    // Get existing timestamps for this key
+    const data = await kv.get(key);
+    let timestamps: number[] = [];
     
-    try {
-      const result = await limiter.limit({ key });
-      
-      if (!result.success) {
-        return c.json(
-          { 
-            error: 'Too Many Requests',
-            message: 'Rate limit exceeded. Please try again later.',
-            retryAfter: 60 
-          }, 
-          429,
-          { 'Retry-After': '60' }
-        );
-      }
-      
-      await next();
-    } catch (error) {
-      // If rate limiter fails, continue without blocking (graceful degradation)
-      console.warn('Rate limiter error:', error);
-      await next();
+    if (data) {
+      timestamps = JSON.parse(data);
+      // Remove timestamps outside the current window
+      timestamps = timestamps.filter(ts => ts > windowStart);
     }
+    
+    // Check if we've exceeded the limit
+    if (timestamps.length >= limit) {
+      return { success: false, remaining: 0 };
+    }
+    
+    // Add current timestamp
+    timestamps.push(now);
+    
+    // Store updated timestamps with TTL (expire after window + buffer)
+    await kv.put(key, JSON.stringify(timestamps), { 
+      expirationTtl: windowSeconds + 60 
+    });
+    
+    return { success: true, remaining: limit - timestamps.length };
+    
+  } catch (error) {
+    // If KV fails, allow the request (graceful degradation)
+    console.warn('Rate limiter KV error:', error);
+    return { success: true, remaining: limit };
+  }
+}
+
+// Rate limiting middleware factory
+const createRateLimitMiddleware = (limit: number, windowSeconds: number = 60) => {
+  return async (c: HonoContext, next: () => Promise<void>) => {
+    // Skip rate limiting if KV is not available (local development)
+    if (!c.env.RATE_LIMIT_KV) {
+      await next();
+      return;
+    }
+    
+    // Generate rate limit key using IP and endpoint
+    const ip = c.req.header('cf-connecting-ip') || 'unknown';
+    const endpoint = new URL(c.req.url).pathname;
+    const key = `rate_limit:${ip}:${endpoint}`;
+    
+    const result = await checkRateLimit(c.env.RATE_LIMIT_KV, key, limit, windowSeconds);
+    
+    if (!result.success) {
+      return c.json(
+        { 
+          error: 'Too Many Requests',
+          message: `Rate limit exceeded. Limit: ${limit} requests per ${windowSeconds} seconds.`,
+          retryAfter: windowSeconds
+        }, 
+        429,
+        { 
+          'Retry-After': windowSeconds.toString(),
+          'X-RateLimit-Limit': limit.toString(),
+          'X-RateLimit-Remaining': result.remaining.toString()
+        }
+      );
+    }
+    
+    // Add rate limit headers to successful requests
+    c.res.headers.set('X-RateLimit-Limit', limit.toString());
+    c.res.headers.set('X-RateLimit-Remaining', result.remaining.toString());
+    
+    await next();
   };
 };
 
@@ -80,7 +124,7 @@ interface ErrorResponse {
 }
 
 // Upload PPTX file endpoint
-app.post('/api/upload-pptx', createRateLimitMiddleware('UPLOAD_RATE_LIMITER'), async (c: HonoContext) => {
+app.post('/api/upload-pptx', createRateLimitMiddleware(10, 60), async (c: HonoContext) => {
   try {
     console.log('📤 Upload PPTX started');
     const formData = await c.req.formData();
@@ -144,7 +188,7 @@ app.post('/api/upload-pptx', createRateLimitMiddleware('UPLOAD_RATE_LIMITER'), a
 });
 
 // Process uploaded PPTX file endpoint
-app.get('/api/process-pptx/:fileId', createRateLimitMiddleware('API_RATE_LIMITER'), async (c: HonoContext) => {
+app.get('/api/process-pptx/:fileId', createRateLimitMiddleware(50, 60), async (c: HonoContext) => {
   try {
     const fileId = c.req.param('fileId');
     const debug = c.req.query('debug') === 'true';
@@ -212,7 +256,7 @@ app.get('/api/process-pptx/:fileId', createRateLimitMiddleware('API_RATE_LIMITER
 });
 
 // Proxy endpoint for Microsoft PowerPoint clipboard API
-app.get('/api/proxy-powerpoint-clipboard', createRateLimitMiddleware('API_RATE_LIMITER'), async (c: HonoContext) => {
+app.get('/api/proxy-powerpoint-clipboard', createRateLimitMiddleware(50, 60), async (c: HonoContext) => {
   try {
     const url = c.req.query('url');
     const debug = c.req.query('debug') === 'true';
@@ -257,7 +301,7 @@ app.get('/api/proxy-powerpoint-clipboard', createRateLimitMiddleware('API_RATE_L
 });
 
 // Save TLDraw state for a slide
-app.post('/api/slides/:id/state', createRateLimitMiddleware('API_RATE_LIMITER'), async (c: HonoContext) => {
+app.post('/api/slides/:id/state', createRateLimitMiddleware(50, 60), async (c: HonoContext) => {
   try {
     const slideId = c.req.param('id');
     
@@ -307,7 +351,7 @@ app.post('/api/slides/:id/state', createRateLimitMiddleware('API_RATE_LIMITER'),
 });
 
 // Load TLDraw state for a slide
-app.get('/api/slides/:id/state', createRateLimitMiddleware('API_RATE_LIMITER'), async (c: HonoContext) => {
+app.get('/api/slides/:id/state', createRateLimitMiddleware(50, 60), async (c: HonoContext) => {
   try {
     const slideId = c.req.param('id');
     
