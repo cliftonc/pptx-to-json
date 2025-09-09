@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "hono": "^4.9.5",
-    "ppt-paste-server": "workspace:*"
+    "pptx-to-json": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240925.0",

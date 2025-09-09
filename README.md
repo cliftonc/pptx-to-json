@@ -32,7 +32,7 @@ The system extracts:
 ## Architecture
 
 - **Client Library** (`packages/ppt-paste-parser/`): React component that detects PowerPoint data and calls the worker server
-- **Server Library** (`packages/ppt-paste-server/`): Code that parses the OfficeXML and returns structured data
+- **Server Library** (`packages/pptx-to-json/`): Code that parses the OfficeXML and returns structured data
 - **Cloudflare Worker** (`apps/worker/`): Hono-based worker that serves the client app and provides API endpoints
 - **Client Application** (`apps/worker/client/`): React app with TLDraw integration for visual presentation
 

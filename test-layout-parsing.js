@@ -4,8 +4,8 @@
  * Simple test to verify slide layout parsing functionality
  */
 
-import { PowerPointClipboardProcessor } from './packages/ppt-paste-server/src/processors/PowerPointClipboardProcessor.js';
-import { PPTXParser } from './packages/ppt-paste-server/src/processors/PPTXParser.js';
+import { PowerPointClipboardProcessor } from './packages/pptx-to-json/src/processors/PowerPointClipboardProcessor.js';
+import { PPTXParser } from './packages/pptx-to-json/src/processors/PPTXParser.js';
 import { readFile } from 'fs/promises';
 
 async function testLayoutParsing() {
@@ -16,7 +16,7 @@ async function testLayoutParsing() {
   
   // Test with presentation.pptx
   console.log('📁 Testing with presentation.pptx');
-  const buffer1 = await readFile('./packages/ppt-paste-server/test/test-harness/fixtures/presentation.pptx');
+  const buffer1 = await readFile('./packages/pptx-to-json/test/test-harness/fixtures/presentation.pptx');
   const json1 = await pptxParser.buffer2json(buffer1);
   
   const relationships1 = pptxParser.getSlideLayoutRelationships(json1);
@@ -37,7 +37,7 @@ async function testLayoutParsing() {
   
   // Test with presentation2.pptx (larger file)
   console.log('\n📁 Testing with presentation2.pptx');
-  const buffer2 = await readFile('./packages/ppt-paste-server/test/test-harness/fixtures/presentation2.pptx');
+  const buffer2 = await readFile('./packages/pptx-to-json/test/test-harness/fixtures/presentation2.pptx');
   const json2 = await pptxParser.buffer2json(buffer2);
   
   const relationships2 = pptxParser.getSlideLayoutRelationships(json2);

@@ -2,7 +2,7 @@
 
 ## Development Workflow
 
-You can use the log-bin command on either an extracted clipboard file (these are stored in `packages/ppt-paste-server/test/test-harness/fixtures`), or any pptx file.
+You can use the log-bin command on either an extracted clipboard file (these are stored in `packages/pptx-to-json/test/test-harness/fixtures`), or any pptx file.
 
 ```
 pnpm log-bin <filename>        # Parse binary file from fixtures/
@@ -15,15 +15,15 @@ To test changes you are making you simply re-run the log-bin to see the output a
 
 ## Key Files
 
-**`/packages/ppt-paste-server/src/index.ts`** - Library exports for the main server component and TypeScript interfaces.
+**`/packages/pptx-to-json/src/index.ts`** - Library exports for the main server component and TypeScript interfaces.
 
-**`/packages/ppt-paste-server/src/parsers`** - Individual parsers for sections of powerpoint (text, shape, image, video, table)
+**`/packages/pptx-to-json/src/parsers`** - Individual parsers for sections of powerpoint (text, shape, image, video, table)
 
-**`/packages/ppt-paste-server/src/processors`** - Core processor for PPTX (or clipboard).  Clipboard content is actually the same structure, just with a different namespace - solved via the normalizer - and without a slide master / layout.
+**`/packages/pptx-to-json/src/processors`** - Core processor for PPTX (or clipboard).  Clipboard content is actually the same structure, just with a different namespace - solved via the normalizer - and without a slide master / layout.
 
 **`/packages/ppt-paste-parser/src/ClipboardParser.tsx`** - Main React component that handles clipboard paste events, detects PowerPoint cloud service metadata, extracts Microsoft API URLs, and calls the worker server to get parsed components.
 
-**`/apps/worker/worker.js`** - Cloudflare Worker with Hono framework that serves the client app and provides API endpoints. Bypasses CORS restrictions, calls Microsoft's GetClipboardBytes API, and uses the ppt-paste-server package for parsing.
+**`/apps/worker/worker.js`** - Cloudflare Worker with Hono framework that serves the client app and provides API endpoints. Bypasses CORS restrictions, calls Microsoft's GetClipboardBytes API, and uses the pptx-to-json package for parsing.
 
 **`/apps/worker/client/src/App.tsx`** - Client application that displays parsed PowerPoint components with TLDraw integration, slideshow mode, and structured UI with visual styling.
 
@@ -35,7 +35,7 @@ PowerPoint Component Parser that extracts structured data from PowerPoint files 
 
 ## System Architecture
 
-### Server-Side Library (`packages/ppt-paste-server/`)
+### Server-Side Library (`packages/pptx-to-json/`)
 - Full parsing of both pptx and clipboard files
 - This is where key logic and complexity lives
 
@@ -48,7 +48,7 @@ PowerPoint Component Parser that extracts structured data from PowerPoint files 
 - Hono-based worker running on Cloudflare Workers platform
 - Serves static client application via assets binding
 - Provides API endpoints for PowerPoint parsing
-- Uses ppt-paste-server package for ZIP/XML processing
+- Uses pptx-to-json package for ZIP/XML processing
 - Supports R2 storage for uploaded PPTX files
 - Returns structured JSON with parsed components
 
@@ -79,7 +79,7 @@ ppt-paste/
 │   │   ├── src/ClipboardParser.tsx     # Main component (clean, minimal)
 │   │   ├── src/index.ts                # Exports
 │   │   └── dist/                       # Built library
-│   └── ppt-paste-server/               # Server parsing logic
+│   └── pptx-to-json/               # Server parsing logic
 │       └── src/                        # ZIP/XML parsing, PowerPoint parsers
 │           └── parsers/                # invididual element parsing
 │           └── processors/             # Processing of pptx or clipboard
@@ -134,7 +134,7 @@ pnpm deploy
 
 ### Parser Architecture
 
-**Core Parsers** (`/packages/ppt-paste-server/src/parsers/`):
+**Core Parsers** (`/packages/pptx-to-json/src/parsers/`):
 - **BaseParser.js**: Common utilities (EMU conversion, color parsing, transform extraction)
 - **PowerPointParser.js**: Main coordinator, handles clipboard vs file format detection
 - **TextParser.js**: Text components with comprehensive font/style parsing
@@ -172,7 +172,7 @@ pnpm type-check
 
 **Cloudflare Worker:**
 - Hono (web framework)
-- ppt-paste-server (parsing logic)
+- pptx-to-json (parsing logic)
 - Cloudflare Workers Runtime
 - R2 storage (for uploaded files)
 
