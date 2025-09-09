@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useEditor, getSnapshot } from '@tldraw/tldraw'
+import { useEditor } from '@tldraw/tldraw'
+import { usePresentation } from '../../../context/PresentationContext'
 
 interface TopToolbarProps {
   slideId: string | undefined
@@ -8,6 +9,7 @@ interface TopToolbarProps {
 
 export function TopToolbar({ slideId, onClearAndGoHome }: TopToolbarProps) {
   const editor = useEditor()
+  const { saveUnified } = usePresentation()
   const [isSaving, setIsSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [shareUrl, setShareUrl] = useState<string>('')
@@ -19,34 +21,16 @@ export function TopToolbar({ slideId, onClearAndGoHome }: TopToolbarProps) {
       setIsSaving(true)
       setSaveStatus('idle')
 
-      // Get the current TLDraw snapshot using the proper API
-      const { document, session } = getSnapshot(editor.store)
-      const snapshot = { document, session }
+      const result = await saveUnified(slideId)
 
-      // Save to the API
-      const response = await fetch(`/api/slides/${slideId}/state`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ snapshot })
-      })
-
-      if (response.ok) {
-        const result = await response.json()
+      if (result.success) {
         setSaveStatus('success')
         const fullShareUrl = `${window.location.origin}/slides/${slideId}`
         setShareUrl(fullShareUrl)
-        
-        // Update URL after successful save
         window.history.pushState({}, '', `/slides/${slideId}`)
-        
-        // Copy to clipboard
         await navigator.clipboard.writeText(fullShareUrl)
-        
-        console.log('Slide saved successfully:', result)
       } else {
-        throw new Error('Failed to save slide')
+        throw new Error(result.error || 'Failed to save slide')
       }
     } catch (error) {
       console.error('Error saving slide:', error)

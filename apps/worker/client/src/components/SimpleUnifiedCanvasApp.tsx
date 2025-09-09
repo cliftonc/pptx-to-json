@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { SimpleCanvasProvider, useSimpleCanvas } from '../context/SimpleCanvasProvider'
 import { CanvasSelector } from './CanvasSelector'
 import TldrawCanvas from './canvas/tldraw/TldrawCanvas'
-import KonvaCanvas from './canvas/konva/KonvaCanvas'
+import EditableKonvaCanvas from './canvas/konva/EditableKonvaCanvas'
 import type { PowerPointSlide } from 'ppt-paste-parser'
 
 interface SimpleUnifiedCanvasAppProps {
@@ -108,6 +108,22 @@ function CanvasContent({
 }: SimpleUnifiedCanvasAppProps) {
   const { currentRendererType, isLoading, error } = useSimpleCanvas()
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
+  const [currentSlides, setCurrentSlides] = useState(slides)
+
+  // Update slides when props change
+  useEffect(() => {
+    setCurrentSlides(slides)
+  }, [slides])
+
+  // Handle slide updates from EditableKonvaCanvas
+  const handleSlideUpdate = (slideIndex: number, updatedSlide: any) => {
+    setCurrentSlides(prev => {
+      if (!prev) return prev
+      const newSlides = [...prev]
+      newSlides[slideIndex] = updatedSlide
+      return newSlides
+    })
+  }
 
   if (error) {
     return (
@@ -190,9 +206,9 @@ function CanvasContent({
 
   if (currentRendererType === 'konva') {
     return (
-      <KonvaCanvas
-        key="konva"
-        slides={slides.map((slide, index) => ({
+      <EditableKonvaCanvas
+        key="editable-konva"
+        slides={(currentSlides || []).map((slide, index) => ({
           id: slide.slideIndex?.toString() || `slide-${index}`,
           name: slide.metadata?.name || `Slide ${slide.slideNumber || index + 1}`,
           slideNumber: slide.slideNumber || index + 1,
@@ -201,11 +217,15 @@ function CanvasContent({
             width: slide.metadata?.width || slideDimensions?.width || 720,
             height: slide.metadata?.height || slideDimensions?.height || 540
           },
-          metadata: slide.metadata
+          metadata: slide.metadata,
+          background: slide.background ? {
+            type: 'color',
+            value: typeof slide.background === 'string' ? slide.background : slide.background.content || ''
+          } : undefined,
         }))}
         currentSlideIndex={currentSlideIndex}
         config={{
-          mode: 'select',
+          mode: 'edit',
           showGrid: false,
           snapToGrid: false,
           gridSize: 20,
@@ -217,6 +237,7 @@ function CanvasContent({
           darkMode: false
         }}
         onSlideSelect={setCurrentSlideIndex}
+        onSlideUpdate={handleSlideUpdate}
       />
     )
   }
@@ -240,7 +261,7 @@ function CanvasContent({
 function SimpleUnifiedCanvasApp(props: SimpleUnifiedCanvasAppProps) {
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <SimpleCanvasProvider defaultRenderer="tldraw">
+      <SimpleCanvasProvider defaultRenderer={typeof window !== 'undefined' ? (localStorage.getItem('canvas-renderer-preference') || 'tldraw') : 'tldraw'}>
         <CanvasRendererRegistry />
         
         {/* Canvas controls - now inside provider */}

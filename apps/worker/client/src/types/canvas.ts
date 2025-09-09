@@ -21,7 +21,7 @@ export interface CanvasComponent {
   visible?: boolean
   locked?: boolean
   zIndex?: number
-  content?: any // Renderer-specific content
+  content?: any
   style?: CanvasComponentStyle
   metadata?: Record<string, any>
 }
@@ -81,7 +81,7 @@ export interface CanvasDimensions {
 /**
  * Canvas interaction modes
  */
-export type CanvasMode = 'select' | 'draw' | 'text' | 'shape' | 'slideshow' | 'readonly'
+export type CanvasMode = 'select' | 'edit' | 'draw' | 'text' | 'shape' | 'slideshow' | 'readonly'
 
 /**
  * Canvas event handlers
@@ -116,78 +116,27 @@ export interface CanvasConfig {
  * Base canvas renderer interface that all implementations must satisfy
  */
 export interface CanvasRenderer {
-  /**
-   * Unique identifier for this renderer
-   */
   readonly type: CanvasRendererType
-  
-  /**
-   * Human-readable display name
-   */
   readonly displayName: string
-  
-  /**
-   * Initialize the canvas with data
-   */
   initialize(
     container: HTMLElement,
     config: CanvasConfig
   ): Promise<void>
-  
-  /**
-   * Load slides into the canvas
-   */
   loadSlides(
     slides: CanvasSlide[],
     dimensions?: CanvasDimensions
   ): Promise<void>
-  
-  /**
-   * Load individual components (legacy support)
-   */
   loadComponents(
     components: CanvasComponent[],
     dimensions?: CanvasDimensions
   ): Promise<void>
-  
-  /**
-   * Set the current canvas mode
-   */
   setMode(mode: CanvasMode): void
-  
-  /**
-   * Update canvas configuration
-   */
   updateConfig(config: Partial<CanvasConfig>): void
-  
-  /**
-   * Navigate to a specific slide (for slideshow mode)
-   */
   navigateToSlide(slideIndex: number): Promise<void>
-  
-  /**
-   * Get current canvas state as JSON
-   */
   getSnapshot(): Promise<any>
-  
-  /**
-   * Load canvas state from JSON
-   */
   loadSnapshot(snapshot: any): Promise<void>
-  
-  /**
-   * Export canvas content
-   */
   export(format: 'png' | 'svg' | 'json'): Promise<Blob | string>
-  
-  /**
-   * Register event handlers
-   */
   setEventHandlers(handlers: CanvasEventHandlers): void
-  
-  /**
-   * Clean up resources
-   */
   destroy(): void
 }
 
@@ -213,7 +162,7 @@ export interface CanvasRendererInfo {
     supportsRichText: boolean
     supportsAnimations: boolean
     supportsCollaboration: boolean
-    supportsExport: string[] // supported export formats
+    supportsExport: string[]
   }
 }
 
@@ -232,7 +181,7 @@ export function powerPointToCanvasComponent(ppComponent: PowerPointComponent): C
     opacity: ppComponent.metadata?.opacity,
     visible: ppComponent.metadata?.visible !== false,
     locked: false,
-    zIndex: ppComponent.zIndex, // Preserve zIndex as top-level property
+    zIndex: ppComponent.zIndex,
     content: ppComponent.content,
     style: ppComponent.style ? {
       fill: ppComponent.style.fill,
@@ -260,13 +209,41 @@ export function powerPointToCanvasSlide(ppSlide: PowerPointSlide): CanvasSlide {
     slideNumber: ppSlide.slideNumber,
     components: ppSlide.components.map(powerPointToCanvasComponent),
     background: ppSlide.background ? {
-      type: 'color', // PowerPoint backgrounds are typically colors for now
-      value: typeof ppSlide.background === 'string' ? ppSlide.background : ppSlide.background.content || ''
+      type: 'color',
+      value: typeof ppSlide.background === 'string' ? ppSlide.background : (ppSlide.background as any).content || ''
     } : undefined,
     dimensions: {
-      width: ppSlide.metadata?.width || 720,
-      height: ppSlide.metadata?.height || 540
+      width: (ppSlide.metadata as any)?.width || 720,
+      height: (ppSlide.metadata as any)?.height || 540
     },
     metadata: ppSlide.metadata
   }
 }
+
+/**
+ * Unified snapshot structure for saving presentation state across renderers.
+ */
+export interface RendererStates {
+  tldraw?: {
+    document: any
+    session: any
+  }
+  konva?: any
+}
+
+export interface UnifiedSnapshotMeta {
+  createdAt: string
+  updatedAt: string
+  title?: string
+  source?: 'clipboard' | 'uploaded_file' | string
+}
+
+export interface UnifiedSnapshotV1 {
+  version: 1
+  slides: PowerPointSlide[]
+  originalParsed?: any
+  rendererStates: RendererStates
+  metadata: UnifiedSnapshotMeta
+}
+
+export type AnyUnifiedSnapshot = UnifiedSnapshotV1 | { snapshot: any }

@@ -1,11 +1,20 @@
 import React, { useState, useEffect } from 'react'
-import { Image, Rect, Text } from 'react-konva'
+import { Image, Rect, Text, Group } from 'react-konva'
+import Konva from 'konva'
 import type { CanvasComponent } from '../../../../types/canvas'
 
 /**
  * Render an image component in Konva
  */
-export function renderImageComponent(component: CanvasComponent, key: string) {
+export function renderImageComponent(
+  component: CanvasComponent & {
+    onClick?: (e: Konva.KonvaEventObject<MouseEvent>) => void
+    draggable?: boolean
+    onDragEnd?: (e: Konva.KonvaEventObject<DragEvent | MouseEvent>) => void
+    isSelected?: boolean
+  },
+  key: string
+) {
   const {
     x,
     y,
@@ -34,6 +43,10 @@ export function renderImageComponent(component: CanvasComponent, key: string) {
       style={style}
       rotation={rotation}
       opacity={opacity}
+      onClick={component.onClick}
+      draggable={component.draggable}
+      onDragEnd={component.onDragEnd}
+      isSelected={component.isSelected}
     />
   )
 }
@@ -48,6 +61,10 @@ interface ImageComponentRendererProps {
   style: any
   rotation: number
   opacity: number
+  onClick?: (e: Konva.KonvaEventObject<MouseEvent>) => void
+  draggable?: boolean
+  onDragEnd?: (e: Konva.KonvaEventObject<DragEvent | MouseEvent>) => void
+  isSelected?: boolean
 }
 
 const ImageComponentRenderer: React.FC<ImageComponentRendererProps> = ({
@@ -59,7 +76,11 @@ const ImageComponentRenderer: React.FC<ImageComponentRendererProps> = ({
   content,
   style,
   rotation,
-  opacity
+  opacity,
+  onClick,
+  draggable = false,
+  onDragEnd,
+  isSelected = false
 }) => {
   const [image, setImage] = useState<HTMLImageElement | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -67,35 +88,19 @@ const ImageComponentRenderer: React.FC<ImageComponentRendererProps> = ({
 
   // Extract image source from content
   const getImageSource = (): string | null => {
-    // First check metadata.imageUrl (consistent with TLDraw renderer)
     if (component.metadata?.imageUrl) {
       return component.metadata.imageUrl
     }
-    
     if (typeof content === 'string') {
-      // Direct URL or data URL
       return content
     }
-    
     if (content && typeof content === 'object') {
-      // Try various properties that might contain the image data
-      return content.src || 
-             content.url || 
-             content.dataUrl || 
-             content.data || 
-             content.content ||
-             null
+      return content.src || content.url || content.dataUrl || content.data || content.content || null
     }
-    
     return null
   }
 
   const imageSrc = getImageSource()
-
-  // Debug logging to understand the image data structure
-  console.log('ImageRenderer - component:', component)
-  console.log('ImageRenderer - content:', content)
-  console.log('ImageRenderer - imageSrc:', imageSrc)
 
   useEffect(() => {
     if (!imageSrc) {
@@ -105,49 +110,54 @@ const ImageComponentRenderer: React.FC<ImageComponentRendererProps> = ({
     }
 
     const img = new window.Image()
-    img.crossOrigin = 'anonymous' // Handle CORS for external images
-    
+    img.crossOrigin = 'anonymous'
+
     img.onload = () => {
       setImage(img)
       setIsLoading(false)
       setError(null)
     }
-    
+
     img.onerror = () => {
       setError('Failed to load image')
       setIsLoading(false)
       setImage(null)
     }
-    
+
     img.src = imageSrc
-    
+
     return () => {
       img.onload = null
       img.onerror = null
     }
   }, [imageSrc])
 
-  // Common event handlers
-  const handleClick = () => {
-    console.log('Image component clicked:', component.id)
+  const handleClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (onClick) {
+      onClick(e)
+    }
   }
 
   const handleMouseEnter = (e: any) => {
-    e.target.getStage()!.container().style.cursor = 'pointer'
+    const container = e.target.getStage()?.container()
+    if (container) {
+      container.style.cursor = draggable ? 'move' : 'pointer'
+    }
   }
 
   const handleMouseLeave = (e: any) => {
-    e.target.getStage()!.container().style.cursor = 'default'
+    const container = e.target.getStage()?.container()
+    if (container) {
+      container.style.cursor = 'default'
+    }
   }
 
-  // Border styling
   const borderWidth = style.strokeWidth || 0
   const borderColor = style.stroke || '#000000'
   const cornerRadius = style.borderRadius || 0
 
-  const elements = []
+  const elements: React.ReactElement[] = []
 
-  // Add border/background if specified
   if (borderWidth > 0 || style.backgroundColor) {
     elements.push(
       <Rect
@@ -170,7 +180,6 @@ const ImageComponentRenderer: React.FC<ImageComponentRendererProps> = ({
   }
 
   if (isLoading) {
-    // Show loading placeholder
     elements.push(
       <Rect
         key={`${component.id}-loading`}
@@ -189,7 +198,6 @@ const ImageComponentRenderer: React.FC<ImageComponentRendererProps> = ({
         onMouseLeave={handleMouseLeave}
       />
     )
-    
     elements.push(
       <Text
         key={`${component.id}-loading-text`}
@@ -207,7 +215,6 @@ const ImageComponentRenderer: React.FC<ImageComponentRendererProps> = ({
       />
     )
   } else if (error || !image) {
-    // Show error placeholder
     elements.push(
       <Rect
         key={`${component.id}-error`}
@@ -227,7 +234,6 @@ const ImageComponentRenderer: React.FC<ImageComponentRendererProps> = ({
         onMouseLeave={handleMouseLeave}
       />
     )
-    
     elements.push(
       <Text
         key={`${component.id}-error-text`}
@@ -245,10 +251,11 @@ const ImageComponentRenderer: React.FC<ImageComponentRendererProps> = ({
       />
     )
   } else {
-    // Show the actual image
     elements.push(
       <Image
         key={`${component.id}-image`}
+        id={component.id}
+        name={component.id}
         x={x}
         y={y}
         width={width}
@@ -260,7 +267,7 @@ const ImageComponentRenderer: React.FC<ImageComponentRendererProps> = ({
         onClick={handleClick}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        // Image scaling/cropping options
+        draggable={false}
         crop={style.crop ? {
           x: style.crop.x || 0,
           y: style.crop.y || 0,
@@ -271,7 +278,69 @@ const ImageComponentRenderer: React.FC<ImageComponentRendererProps> = ({
     )
   }
 
-  return <>{elements}</>
+  if (elements.length === 1) {
+    const el = elements[0]
+    const common = {
+      id: component.id,
+      name: component.id,
+      draggable: draggable,
+      onDragEnd: onDragEnd as any,
+      onClick: handleClick as any,
+      onMouseEnter: handleMouseEnter as any,
+      onMouseLeave: handleMouseLeave as any,
+    }
+    if (el.type === Rect || el.type === Image) {
+      const props: any = el.props as any
+      const specific: any = {
+        x: props.x,
+        y: props.y,
+        width: props.width,
+        height: props.height,
+        fill: props.fill,
+        stroke: props.stroke,
+        strokeWidth: props.strokeWidth,
+        cornerRadius: props.cornerRadius,
+        rotation: props.rotation,
+        opacity: props.opacity,
+        image: props.image,
+        crop: props.crop,
+      }
+      return React.createElement(el.type as any, { ...specific, ...common })
+    }
+    return el
+  }
+
+  return (
+    <Group
+      id={component.id}
+      name={component.id}
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      rotation={rotation}
+      opacity={opacity}
+      draggable={draggable}
+      onDragEnd={onDragEnd}
+      onClick={handleClick}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {isSelected && (
+        <Rect
+          x={0}
+          y={0}
+          width={width}
+          height={height}
+          stroke="#2196f3"
+          strokeWidth={1}
+          dash={[4,2]}
+          listening={false}
+        />
+      )}
+      {elements}
+    </Group>
+  )
 }
 
 /**
@@ -279,7 +348,6 @@ const ImageComponentRenderer: React.FC<ImageComponentRendererProps> = ({
  */
 export function getImageMetadata(component: CanvasComponent) {
   const content = component.content
-  
   return {
     hasImage: !!content,
     type: typeof content,

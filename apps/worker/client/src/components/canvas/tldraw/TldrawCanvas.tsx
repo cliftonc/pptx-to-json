@@ -1,4 +1,5 @@
 import { useEffect, useRef, useImperativeHandle, forwardRef } from 'react'
+import { usePresentation } from '../../../context/PresentationContext'
 import { Tldraw, Editor } from '@tldraw/tldraw'
 
 import type { PowerPointComponent, PowerPointSlide } from 'ppt-paste-parser'
@@ -31,6 +32,7 @@ export interface TldrawCanvasRef {
 
 const TldrawCanvas = forwardRef<TldrawCanvasRef, TldrawCanvasProps>(({ components, slides, slideDimensions, masters, layouts, theme, slideId, initialSnapshot, onEditorMount }, ref) => {
   const editorRef = useRef<Editor | null>(null)
+  const { saveUnified } = usePresentation()
 
   // Auto-save function exposed via ref
   const autoSave = async () => {
@@ -49,25 +51,12 @@ const TldrawCanvas = forwardRef<TldrawCanvasRef, TldrawCanvasProps>(({ component
     }
 
     try {
-      console.log('🔄 Auto-saving slide...')
-      
-      // Get the current TLDraw snapshot using the proper API
-      const { document, session } = await import('@tldraw/tldraw').then(m => m.getSnapshot(editorRef.current!.store))
-      const snapshot = { document, session }
-
-      // Save to the API
-      const response = await fetch(`/api/slides/${slideId}/state`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ snapshot })
-      })
-
-      if (response.ok) {
+      console.log('🔄 Auto-saving slide (unified)...')
+      const result = await saveUnified(slideId)
+      if (result.success) {
         console.log('✅ Auto-save successful')
       } else {
-        console.error('❌ Auto-save failed:', response.status)
+        console.error('❌ Auto-save failed:', result.error)
       }
     } catch (error) {
       console.error('❌ Auto-save error:', error)

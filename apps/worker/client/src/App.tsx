@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { usePresentation } from './context/PresentationContext'
 import { Routes, Route, useParams } from 'react-router-dom'
 import { ClipboardParser, type ParsedContent } from 'ppt-paste-parser'
 import Canvas, { type CanvasRef } from './components/Canvas'
@@ -27,6 +28,14 @@ function MainPage() {
   const [initialSnapshot, setInitialSnapshot] = useState<any>(null)
   const [loadingSlideId, setLoadingSlideId] = useState<string | null>(null)
   const canvasRef = useRef<CanvasRef>(null)
+  const { setSlides, setOriginalParsed, loadUnified } = usePresentation()
+
+  // Expose current slide id globally for toolbars (legacy dependency)
+  useEffect(() => {
+    if (currentSlideId) {
+      ;(window as any).currentSlideId = currentSlideId
+    }
+  }, [currentSlideId])
 
   // Load slide data if there's an ID in the URL
   useEffect(() => {
@@ -80,12 +89,30 @@ function MainPage() {
       if (stateResponse.ok) {
         const stateData = await stateResponse.json()
         console.log('💾 Found saved state:', stateData)
-        setInitialSnapshot(stateData.snapshot)
-        setStructuredData({
-          slideId: slideId,
-          savedAt: stateData.savedAt,
-          hasState: true
-        })
+
+        if (stateData.unified && stateData.unified.version === 1) {
+          // Unified path: populate structuredData using slides & theme info if present
+          setStructuredData({
+            slideId: slideId,
+            savedAt: stateData.savedAt,
+            hasState: true,
+            slides: stateData.unified.slides,
+            slideDimensions: stateData.unified.slides?.[0]?.metadata?.dimensions || stateData.unified.slides?.[0]?.metadata || {},
+          })
+          // Populate PresentationContext
+          loadUnified(stateData.unified)
+          if (stateData.unified.rendererStates?.tldraw) {
+            setInitialSnapshot(stateData.unified.rendererStates.tldraw)
+          }
+        } else {
+          // Legacy path
+          setInitialSnapshot(stateData.snapshot)
+          setStructuredData({
+            slideId: slideId,
+            savedAt: stateData.savedAt,
+            hasState: true
+          })
+        }
       } else {
         // If no saved state, try to load the original PPTX file and render it
         setLoadingMessage('Processing PowerPoint file...')
@@ -119,6 +146,15 @@ function MainPage() {
             layouts: processResult.layouts,
             theme: processResult.theme,
             isFromFile: true
+          })
+          // Populate context for unified save
+          setSlides(processResult.slides || [])
+          setOriginalParsed({
+            slides: processResult.slides,
+            slideDimensions: processResult.slideDimensions,
+            masters: processResult.masters,
+            layouts: processResult.layouts,
+            theme: processResult.theme
           })
         } else {
           console.log('❌ No PPTX file found for slideId:', slideId)
@@ -180,6 +216,17 @@ function MainPage() {
         theme: data.theme,
         slideId: slideId
       });
+      // Populate PresentationContext for unified saves
+      setSlides(data.slides)
+      setOriginalParsed({
+        slides: data.slides,
+        slideDimensions: data.slideDimensions,
+        masters: data.masters,
+        layouts: data.layouts,
+        theme: data.theme,
+        isPowerPoint: data.isPowerPoint,
+        availableFormats: data.formats.map(f => f.type)
+      })
       
       // Don't change URL automatically - wait for user to click "Save & Share"
     } else if (data.isPowerPoint) {
@@ -648,14 +695,18 @@ function MainPage() {
 
 
 // Main App component with routing
+import { PresentationProvider } from './context/PresentationContext'
+
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<MainPage />} />
-      <Route path="/slides/:id" element={<MainPage />} />
-      <Route path="/docs" element={<ApiDocumentation />} />
-      <Route path="*" element={<MainPage />} />
-    </Routes>
+    <PresentationProvider>
+      <Routes>
+        <Route path="/" element={<MainPage />} />
+        <Route path="/slides/:id" element={<MainPage />} />
+        <Route path="/docs" element={<ApiDocumentation />} />
+        <Route path="*" element={<MainPage />} />
+      </Routes>
+    </PresentationProvider>
   )
 }
 

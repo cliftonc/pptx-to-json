@@ -1,10 +1,19 @@
 import { Rect, Circle, Ellipse, RegularPolygon, Line, Shape } from 'react-konva'
+import type Konva from 'konva'
 import type { CanvasComponent } from '../../../../types/canvas'
 
 /**
  * Render a shape component in Konva
  */
-export function renderShapeComponent(component: CanvasComponent, key: string) {
+export function renderShapeComponent(
+  component: CanvasComponent & {
+    onClick?: (e: Konva.KonvaEventObject<MouseEvent>) => void
+    draggable?: boolean
+    onDragEnd?: (e: Konva.KonvaEventObject<DragEvent | MouseEvent>) => void
+    isSelected?: boolean
+  },
+  key: string
+) {
   const {
     x,
     y,
@@ -14,7 +23,11 @@ export function renderShapeComponent(component: CanvasComponent, key: string) {
     rotation = 0,
     opacity = 1,
     visible = true,
-    content
+    content,
+    onClick,
+    draggable = false,
+    onDragEnd,
+    isSelected = false
   } = component
 
   if (!visible) {
@@ -23,12 +36,14 @@ export function renderShapeComponent(component: CanvasComponent, key: string) {
 
   // Default styling
   const fill = style.fill || style.backgroundColor || '#cccccc'
-  const stroke = style.stroke || '#000000'
-  const strokeWidth = style.strokeWidth || 1
+  const stroke = isSelected ? '#2196f3' : (style.stroke || '#000000')
+  const strokeWidth = isSelected ? (style.strokeWidth || 1) + 0.5 : (style.strokeWidth || 1)
   const cornerRadius = style.borderRadius || 0
 
-  // Common props for all shapes (excluding key which must be passed directly)
+  // Common props for all shapes
   const commonProps = {
+    id: component.id,
+    name: component.id,
     x,
     y,
     fill,
@@ -38,21 +53,29 @@ export function renderShapeComponent(component: CanvasComponent, key: string) {
     opacity,
     shadowBlur: style.shadow ? 10 : 0,
     shadowColor: style.shadow ? 'rgba(0,0,0,0.3)' : undefined,
-    onClick: () => {
-      console.log('Shape component clicked:', component.id)
-    },
+    onClick: onClick || (() => {
+      // no-op fallback
+    }),
     onMouseEnter: (e: any) => {
-      e.target.getStage()!.container().style.cursor = 'pointer'
+      const container = e.target.getStage()?.container()
+      if (container) {
+        container.style.cursor = draggable ? 'move' : 'pointer'
+      }
     },
     onMouseLeave: (e: any) => {
-      e.target.getStage()!.container().style.cursor = 'default'
-    }
+      const container = e.target.getStage()?.container()
+      if (container) {
+        container.style.cursor = 'default'
+      }
+    },
+    draggable: draggable,
+    onDragEnd: onDragEnd
   }
 
-  // Determine shape type from content or metadata
-  const shapeType = content?.shapeType || 
-                   content?.type || 
-                   component.metadata?.shapeType || 
+  // Determine shape type
+  const shapeType = content?.shapeType ||
+                   content?.type ||
+                   component.metadata?.shapeType ||
                    'rectangle'
 
   switch (shapeType.toLowerCase()) {
@@ -75,9 +98,13 @@ export function renderShapeComponent(component: CanvasComponent, key: string) {
         <Circle
           key={key}
           {...commonProps}
-          x={x + radius}
-          y={y + radius}
+          x={x}
+          y={y}
+          width={width}
+          height={height}
           radius={radius}
+          offsetX={-radius}
+          offsetY={-radius}
         />
       )
 
@@ -87,59 +114,83 @@ export function renderShapeComponent(component: CanvasComponent, key: string) {
         <Ellipse
           key={key}
           {...commonProps}
-          x={x + width / 2}
-          y={y + height / 2}
+          x={x}
+          y={y}
+          width={width}
+          height={height}
           radiusX={width / 2}
           radiusY={height / 2}
+          offsetX={-width / 2}
+          offsetY={-height / 2}
         />
       )
 
     case 'triangle':
+      const triangleRadius = Math.min(width, height) / 2
       return (
         <RegularPolygon
           key={key}
           {...commonProps}
-          x={x + width / 2}
-          y={y + height / 2}
+          x={x}
+          y={y}
+          width={width}
+          height={height}
           sides={3}
-          radius={Math.min(width, height) / 2}
+          radius={triangleRadius}
+          offsetX={-triangleRadius}
+          offsetY={-triangleRadius}
         />
       )
 
     case 'pentagon':
+      const pentagonRadius = Math.min(width, height) / 2
       return (
         <RegularPolygon
           key={key}
           {...commonProps}
-          x={x + width / 2}
-          y={y + height / 2}
+          x={x}
+          y={y}
+          width={width}
+          height={height}
           sides={5}
-          radius={Math.min(width, height) / 2}
+          radius={pentagonRadius}
+          offsetX={-pentagonRadius}
+          offsetY={-pentagonRadius}
         />
       )
 
     case 'hexagon':
+      const hexagonRadius = Math.min(width, height) / 2
       return (
         <RegularPolygon
           key={key}
           {...commonProps}
-          x={x + width / 2}
-          y={y + height / 2}
+          x={x}
+          y={y}
+          width={width}
+          height={height}
           sides={6}
-          radius={Math.min(width, height) / 2}
+          radius={hexagonRadius}
+          offsetX={-hexagonRadius}
+          offsetY={-hexagonRadius}
         />
       )
 
     case 'star':
+      const starRadius = Math.min(width, height) / 2
       return (
         <RegularPolygon
           key={key}
           {...commonProps}
-          x={x + width / 2}
-          y={y + height / 2}
+          x={x}
+          y={y}
+          width={width}
+          height={height}
           sides={5}
-          radius={Math.min(width, height) / 2}
+          radius={starRadius}
           innerRadius={Math.min(width, height) / 4}
+          offsetX={-starRadius}
+          offsetY={-starRadius}
         />
       )
 
@@ -154,7 +205,6 @@ export function renderShapeComponent(component: CanvasComponent, key: string) {
       )
 
     case 'arrow':
-      // Simple arrow using Line with arrow properties
       return (
         <Line
           key={key}
@@ -162,15 +212,11 @@ export function renderShapeComponent(component: CanvasComponent, key: string) {
           points={[x, y + height / 2, x + width, y + height / 2]}
           strokeWidth={strokeWidth || 2}
           lineCap="round"
-          // Note: Konva doesn't have built-in arrow heads, 
-          // would need custom implementation
         />
       )
 
     case 'custom':
     case 'path':
-      // For custom shapes, we could use the Shape component
-      // This would require path data from the content
       const pathData = content?.path || content?.d
       if (pathData) {
         return (
@@ -179,8 +225,6 @@ export function renderShapeComponent(component: CanvasComponent, key: string) {
             {...commonProps}
             sceneFunc={(context, shape) => {
               context.beginPath()
-              // Would need to parse SVG path data here
-              // For now, just draw a simple shape
               context.rect(0, 0, width, height)
               context.fillStrokeShape(shape)
             }}
@@ -189,7 +233,6 @@ export function renderShapeComponent(component: CanvasComponent, key: string) {
           />
         )
       }
-      // Fallback to rectangle for unknown custom shapes
       return (
         <Rect
           key={key}
@@ -201,7 +244,6 @@ export function renderShapeComponent(component: CanvasComponent, key: string) {
       )
 
     default:
-      // Default to rectangle for unknown shapes
       return (
         <Rect
           key={key}
@@ -218,19 +260,14 @@ export function renderShapeComponent(component: CanvasComponent, key: string) {
  * Get shape type from PowerPoint content
  */
 export function getShapeType(component: CanvasComponent): string {
-  // Try to extract shape type from various possible locations
   const content = component.content
-  
   if (typeof content === 'object' && content) {
-    if (content.shapeType) return content.shapeType
-    if (content.type) return content.type
-    if (content.preset) return content.preset
+    if ((content as any).shapeType) return (content as any).shapeType
+    if ((content as any).type) return (content as any).type
+    if ((content as any).preset) return (content as any).preset
   }
-  
   if (component.metadata?.shapeType) {
     return component.metadata.shapeType
   }
-  
-  // Default fallback
   return 'rectangle'
 }

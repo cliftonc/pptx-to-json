@@ -1,11 +1,22 @@
 import React from 'react'
 import { Text, Rect } from 'react-konva'
+import Konva from 'konva'
 import type { CanvasComponent } from '../../../../types/canvas'
 
 /**
  * Render a text component in Konva
  */
-export function renderTextComponent(component: CanvasComponent, key: string) {
+export function renderTextComponent(
+  component: CanvasComponent & {
+    onClick?: (e: Konva.KonvaEventObject<MouseEvent>) => void
+    onDoubleClick?: (e: Konva.KonvaEventObject<MouseEvent>) => void
+    draggable?: boolean
+    onDragEnd?: (e: Konva.KonvaEventObject<DragEvent | MouseEvent>) => void
+    isEditing?: boolean
+    isSelected?: boolean
+  },
+  key: string
+) {
   const {
     x,
     y,
@@ -15,17 +26,22 @@ export function renderTextComponent(component: CanvasComponent, key: string) {
     style = {},
     rotation = 0,
     opacity = 1,
-    visible = true
+    visible = true,
+    onClick,
+    onDoubleClick,
+    draggable = false,
+    onDragEnd,
+    isEditing = false
   } = component
 
-  if (!visible) {
+  if (!visible || isEditing) {
     return null
   }
 
   // Extract text content
-  const textContent = typeof content === 'string' ? content : 
-                     content?.text || 
-                     content?.content || 
+  const textContent = typeof content === 'string' ? content :
+                     content?.text ||
+                     content?.content ||
                      'Text Component'
 
   // Default styling
@@ -37,40 +53,49 @@ export function renderTextComponent(component: CanvasComponent, key: string) {
   const align = style.textAlign || 'left'
 
   return (
-    <Text
-      key={key}
-      x={x}
-      y={y}
-      width={width}
-      height={height}
-      text={textContent}
-      fontSize={fontSize}
-      fontFamily={fontFamily}
-      fill={fill}
-      fontStyle={fontStyle}
-      textDecoration={textDecoration}
-      align={align}
-      verticalAlign="top"
-      rotation={rotation}
-      opacity={opacity}
-      wrap="word"
-      ellipsis={true}
-      // Add background if specified
-      {...(style.backgroundColor && {
-        // For background, we'll need a separate Rect component
-        // This is a limitation of Konva Text - it doesn't support background directly
-      })}
-      // Event handlers
-      onClick={() => {
-        console.log('Text component clicked:', component.id)
-      }}
-      onMouseEnter={(e) => {
-        e.target.getStage()!.container().style.cursor = 'text'
-      }}
-      onMouseLeave={(e) => {
-        e.target.getStage()!.container().style.cursor = 'default'
-      }}
-    />
+    <React.Fragment key={key}>
+      <Text
+        id={component.id}
+        name={component.id}
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        text={textContent}
+        fontSize={fontSize}
+        fontFamily={fontFamily}
+        fill={fill}
+        fontStyle={fontStyle}
+        textDecoration={textDecoration}
+        align={align}
+        verticalAlign="top"
+        rotation={rotation}
+        opacity={opacity}
+        wrap="word"
+        ellipsis={true}
+        // Event handlers
+        onClick={(e) => {
+          if (onClick) {
+            onClick(e)
+          }
+        }}
+        onDblClick={onDoubleClick || (() => { /* no-op */ })}
+        onMouseEnter={(e) => {
+          const container = e.target.getStage()?.container()
+          if (container) {
+            container.style.cursor = draggable ? 'move' : 'text'
+          }
+        }}
+        onMouseLeave={(e) => {
+          const container = e.target.getStage()?.container()
+            if (container) {
+              container.style.cursor = 'default'
+            }
+        }}
+        draggable={draggable}
+        onDragEnd={onDragEnd}
+      />
+    </React.Fragment>
   )
 }
 
@@ -93,7 +118,7 @@ export function renderTextComponentWithBackground(component: CanvasComponent, ke
     return null
   }
 
-  const elements = []
+  const elements = [] as React.ReactNode[]
 
   // Add background rectangle if needed
   if (style.backgroundColor) {
@@ -113,7 +138,7 @@ export function renderTextComponentWithBackground(component: CanvasComponent, ke
   }
 
   // Add the text
-  elements.push(renderTextComponent(component, key))
+  elements.push(renderTextComponent(component as any, key))
 
   return (
     <React.Fragment key={key}>
