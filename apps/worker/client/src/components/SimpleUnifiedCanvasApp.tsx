@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react'
-import { SimpleCanvasProvider, useSimpleCanvas, useSimpleCanvasRenderer } from '../context/SimpleCanvasProvider'
+import { useEffect, useState } from 'react'
+import { SimpleCanvasProvider, useSimpleCanvas } from '../context/SimpleCanvasProvider'
 import { CanvasSelector } from './CanvasSelector'
 import TldrawCanvas from './canvas/tldraw/TldrawCanvas'
 import KonvaCanvas from './canvas/konva/KonvaCanvas'
@@ -216,7 +216,6 @@ function CanvasContent({
           backgroundColor: '#ffffff',
           darkMode: false
         }}
-        eventHandlers={{}}
         onSlideSelect={setCurrentSlideIndex}
       />
     )

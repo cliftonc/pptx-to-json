@@ -26,7 +26,6 @@ export class TldrawRenderer implements CanvasRenderer {
 
   private reactRoot: Root | null = null
   private editor: Editor | null = null
-  private container: HTMLElement | null = null
   private isRootCreated: boolean = false
   private config: CanvasConfig = {
     mode: 'select',
@@ -49,7 +48,6 @@ export class TldrawRenderer implements CanvasRenderer {
    */
   async initialize(container: HTMLElement, config: CanvasConfig): Promise<void> {
     this.config = { ...this.config, ...config }
-    this.container = container
     
     // Check if this container already has a React root
     let existingRoot = containerRootsMap.get(container)
@@ -295,7 +293,6 @@ export class TldrawRenderer implements CanvasRenderer {
       }
       
       this.editor = null
-      this.container = null
       this.currentProps = {}
       
       // Small delay to ensure cleanup is complete

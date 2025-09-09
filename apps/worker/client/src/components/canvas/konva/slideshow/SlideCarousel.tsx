@@ -69,7 +69,7 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
       {slides.map((slide, index) => (
         <div
           key={slide.id}
-          ref={(el) => thumbnailRefs.current[index] = el}
+          ref={(el) => { if (el) thumbnailRefs.current[index] = el; }}
           className={`slide-thumbnail ${index === currentSlideIndex ? 'active' : ''}`}
           onClick={() => onSlideSelect(index)}
           style={{

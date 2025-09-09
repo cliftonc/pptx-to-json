@@ -1,4 +1,3 @@
-import React from 'react'
 import { Group, Rect, Text, Line } from 'react-konva'
 import type { CanvasComponent } from '../../../../types/canvas'
 
@@ -52,13 +51,13 @@ export function renderTableComponent(component: CanvasComponent, key: string) {
   // Default styling
   const borderColor = style.stroke || '#000000'
   const borderWidth = style.strokeWidth || 1
-  const headerBg = style.headerBackground || '#f0f0f0'
+  const headerBg = style.backgroundColor || '#f0f0f0'
   const cellBg = style.backgroundColor || '#ffffff'
   const textColor = style.color || '#000000'
   const fontSize = style.fontSize || 12
   const fontFamily = style.fontFamily || 'Arial, sans-serif'
 
-  const elements = []
+  const elements: any[] = []
 
   // Render table cells
   tableData.rows.forEach((row, rowIndex) => {

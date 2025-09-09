@@ -1,32 +1,53 @@
-import React, { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from 'react'
+import type { 
+  CanvasConfig, 
+  CanvasEventHandlers, 
+  CanvasRendererType, 
+  CanvasRenderer, 
+  CanvasRendererInfo, 
+  CanvasSlide, 
+  CanvasDimensions, 
+  CanvasComponent, 
+  CanvasMode 
+} from '../types/canvas'
 
 /**
- * Simplified canvas context value interface
+ * Canvas context value interface
  */
 interface CanvasContextValue {
   // Current renderer state
-  currentRendererType: string | null
+  currentRenderer: CanvasRenderer | null
+  currentRendererType: CanvasRendererType | null
+  isInitialized: boolean
   isLoading: boolean
   error: string | null
 
   // Available renderers
-  availableRenderers: Array<{
-    type: string
-    displayName: string
-    description: string
-    capabilities: {
-      supportsSlideshow: boolean
-      supportsRichText: boolean
-      supportsAnimations: boolean
-      supportsCollaboration: boolean
-      supportsExport: string[]
-    }
-  }>
+  availableRenderers: CanvasRendererInfo[]
   
+  // Canvas state
+  config: CanvasConfig
+  slides: CanvasSlide[]
+  selectedComponentId: string | null
+  currentSlideIndex: number
+
   // Actions
-  switchRenderer: (type: string) => Promise<void>
-  registerRenderer: (renderer: any) => void
-  unregisterRenderer: (type: string) => void
+  switchRenderer: (type: CanvasRendererType) => Promise<void>
+  registerRenderer: (renderer: CanvasRendererInfo) => void
+  unregisterRenderer: (type: CanvasRendererType) => void
+  
+  // Canvas operations
+  loadSlides: (slides: CanvasSlide[], dimensions?: CanvasDimensions) => Promise<void>
+  loadComponents: (components: CanvasComponent[], dimensions?: CanvasDimensions) => Promise<void>
+  updateConfig: (config: Partial<CanvasConfig>) => void
+  setMode: (mode: CanvasMode) => void
+  navigateToSlide: (slideIndex: number) => Promise<void>
+  selectComponent: (componentId: string | null) => void
+  
+  // Export/Import
+  exportCanvas: (format: 'png' | 'svg' | 'json') => Promise<Blob | string | null>
+  getSnapshot: () => Promise<any>
+  loadSnapshot: (snapshot: any) => Promise<void>
 }
 
 /**

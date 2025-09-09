@@ -1,52 +1,11 @@
-import React, { useRef, useEffect, useState } from 'react'
+import React, { useRef, useEffect } from 'react'
 import { CanvasProvider, useCanvas } from '../context/CanvasProvider'
 import { CanvasSelector } from './CanvasSelector'
-import TldrawCanvas from './canvas/tldraw/TldrawCanvas'
-import KonvaCanvas from './canvas/konva/KonvaCanvas'
 import type { PowerPointSlide } from 'ppt-paste-parser'
+import { powerPointToCanvasSlide } from '../types/canvas'
 
-// Available renderer types
-type CanvasRendererType = 'tldraw' | 'konva'
 
-interface RendererInfo {
-  type: CanvasRendererType
-  displayName: string
-  description: string
-  capabilities: {
-    supportsSlideshow: boolean
-    supportsRichText: boolean
-    supportsAnimations: boolean
-    supportsCollaboration: boolean
-    supportsExport: string[]
-  }
-}
 
-const availableRenderers: RendererInfo[] = [
-  {
-    type: 'tldraw',
-    displayName: 'TLDraw Canvas',
-    description: 'Full-featured drawing and editing canvas with collaboration support',
-    capabilities: {
-      supportsSlideshow: true,
-      supportsRichText: true,
-      supportsAnimations: false,
-      supportsCollaboration: true,
-      supportsExport: ['png', 'svg', 'json']
-    }
-  },
-  {
-    type: 'konva',
-    displayName: 'Konva Canvas',
-    description: 'Slide-based presentation canvas with carousel navigation',
-    capabilities: {
-      supportsSlideshow: true,
-      supportsRichText: false,
-      supportsAnimations: false,
-      supportsCollaboration: false,
-      supportsExport: ['json']
-    }
-  }
-]
 
 interface UnifiedCanvasAppProps {
   slides?: PowerPointSlide[]
@@ -76,8 +35,7 @@ function CanvasRendererRegistry() {
 function CanvasContent({ 
   slides = [], 
   slideDimensions,
-  slideId,
-  initialSnapshot 
+  initialSnapshot
 }: UnifiedCanvasAppProps) {
   const {
     currentRenderer,

@@ -1,9 +1,8 @@
-import React, { forwardRef, useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useRef, useState } from 'react'
 import { Stage, Layer, Rect } from 'react-konva'
 import type { 
   CanvasSlide,
-  CanvasConfig,
-  CanvasEventHandlers
+  CanvasConfig
 } from '../../../types/canvas'
 import { renderTextComponent } from './renderers/TextRenderer'
 import { renderShapeComponent } from './renderers/ShapeRenderer'
@@ -15,7 +14,6 @@ interface KonvaCanvasProps {
   slides: CanvasSlide[]
   currentSlideIndex: number
   config: CanvasConfig
-  eventHandlers: CanvasEventHandlers
   onSlideSelect: (slideIndex: number) => void
   onReady?: () => void
 }
@@ -24,10 +22,9 @@ const KonvaCanvas = forwardRef<any, KonvaCanvasProps>(({
   slides,
   currentSlideIndex,
   config,
-  eventHandlers,
   onSlideSelect,
   onReady
-}, ref) => {
+}, _ref) => {
   const stageRef = useRef<any>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [stageDimensions, setStageDimensions] = useState({ width: 800, height: 600 })
@@ -100,12 +97,6 @@ const KonvaCanvas = forwardRef<any, KonvaCanvasProps>(({
     }
   }
 
-  // Handle component selection
-  const handleComponentClick = (componentId: string) => {
-    if (config.mode !== 'readonly' && eventHandlers.onComponentSelect) {
-      eventHandlers.onComponentSelect(componentId)
-    }
-  }
 
   // Keyboard shortcuts for slide navigation
   useEffect(() => {

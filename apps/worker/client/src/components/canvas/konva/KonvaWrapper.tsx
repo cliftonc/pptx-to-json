@@ -53,7 +53,6 @@ export class KonvaRenderer implements CanvasRenderer {
           slides={this.slides}
           currentSlideIndex={this.currentSlideIndex}
           config={this.config}
-          eventHandlers={this.eventHandlers}
           onSlideSelect={(slideIndex: number) => {
             this.navigateToSlide(slideIndex)
           }}
@@ -66,7 +65,7 @@ export class KonvaRenderer implements CanvasRenderer {
   /**
    * Load slides into the canvas
    */
-  async loadSlides(slides: CanvasSlide[], dimensions?: CanvasDimensions): Promise<void> {
+  async loadSlides(slides: CanvasSlide[], _dimensions?: CanvasDimensions): Promise<void> {
     this.slides = slides
     this.currentSlideIndex = 0 // Always start with first slide
     
@@ -78,7 +77,6 @@ export class KonvaRenderer implements CanvasRenderer {
           slides={this.slides}
           currentSlideIndex={this.currentSlideIndex}
           config={this.config}
-          eventHandlers={this.eventHandlers}
           onSlideSelect={(slideIndex: number) => {
             this.navigateToSlide(slideIndex)
           }}
@@ -144,7 +142,6 @@ export class KonvaRenderer implements CanvasRenderer {
           slides={this.slides}
           currentSlideIndex={this.currentSlideIndex}
           config={this.config}
-          eventHandlers={this.eventHandlers}
           onSlideSelect={(slideIndex: number) => {
             this.navigateToSlide(slideIndex)
           }}

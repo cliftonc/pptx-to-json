@@ -1,4 +1,3 @@
-import React from 'react'
 import { Rect, Circle, Ellipse, RegularPolygon, Line, Shape } from 'react-konva'
 import type { CanvasComponent } from '../../../../types/canvas'
 
