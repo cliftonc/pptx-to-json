@@ -62,7 +62,12 @@ export function TextFormattingToolbar({
   const isItalic = currentStyle.fontStyle === 'italic'
   const currentColor = currentStyle.color || '#000000'
   const currentFontFamily = currentStyle.fontFamily || 'DEFAULT'
-  const currentFontSize = currentStyle.fontSize?.toString() || '16'
+  // Find the closest font size in the dropdown or use the actual value
+  const actualFontSize = currentStyle.fontSize || 16
+  const closestFontSize = FONT_SIZES.reduce((prev, curr) => {
+    return Math.abs(parseInt(curr) - actualFontSize) < Math.abs(parseInt(prev) - actualFontSize) ? curr : prev
+  })
+  const currentFontSize = closestFontSize
   const currentTextAlign = currentStyle.textAlign || 'left'
 
   return createPortal(

@@ -2,7 +2,7 @@ import React from 'react'
 import type { CanvasMode } from '../../../../types/canvas'
 import { ToolbarButton } from './ToolbarButton'
 import './toolbar.css'
-import { Pointer, Pencil, Square, Circle, Minus, ArrowRight, Triangle, Type, Image, Undo2, Redo2, Trash2 } from 'lucide-react'
+import { Pointer, Pencil, Square, Circle, Minus, ArrowRight, Triangle, Type, Undo2, Redo2, Trash2 } from 'lucide-react'
 import { usePresentation } from '../../../../context/PresentationContext'
 
 interface MainToolbarProps {
@@ -10,7 +10,6 @@ interface MainToolbarProps {
   onModeChange: (mode: CanvasMode) => void
   onAddShape: (shapeType: string) => void
   onAddText: () => void
-  onAddImage: () => void
   onUndo?: () => void
   onRedo?: () => void
   canUndo?: boolean
@@ -31,7 +30,6 @@ export function MainToolbar({
   onModeChange,
   onAddShape,
   onAddText,
-  onAddImage,
   onUndo,
   onRedo,
   canUndo = false,
@@ -65,19 +63,6 @@ export function MainToolbar({
     }
   }
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file && file.type.startsWith('image/')) {
-      const reader = new FileReader()
-      reader.onload = () => {
-        if (reader.result) {
-          onAddImage()
-          // Future: pass actual image data to addComponent
-        }
-      }
-      reader.readAsDataURL(file)
-    }
-  }
 
   const handleClear = () => {
     if (!onClear) return
@@ -132,22 +117,6 @@ export function MainToolbar({
           disabled={mode === 'readonly'}
           ariaLabel="Add text"
         />
-        <label style={{ display: 'inline-flex' }}>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleFileUpload}
-            style={{ display: 'none' }}
-            disabled={mode === 'readonly'}
-          />
-          <ToolbarButton
-            icon={<Image />}
-            tooltip="Add Image"
-            onClick={() => { /* file dialog triggered by label click */ }}
-            disabled={mode === 'readonly'}
-            ariaLabel="Add image"
-          />
-        </label>
       </div>
 
       <div className="toolbar-divider" />

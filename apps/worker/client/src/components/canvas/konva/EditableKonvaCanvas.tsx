@@ -254,22 +254,6 @@ const EditableKonvaCanvas = forwardRef<any, EditableKonvaCanvasProps>(({
     addComponent(newTextComponent)
   }
 
-  // Handle image addition (placeholder)
-  const handleAddImage = () => {
-    const centerX = currentSlideContent ? currentSlideContent.dimensions.width / 2 - 75 : 100
-    const centerY = currentSlideContent ? currentSlideContent.dimensions.height / 2 - 50 : 100
-    
-    addComponent({
-      type: 'image',
-      x: centerX,
-      y: centerY,
-      width: 150,
-      height: 100,
-      content: { src: 'https://via.placeholder.com/150x100' },
-      style: {},
-      zIndex: Date.now(),
-    })
-  }
 
   // Undo/Redo handlers
   const handleUndo = () => {
@@ -698,7 +682,6 @@ const EditableKonvaCanvas = forwardRef<any, EditableKonvaCanvasProps>(({
         onModeChange={setCurrentMode}
         onAddShape={handleAddShape}
         onAddText={handleAddText}
-        onAddImage={handleAddImage}
         onUndo={handleUndo}
         onRedo={handleRedo}
         canUndo={undoStack.length > 0}

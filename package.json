@@ -1,5 +1,5 @@
 {
-  "name": "ppt-paste-monorepo",
+  "name": "pptx-to-json-monorepo",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,8 @@
     "test": "pnpm -r test -- --run",
     "type-check": "pnpm --filter pptx-to-json type-check && pnpm --filter ppt-paste-parser type-check",
     "typecheck:strict": "tsc -p packages/pptx-to-json/tsconfig.strict.json --noEmit && tsc -p packages/ppt-paste-parser/tsconfig.strict.json --noEmit",
-    "log-bin": "cd packages/pptx-to-json && pnpm log-bin"
+    "log-bin": "cd packages/pptx-to-json && pnpm log-bin",
+    "publish:pptx-to-json": "pnpm build:server && pnpm --filter pptx-to-json publish"
   },
   "engines": {
     "node": ">=22.0.0"
