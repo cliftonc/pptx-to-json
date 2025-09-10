@@ -14,7 +14,7 @@
     "type-check": "pnpm --filter pptx-to-json type-check && pnpm --filter ppt-paste-parser type-check",
     "typecheck:strict": "tsc -p packages/pptx-to-json/tsconfig.strict.json --noEmit && tsc -p packages/ppt-paste-parser/tsconfig.strict.json --noEmit",
     "log-bin": "cd packages/pptx-to-json && pnpm log-bin",
-    "publish:pptx-to-json": "pnpm build:server && pnpm --filter pptx-to-json publish"
+    "publish:pptx-to-json": "pnpm build:server && pnpm --filter pptx-to-json publish --access=public"
   },
   "engines": {
     "node": ">=22.0.0"
