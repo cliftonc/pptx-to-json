@@ -503,6 +503,20 @@ const EditableKonvaCanvas = forwardRef<any, EditableKonvaCanvasProps>(({
             }
           }
           break
+        case 'ArrowLeft':
+        case 'ArrowUp':
+          event.preventDefault()
+          if (currentSlideIndex > 0) {
+            onSlideSelect(currentSlideIndex - 1)
+          }
+          break
+        case 'ArrowRight':
+        case 'ArrowDown':
+          event.preventDefault()
+          if (currentSlideIndex < slides.length - 1) {
+            onSlideSelect(currentSlideIndex + 1)
+          }
+          break
       }
     }
 

@@ -118,25 +118,31 @@ const EditableFabricCanvas: React.FC<EditableFabricCanvasProps> = (props) => {
       const containerWidth = container.offsetWidth - 200 // Reserve space for carousel
       const containerHeight = container.offsetHeight - 60 // Reserve space for toolbar
 
-      // Maintain aspect ratio based on slide dimensions
-      let canvasWidth = containerWidth - 40 // padding
-      let canvasHeight = containerHeight - 40
-
+      // Maintain aspect ratio based on slide dimensions - match Konva approach
       if (currentSlide?.dimensions) {
-        const slideAspectRatio = currentSlide.dimensions.width / currentSlide.dimensions.height
-        const containerAspectRatio = canvasWidth / canvasHeight
+        const slideWidth = currentSlide.dimensions.width
+        const slideHeight = currentSlide.dimensions.height
+        const availableWidth = containerWidth - 40 // padding
+        const availableHeight = containerHeight - 40
 
-        if (slideAspectRatio > containerAspectRatio) {
-          canvasHeight = canvasWidth / slideAspectRatio
-        } else {
-          canvasWidth = canvasHeight * slideAspectRatio
-        }
+        const scaleX = availableWidth / slideWidth
+        const scaleY = availableHeight / slideHeight
+        const scale = Math.min(scaleX, scaleY, 1) // Don't scale up beyond 100%
+
+        const canvasWidth = slideWidth * scale
+        const canvasHeight = slideHeight * scale
+
+        setCanvasDimensions({
+          width: Math.max(400, Math.min(canvasWidth, 1200)),
+          height: Math.max(300, Math.min(canvasHeight, 900))
+        })
+      } else {
+        // Fallback when no slide dimensions
+        setCanvasDimensions({
+          width: Math.max(400, Math.min(containerWidth - 40, 1200)),
+          height: Math.max(300, Math.min(containerHeight - 40, 900))
+        })
       }
-
-      setCanvasDimensions({
-        width: Math.max(400, Math.min(canvasWidth, 1200)),
-        height: Math.max(300, Math.min(canvasHeight, 900))
-      })
     }
 
     updateDimensions()
@@ -220,6 +226,40 @@ const EditableFabricCanvas: React.FC<EditableFabricCanvasProps> = (props) => {
     fabricCanvas.renderAll()
   }, [fabricCanvas, currentSlide])
 
+  // Keyboard shortcuts for slide navigation
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't handle shortcuts if typing in inputs or text areas
+      if (event.target instanceof HTMLInputElement || 
+          event.target instanceof HTMLTextAreaElement ||
+          event.target instanceof HTMLElement && event.target.contentEditable === 'true') {
+        return
+      }
+
+      switch (event.key) {
+        case 'ArrowLeft':
+        case 'ArrowUp':
+          event.preventDefault()
+          if (currentSlideIndex > 0) {
+            onSlideSelect(currentSlideIndex - 1)
+          }
+          break
+        case 'ArrowRight':
+        case 'ArrowDown':
+          event.preventDefault()
+          if (currentSlideIndex < slides.length - 1) {
+            onSlideSelect(currentSlideIndex + 1)
+          }
+          break
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [currentSlideIndex, slides.length, onSlideSelect])
+
   // Render a PowerPoint component using Fabric.js
   const renderComponent = async (canvas: any, component: any) => {
     try {
@@ -233,12 +273,13 @@ const EditableFabricCanvas: React.FC<EditableFabricCanvasProps> = (props) => {
       
       const scaleX = canvasWidth / slideWidth
       const scaleY = canvasHeight / slideHeight
+      const scale = Math.min(scaleX, scaleY, 1) // Match Konva's scaling approach
       
       // Extract and scale position and dimensions from component
-      const x = (component.x || 0) * scaleX
-      const y = (component.y || 0) * scaleY
-      const width = (component.width || 100) * scaleX
-      const height = (component.height || 50) * scaleY
+      const x = (component.x || 0) * scale
+      const y = (component.y || 0) * scale
+      const width = (component.width || 100) * scale
+      const height = (component.height || 50) * scale
       const rotation = component.rotation || 0
       const opacity = component.opacity !== undefined ? component.opacity : 1
       
@@ -252,8 +293,8 @@ const EditableFabricCanvas: React.FC<EditableFabricCanvasProps> = (props) => {
                               component.content?.content ||
                               'Text Component'
           
-          // Extract styling with scaling
-          const fontSize = (component.style?.fontSize || 16) * Math.min(scaleX, scaleY)
+          // Extract styling with scaling - match Konva's approach
+          const fontSize = (component.style?.fontSize || 16) * scale
           const fontFamily = component.style?.fontFamily || 'Arial, sans-serif'
           const textFill = component.style?.color || component.style?.fill || '#000000'
           const fontWeight = component.style?.fontWeight || 'normal'
