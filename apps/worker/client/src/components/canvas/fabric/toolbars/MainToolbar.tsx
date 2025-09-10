@@ -2,7 +2,7 @@ import React from 'react'
 import type { CanvasMode } from '../../../../types/canvas'
 import { ToolbarButton } from './ToolbarButton'
 import './toolbar.css'
-import { Pointer, Pencil, Square, Circle, Minus, ArrowRight, Triangle, Type, Image, Undo2, Redo2, Trash2 } from 'lucide-react'
+import { Pointer, Pencil, Square, Circle, Minus, ArrowRight, Triangle, Type, Undo2, Redo2, Trash2 } from 'lucide-react'
 import { usePresentation } from '../../../../context/PresentationContext'
 
 interface MainToolbarProps {
@@ -10,13 +10,11 @@ interface MainToolbarProps {
   onModeChange: (mode: CanvasMode) => void
   onAddShape: (shapeType: string) => void
   onAddText: () => void
-  onAddImage: () => void
   onUndo?: () => void
   onRedo?: () => void
   canUndo?: boolean
   canRedo?: boolean
   onClear?: () => void
-  fabricCanvas?: any // Fabric.js canvas instance
 }
 
 const SHAPES = [
@@ -32,13 +30,11 @@ export function MainToolbar({
   onModeChange,
   onAddShape,
   onAddText,
-  onAddImage: _onAddImage,
   onUndo,
   onRedo,
   canUndo = false,
   canRedo = false,
-  onClear,
-  fabricCanvas
+  onClear
 }: MainToolbarProps) {
   const { saveUnified } = usePresentation()
   const [saving, setSaving] = React.useState(false)
@@ -67,37 +63,6 @@ export function MainToolbar({
     }
   }
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file && file.type.startsWith('image/') && fabricCanvas) {
-      const reader = new FileReader()
-      reader.onload = () => {
-        if (reader.result) {
-          // Create image element and add to Fabric canvas
-          const img = new window.Image()
-          img.crossOrigin = 'anonymous'
-          img.onload = () => {
-            import('fabric').then(({ FabricImage }) => {
-              const fabricImg = new FabricImage(img, {
-                left: 100,
-                top: 100,
-                scaleX: 0.5,
-                scaleY: 0.5,
-                selectable: true
-              })
-              fabricImg.set('zIndex', Date.now())
-              fabricCanvas.add(fabricImg)
-              fabricCanvas.renderAll()
-            })
-          }
-          img.src = reader.result as string
-        }
-      }
-      reader.readAsDataURL(file)
-    }
-    // Reset file input
-    event.target.value = ''
-  }
 
   const handleClear = () => {
     if (!onClear) return
@@ -152,22 +117,6 @@ export function MainToolbar({
           disabled={mode === 'readonly'}
           ariaLabel="Add text"
         />
-        <label style={{ display: 'inline-flex' }}>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleFileUpload}
-            style={{ display: 'none' }}
-            disabled={mode === 'readonly'}
-          />
-          <ToolbarButton
-            icon={<Image />}
-            tooltip="Add Image"
-            onClick={() => { /* file dialog triggered by label click */ }}
-            disabled={mode === 'readonly'}
-            ariaLabel="Add image"
-          />
-        </label>
       </div>
 
       <div className="toolbar-divider" />

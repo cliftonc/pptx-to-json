@@ -7,6 +7,8 @@ import type {
 } from '../../../types/canvas'
 import VerticalSlideCarousel from './slideshow/VerticalSlideCarousel'
 import { MainToolbar } from './toolbars/MainToolbar'
+import { TextFormattingToolbar } from './toolbars/TextFormattingToolbar'
+import { renderComponent, calculateScale, resortCanvasObjects } from './renderers'
 
 interface EditableFabricCanvasProps {
   slides: CanvasSlide[]
@@ -22,6 +24,7 @@ const EditableFabricCanvas: React.FC<EditableFabricCanvasProps> = (props) => {
   const {
     slides,
     currentSlideIndex, 
+    config,
     onSlideSelect,
     onReady
   } = props
@@ -38,6 +41,9 @@ const EditableFabricCanvas: React.FC<EditableFabricCanvasProps> = (props) => {
   const [undoStack, setUndoStack] = useState<any[]>([])
   const [redoStack, setRedoStack] = useState<any[]>([])
   const maxUndoStack = 20
+  const [textFormattingVisible, setTextFormattingVisible] = useState(false)
+  const [textFormattingPosition, setTextFormattingPosition] = useState({ x: 0, y: 0 })
+  const [selectedTextObject, setSelectedTextObject] = useState<any>(null)
 
   // Get current slide
   const currentSlide = useMemo(() => {
@@ -69,15 +75,31 @@ const EditableFabricCanvas: React.FC<EditableFabricCanvasProps> = (props) => {
 
         // Event handlers
         canvas.on('selection:created', (e: any) => {
+          console.log('selection:created event', e)
           setSelectedCount(e.selected?.length || 0)
+          handleObjectSelection(e.selected?.[0], canvas)
         })
         
         canvas.on('selection:updated', (e: any) => {
+          console.log('selection:updated event', e)
           setSelectedCount(e.selected?.length || 0)
+          handleObjectSelection(e.selected?.[0], canvas)
         })
         
         canvas.on('selection:cleared', () => {
+          console.log('selection:cleared event')
           setSelectedCount(0)
+          setTextFormattingVisible(false)
+          setSelectedTextObject(null)
+        })
+
+        // Also try mouse events as fallback
+        canvas.on('mouse:up', () => {
+          const activeObject = canvas.getActiveObject()
+          if (activeObject) {
+            console.log('mouse:up - active object:', activeObject.type, activeObject)
+            handleObjectSelection(activeObject, canvas)
+          }
         })
 
         // Wait a bit for the canvas to be fully initialized before setting state
@@ -190,38 +212,17 @@ const EditableFabricCanvas: React.FC<EditableFabricCanvasProps> = (props) => {
         return aZ - bZ
       })
 
+    const scale = calculateScale(canvasDimensions, currentSlide?.dimensions)
+    
     sortedComponents.forEach((component) => {
-      renderComponent(fabricCanvas, component)
+      renderComponent(fabricCanvas, component, scale)
     })
 
     // After all components are rendered, re-sort the canvas objects by zIndex
     // This handles async loaded images properly
-    const resortObjects = () => {
-      const allObjects = fabricCanvas.getObjects()
-      if (allObjects.length === 0) return
-      
-      // Sort by zIndex
-      const sortedObjects = allObjects.slice().sort((a: any, b: any) => {
-        const aZ = a.zIndex ?? 0
-        const bZ = b.zIndex ?? 0
-        return aZ - bZ
-      })
-      
-      // Remove all objects
-      fabricCanvas.clear()
-      
-      // Re-add in correct z-index order
-      sortedObjects.forEach((obj: any) => {
-        fabricCanvas.add(obj)
-      })
-      
-      fabricCanvas.renderAll()
-    }
-    
-    // Initial sort after rendering
-    setTimeout(resortObjects, 50)
+    setTimeout(() => resortCanvasObjects(fabricCanvas), 50)
     // Resort again after async images might have loaded
-    setTimeout(resortObjects, 500)
+    setTimeout(() => resortCanvasObjects(fabricCanvas), 500)
 
     fabricCanvas.renderAll()
   }, [fabricCanvas, currentSlide])
@@ -260,274 +261,69 @@ const EditableFabricCanvas: React.FC<EditableFabricCanvasProps> = (props) => {
     }
   }, [currentSlideIndex, slides.length, onSlideSelect])
 
-  // Render a PowerPoint component using Fabric.js
-  const renderComponent = async (canvas: any, component: any) => {
-    try {
-      const { Rect, Circle, Textbox } = await import('fabric')
-      
-      // Calculate scaling factors based on canvas vs slide dimensions
-      const slideWidth = currentSlide?.dimensions?.width || 720
-      const slideHeight = currentSlide?.dimensions?.height || 540
-      const canvasWidth = canvasDimensions.width
-      const canvasHeight = canvasDimensions.height
-      
-      const scaleX = canvasWidth / slideWidth
-      const scaleY = canvasHeight / slideHeight
-      const scale = Math.min(scaleX, scaleY, 1) // Match Konva's scaling approach
-      
-      // Extract and scale position and dimensions from component
-      const x = (component.x || 0) * scale
-      const y = (component.y || 0) * scale
-      const width = (component.width || 100) * scale
-      const height = (component.height || 50) * scale
-      const rotation = component.rotation || 0
-      const opacity = component.opacity !== undefined ? component.opacity : 1
-      
-      let fabricObject: any = null
-      
-      switch (component.type) {
-        case 'text':
-          // Extract text content
-          const textContent = typeof component.content === 'string' ? component.content :
-                              component.content?.text ||
-                              component.content?.content ||
-                              'Text Component'
-          
-          // Extract styling with scaling - match Konva's approach
-          const fontSize = (component.style?.fontSize || 16) * scale
-          const fontFamily = component.style?.fontFamily || 'Arial, sans-serif'
-          const textFill = component.style?.color || component.style?.fill || '#000000'
-          const fontWeight = component.style?.fontWeight || 'normal'
-          const fontStyle = component.style?.fontStyle || 'normal'
-          const textAlign = component.style?.textAlign || 'left'
-          
-          fabricObject = new Textbox(textContent, {
-            left: x,
-            top: y,
-            width: width,
-            height: height,
-            fontSize: fontSize,
-            fontFamily: fontFamily,
-            fill: textFill,
-            fontWeight: fontWeight,
-            fontStyle: fontStyle,
-            textAlign: textAlign,
-            selectable: true,
-            editable: true,
-            splitByGrapheme: false,
-            // Enable text wrapping
-            lineHeight: 1.16,
-            charSpacing: 0,
-            // Prevent text from growing beyond the set width
-            lockUniScaling: true
-          })
-          break
-          
-        case 'shape':
-          // Determine shape type from metadata or default to rectangle
-          const shapeType = component.metadata?.shapeType || 'rectangle'
-          const shapeFill = component.style?.fill || component.style?.backgroundColor || '#3498db'
-          const shapeStroke = component.style?.stroke || '#2980b9'
-          const shapeStrokeWidth = component.style?.strokeWidth || 1
-          
-          if (shapeType === 'circle' || shapeType === 'ellipse') {
-            fabricObject = new Circle({
-              left: x,
-              top: y,
-              radius: Math.min(width, height) / 2,
-              fill: shapeFill,
-              stroke: shapeStroke,
-              strokeWidth: shapeStrokeWidth,
-              selectable: true
-            })
-          } else {
-            fabricObject = new Rect({
-              left: x,
-              top: y,
-              width: width,
-              height: height,
-              fill: shapeFill,
-              stroke: shapeStroke,
-              strokeWidth: shapeStrokeWidth,
-              selectable: true
-            })
-          }
-          break
-          
-        case 'image':
-          // Extract image source using the same logic as Konva
-          const getImageSource = (): string | null => {
-            if (component.metadata?.imageUrl) {
-              return component.metadata.imageUrl
-            }
-            if (typeof component.content === 'string') {
-              return component.content
-            }
-            if (component.content && typeof component.content === 'object') {
-              return component.content.src || component.content.url || component.content.dataUrl || component.content.data || component.content.content || null
-            }
-            if (component.src) {
-              return component.src
-            }
-            return null
-          }
+  // Handle object selection for text formatting
+  const handleObjectSelection = (selectedObject: any, canvas?: any) => {
+    console.log('Object selected:', selectedObject?.type, selectedObject)
+    
+    if (!selectedObject || !containerRef.current) {
+      setTextFormattingVisible(false)
+      setSelectedTextObject(null)
+      return
+    }
 
-          const imageSrc = getImageSource()
-          
-          if (imageSrc) {
-            try {
-              // Create HTML image element first
-              const img = new window.Image()
-              img.crossOrigin = 'anonymous'
-              
-              img.onload = () => {
-                // Use dynamic import to get FabricImage class
-                import('fabric').then(({ FabricImage }) => {
-                  const fabricImg = new FabricImage(img, {
-                    left: x,
-                    top: y,
-                    scaleX: width / (img.width || 1),
-                    scaleY: height / (img.height || 1),
-                    selectable: true,
-                    opacity: opacity
-                  })
-                  
-                  fabricImg.set('componentId', component.id)
-                  fabricImg.set('componentType', 'image')
-                  fabricImg.set('zIndex', component.zIndex ?? 0)
-                  canvas.add(fabricImg)
-                  
-                  // Resort all objects to maintain z-index order after async image load
-                  setTimeout(() => {
-                    const allObjects = canvas.getObjects()
-                    if (allObjects.length === 0) return
-                    
-                    const sortedObjects = allObjects.slice().sort((a: any, b: any) => {
-                      const aZ = a.zIndex ?? 0
-                      const bZ = b.zIndex ?? 0
-                      return aZ - bZ
-                    })
-                    
-                    canvas.clear()
-                    sortedObjects.forEach((obj: any) => canvas.add(obj))
-                    canvas.renderAll()
-                  }, 10)
-                  
-                  canvas.renderAll()
-                }).catch((error) => {
-                  console.warn('Failed to create Fabric image:', error)
-                  // Create error placeholder
-                  const errorRect = new Rect({
-                    left: x,
-                    top: y,
-                    width: width,
-                    height: height,
-                    fill: '#ffebee',
-                    stroke: '#f44336',
-                    strokeWidth: 1,
-                    strokeDashArray: [5, 5],
-                    selectable: true
-                  })
-                  canvas.add(errorRect)
-                  canvas.renderAll()
-                })
-              }
-              
-              img.onerror = () => {
-                console.warn('Failed to load image:', imageSrc)
-                // Create error placeholder
-                const errorRect = new Rect({
-                  left: x,
-                  top: y,
-                  width: width,
-                  height: height,
-                  fill: '#ffebee',
-                  stroke: '#f44336',
-                  strokeWidth: 1,
-                  strokeDashArray: [5, 5],
-                  selectable: true
-                })
-                canvas.add(errorRect)
-                canvas.renderAll()
-              }
-              
-              img.src = imageSrc
-              return // Exit early since image loading is async
-            } catch (error) {
-              console.warn('Error setting up image loading:', error)
-              // Fallback to error placeholder
-              fabricObject = new Rect({
-                left: x,
-                top: y,
-                width: width,
-                height: height,
-                fill: '#ffebee',
-                stroke: '#f44336',
-                strokeWidth: 1,
-                strokeDashArray: [5, 5],
-                selectable: true
-              })
-            }
-          } else {
-            // No image source found - create placeholder
-            fabricObject = new Rect({
-              left: x,
-              top: y,
-              width: width,
-              height: height,
-              fill: '#f0f0f0',
-              stroke: '#ddd',
-              strokeWidth: 1,
-              selectable: true
-            })
-          }
-          break
-          
-        case 'table':
-          // For tables, create a placeholder rectangle for now
-          // In a full implementation, you'd render individual cells
-          fabricObject = new Rect({
-            left: x,
-            top: y,
-            width: width,
-            height: height,
-            fill: 'rgba(255, 255, 255, 0.8)',
-            stroke: '#333333',
-            strokeWidth: 2,
-            selectable: true
-          })
-          break
-          
-        default:
-          // Unknown component type - create a placeholder
-          fabricObject = new Rect({
-            left: x,
-            top: y,
-            width: width,
-            height: height,
-            fill: 'rgba(155, 89, 182, 0.3)',
-            stroke: '#9b59b6',
-            strokeWidth: 1,
-            selectable: true
-          })
-      }
+    // Use the passed canvas or the fabricCanvas from state
+    const currentCanvas = canvas || fabricCanvas
+    if (!currentCanvas) {
+      console.log('No canvas available for positioning', { canvas, fabricCanvas })
+      return
+    }
 
-      if (fabricObject) {
-        // Apply common properties including z-index
-        fabricObject.set({
-          angle: rotation,
-          opacity: opacity,
-          componentId: component.id,
-          componentType: component.type,
-          zIndex: component.zIndex ?? 0
-        })
-        
-        canvas.add(fabricObject)
-      }
-    } catch (error) {
-      console.warn('Error rendering component:', component.type, error)
+    // Check if selected object is a text object (Textbox or IText)
+    if (selectedObject.type === 'textbox' || selectedObject.type === 'i-text') {
+      console.log('Text object detected, showing toolbar')
+      console.log('Text object properties:', {
+        fontSize: selectedObject.fontSize,
+        fontFamily: selectedObject.fontFamily,
+        fill: selectedObject.fill,
+        fontWeight: selectedObject.fontWeight,
+        fontStyle: selectedObject.fontStyle,
+        textAlign: selectedObject.textAlign,
+        allProps: Object.keys(selectedObject)
+      })
+      setSelectedTextObject(selectedObject)
+      
+      // Calculate position for text formatting toolbar
+      const containerRect = containerRef.current.getBoundingClientRect()
+      const objectBounds = selectedObject.getBoundingRect()
+      
+      // Get the canvas element position within the container
+      const canvasElement = currentCanvas.getElement()
+      const canvasRect = canvasElement.getBoundingClientRect()
+      
+      console.log('Positioning debug:', {
+        containerRect,
+        objectBounds,
+        canvasRect,
+        selectedObjectLeft: selectedObject.left,
+        selectedObjectTop: selectedObject.top
+      })
+      
+      // Try using the object's actual left/top properties instead of getBoundingRect
+      const x = canvasRect.left + selectedObject.left + (selectedObject.width || 0) / 2
+      const y = canvasRect.top + selectedObject.top - 20
+      
+      console.log('Calculated position:', { x, y })
+      
+      setTextFormattingPosition({ x, y })
+      
+      setTextFormattingVisible(true)
+    } else {
+      console.log('Non-text object selected:', selectedObject.type)
+      setTextFormattingVisible(false)
+      setSelectedTextObject(null)
     }
   }
+
 
   // Sync with PresentationContext for unified saves
   useEffect(() => {
@@ -630,19 +426,26 @@ const EditableFabricCanvas: React.FC<EditableFabricCanvasProps> = (props) => {
         editable: true
       })
       
+      console.log('Adding new text object:', newText.type, newText)
       newText.set('zIndex', Date.now())
       fabricCanvas.add(newText)
       fabricCanvas.setActiveObject(newText)
       fabricCanvas.renderAll()
+      
+      // Manually trigger selection handler
+      setTimeout(() => {
+        const activeObj = fabricCanvas.getActiveObject()
+        console.log('Active object after adding text:', activeObj?.type, activeObj)
+        if (activeObj) {
+          handleObjectSelection(activeObj, fabricCanvas)
+        }
+      }, 100)
       
       // Save to undo stack
       saveToUndoStack()
     })
   }
 
-  const handleAddImage = () => {
-    // This will be handled by the file upload in the toolbar
-  }
 
   const saveToUndoStack = () => {
     if (!fabricCanvas) return
@@ -690,90 +493,123 @@ const EditableFabricCanvas: React.FC<EditableFabricCanvasProps> = (props) => {
   }
 
   const handleClear = () => {
-    if (!fabricCanvas) return
-    
-    fabricCanvas.clear()
-    fabricCanvas.renderAll()
-    
-    // Save to undo stack
-    saveToUndoStack()
+    // Perform a complete page reload to guarantee a full reset
+    // This is exactly what happens when you press F5 or hard refresh
+    window.location.reload()
   }
 
   return (
     <div 
       ref={containerRef}
+      className="editable-fabric-canvas-container"
       style={{ 
-        display: 'flex', 
-        height: '100%',
-        position: 'relative',
-        backgroundColor: '#f8f9fa'
+        width: '100%', 
+        height: '100%', 
+        display: 'flex',
+        flexDirection: 'column',
+        backgroundColor: config.backgroundColor || '#ffffff'
       }}
     >
-      {/* Main canvas area */}
+      {/* Main Toolbar */}
+      <MainToolbar
+        mode={currentMode}
+        onModeChange={setCurrentMode}
+        onAddShape={handleAddShape}
+        onAddText={handleAddText}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        canUndo={undoStack.length > 0}
+        canRedo={redoStack.length > 0}
+        onClear={handleClear}
+      />
+
+      {/* Main content area with canvas and carousel */}
       <div style={{ 
         flex: 1, 
         display: 'flex', 
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px',
+        position: 'relative',
         overflow: 'hidden'
       }}>
-        {/* Main Toolbar */}
+        {/* Canvas area */}
         <div style={{
-          width: '100%',
-          borderRadius: '6px 6px 0 0',
-          marginBottom: '0'
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          backgroundColor: '#f8f9fa'
         }}>
-          <MainToolbar
-            mode={currentMode}
-            onModeChange={setCurrentMode}
-            onAddShape={handleAddShape}
-            onAddText={handleAddText}
-            onAddImage={handleAddImage}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            canUndo={undoStack.length > 0}
-            canRedo={redoStack.length > 0}
-            onClear={handleClear}
-            fabricCanvas={fabricCanvas}
-          />
-        </div>
-
-        {/* Canvas container */}
-        <div style={{
-          border: '1px solid #dee2e6',
-          borderTop: 'none',
-          borderRadius: '0 0 6px 6px',
-          backgroundColor: '#ffffff',
-          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-          overflow: 'hidden'
-        }}>
-          <canvas 
-            ref={canvasRef}
-            style={{ display: 'block' }}
-          />
-        </div>
-
-        {currentSlide && (
+          {/* Canvas container */}
           <div style={{
-            marginTop: '12px',
-            fontSize: '12px',
-            color: '#6c757d',
-            textAlign: 'center'
+            border: '1px solid #dee2e6',
+            borderRadius: '6px',
+            backgroundColor: '#ffffff',
+            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+            overflow: 'hidden'
           }}>
-            Canvas: {canvasDimensions.width} × {canvasDimensions.height} • 
-            Slide: {Math.round(currentSlide.dimensions?.width || 720)} × {Math.round(currentSlide.dimensions?.height || 540)}
+            <canvas 
+              ref={canvasRef}
+              style={{ display: 'block' }}
+            />
           </div>
-        )}
+
+          {currentSlide && (
+            <div style={{
+              marginTop: '12px',
+              fontSize: '12px',
+              color: '#6c757d',
+              textAlign: 'center'
+            }}>
+              Canvas: {canvasDimensions.width} × {canvasDimensions.height} • 
+              Slide: {Math.round(currentSlide.dimensions?.width || 720)} × {Math.round(currentSlide.dimensions?.height || 540)}
+            </div>
+          )}
+        </div>
+
+        {/* Right-side vertical slide carousel */}
+        <VerticalSlideCarousel
+          slides={slides}
+          currentSlideIndex={currentSlideIndex}
+          onSlideSelect={onSlideSelect}
+        />
       </div>
 
-      {/* Right-side vertical slide carousel */}
-      <VerticalSlideCarousel
-        slides={slides}
-        currentSlideIndex={currentSlideIndex}
-        onSlideSelect={onSlideSelect}
-      />
+      {/* Text Formatting Toolbar (positioned absolutely when visible) */}
+      {textFormattingVisible && selectedTextObject && (
+        <TextFormattingToolbar
+          isVisible={textFormattingVisible}
+          position={textFormattingPosition}
+          currentStyle={{
+            fontSize: selectedTextObject.fontSize || 16,
+            fontFamily: selectedTextObject.fontFamily || 'Arial',
+            color: selectedTextObject.fill || '#000000',
+            fill: selectedTextObject.fill || '#000000',
+            fontWeight: selectedTextObject.fontWeight || 'normal',
+            fontStyle: selectedTextObject.fontStyle || 'normal',
+            textAlign: selectedTextObject.textAlign || 'left'
+          }}
+          onStyleChange={(styleUpdates) => {
+            if (selectedTextObject && fabricCanvas) {
+              // Map style updates to Fabric.js properties
+              if (styleUpdates.fontSize) selectedTextObject.set('fontSize', styleUpdates.fontSize)
+              if (styleUpdates.fontFamily) selectedTextObject.set('fontFamily', styleUpdates.fontFamily)
+              if (styleUpdates.color) selectedTextObject.set('fill', styleUpdates.color)
+              if (styleUpdates.fill) selectedTextObject.set('fill', styleUpdates.fill)
+              if (styleUpdates.fontWeight) selectedTextObject.set('fontWeight', styleUpdates.fontWeight)
+              if (styleUpdates.fontStyle) selectedTextObject.set('fontStyle', styleUpdates.fontStyle)
+              if (styleUpdates.textAlign) selectedTextObject.set('textAlign', styleUpdates.textAlign)
+              
+              fabricCanvas.renderAll()
+              saveToUndoStack()
+            }
+          }}
+          onClose={() => {
+            setTextFormattingVisible(false)
+            setSelectedTextObject(null)
+          }}
+        />
+      )}
     </div>
   )
 }
