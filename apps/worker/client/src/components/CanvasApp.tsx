@@ -7,7 +7,7 @@ import EditableKonvaCanvas from './canvas/konva/EditableKonvaCanvas'
 import FabricWrapper from './canvas/fabric/FabricWrapper'
 import type { PowerPointSlide } from 'ppt-paste-parser'
 
-interface SimpleUnifiedCanvasAppProps {
+interface CanvasAppProps {
   slides?: PowerPointSlide[]
   slideDimensions?: { width: number; height: number }
   masters?: any[]
@@ -121,7 +121,7 @@ function CanvasContent({
   theme,
   slideId,
   initialSnapshot 
-}: SimpleUnifiedCanvasAppProps) {
+}: CanvasAppProps) {
   const { currentRendererType, isLoading, error } = useSimpleCanvas()
   const { setSlides, slideDimensions: contextSlideDimensions } = usePresentation()
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
@@ -293,9 +293,9 @@ function CanvasContent({
 }
 
 /**
- * Simple unified canvas app component
+ * Main canvas app component
  */
-function SimpleUnifiedCanvasApp(props: SimpleUnifiedCanvasAppProps) {
+function CanvasApp(props: CanvasAppProps) {
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <SimpleCanvasProvider defaultRenderer={typeof window !== 'undefined' ? (localStorage.getItem('canvas-renderer-preference') || 'tldraw') : 'tldraw'}>
@@ -317,4 +317,4 @@ function SimpleUnifiedCanvasApp(props: SimpleUnifiedCanvasAppProps) {
   )
 }
 
-export default SimpleUnifiedCanvasApp
+export default CanvasApp

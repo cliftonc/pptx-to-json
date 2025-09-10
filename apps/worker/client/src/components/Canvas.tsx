@@ -3,7 +3,7 @@ import {
   useImperativeHandle, 
   useMemo
 } from 'react'
-import SimpleUnifiedCanvasApp from './SimpleUnifiedCanvasApp'
+import CanvasApp from './CanvasApp'
 import type { PowerPointSlide } from 'ppt-paste-parser'
 
 /**
@@ -90,7 +90,7 @@ export const Canvas = forwardRef<CanvasRef, CanvasProps>(
 
     return (
       <div style={{ width: '100%', height: '100%' }}>
-        <SimpleUnifiedCanvasApp
+        <CanvasApp
           slides={normalizedSlides}
           {...otherProps}
         />
