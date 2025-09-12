@@ -17,7 +17,8 @@ interface CanvasSelectorProps {
 const RendererIcons: Record<string, string> = {
   tldraw: '🎨',
   konva: '⚡',
-  fabric: '🖼️'
+  fabric: '🖼️',
+  pixi: '🎮'
 }
 
 /**

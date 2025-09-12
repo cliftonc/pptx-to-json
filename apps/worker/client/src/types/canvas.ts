@@ -4,7 +4,7 @@ import type { PowerPointComponent, PowerPointSlide } from 'ppt-paste-parser'
 /**
  * Supported canvas renderer types
  */
-export type CanvasRendererType = 'tldraw' | 'konva'
+export type CanvasRendererType = 'tldraw' | 'konva' | 'fabric' | 'pixi'
 
 /**
  * Common canvas component data structure
@@ -46,6 +46,30 @@ export interface CanvasComponentStyle {
     type: 'linear' | 'radial'
     stops: Array<{ offset: number; color: string }>
   }
+  // Additional properties for extended functionality
+  bold?: boolean
+  italic?: boolean
+  align?: 'left' | 'center' | 'right'
+  lineHeight?: number
+  textShadow?: boolean
+  shadowOffset?: { x: number; y: number }
+  shadowOpacity?: number
+  shadowBlur?: number
+  shadowColor?: string
+  cornerRadius?: number
+  borderColor?: string
+  borderWidth?: number
+  blur?: number
+  brightness?: number
+  contrast?: number
+  dropShadow?: boolean
+  headerBackground?: string
+  cellBackground?: string
+  alternateRowBackground?: string
+  hasHeader?: boolean
+  headerFontSize?: number
+  headerColor?: string
+  shapeType?: string
 }
 
 /**
@@ -230,6 +254,8 @@ export interface RendererStates {
     session: any
   }
   konva?: any
+  fabric?: any
+  pixi?: any
 }
 
 export interface UnifiedSnapshotMeta {

@@ -28,6 +28,8 @@
     "fabric": "^6.7.1",
     "konva": "^9.3.22",
     "lucide-react": "^0.542.0",
+    "pixi.js": "^8.7.5",
+    "@pixi/react": "^8.0.3",
     "ppt-paste-parser": "workspace:*",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

@@ -5,6 +5,7 @@ import { CanvasSelector } from './CanvasSelector'
 import TldrawCanvas from './canvas/tldraw/TldrawCanvas'
 import EditableKonvaCanvas from './canvas/konva/EditableKonvaCanvas'
 import FabricWrapper from './canvas/fabric/FabricWrapper'
+import PixiWrapper from './canvas/pixi/PixiWrapper'
 import type { PowerPointSlide } from 'ppt-paste-parser'
 
 interface CanvasAppProps {
@@ -57,6 +58,19 @@ const FABRIC_RENDERER_INFO = {
   }
 }
 
+const PIXI_RENDERER_INFO = {
+  type: 'pixi',
+  displayName: 'PixiJS Canvas',
+  description: 'WebGL-accelerated canvas with hardware acceleration and advanced effects',
+  capabilities: {
+    supportsSlideshow: true,
+    supportsRichText: true,
+    supportsAnimations: true,
+    supportsCollaboration: false,
+    supportsExport: ['png', 'json']
+  }
+}
+
 /**
  * Component that registers available canvas renderers
  */
@@ -68,6 +82,7 @@ function CanvasRendererRegistry() {
     registerRenderer(TLDRAW_RENDERER_INFO)
     registerRenderer(KONVA_RENDERER_INFO)
     registerRenderer(FABRIC_RENDERER_INFO)
+    registerRenderer(PIXI_RENDERER_INFO)
   }, [registerRenderer])
 
   return null
@@ -269,6 +284,20 @@ function CanvasContent({
     return (
       <FabricWrapper
         key="fabric-wrapper"
+        slides={slides}
+        slideDimensions={slideDimensions || contextSlideDimensions || undefined}
+        masters={masters}
+        layouts={layouts}
+        theme={theme}
+        slideId={slideId}
+      />
+    )
+  }
+
+  if (currentRendererType === 'pixi') {
+    return (
+      <PixiWrapper
+        key="pixi-wrapper"
         slides={slides}
         slideDimensions={slideDimensions || contextSlideDimensions || undefined}
         masters={masters}

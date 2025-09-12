@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { PowerPointClipboardProcessor } from 'pptx-to-json';
+import { PowerPointClipboardProcessor } from '@cliftonc/pptx-to-json';
 import type { Context } from 'hono';
 
 // Cloudflare Worker environment types
